@@ -1,0 +1,253 @@
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.dashboard-header-title {
+  font-size: 2.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-header-subtitle {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+.dashboard-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.dashboard-card-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  color: white;
+  border: none;
+}
+
+.dashboard-card-title {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-card-desc {
+  font-size: 0.875rem;
+  opacity: 0.9;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-card-btn {
+  background: white;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.dashboard-stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.dashboard-stat-label {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.dashboard-stat-icon-wrapper-1 {
+  padding: 0.5rem;
+  background: #f5f3ff;
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-stat-icon-wrapper-2 {
+  padding: 0.5rem;
+  background: #fff7ed;
+  color: #f97316;
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.dashboard-stat-value-sm {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.dashboard-stat-sub {
+  font-size: 0.875rem;
+  color: var(--secondary);
+  margin-top: 0.5rem;
+}
+
+.dashboard-stat-link {
+  font-size: 0.875rem;
+  color: var(--primary);
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dashboard-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-section-title {
+  font-size: 1.5rem;
+}
+
+.dashboard-section-link {
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.dashboard-section-btn {
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: none;
+}
+
+.dashboard-trips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.dashboard-trip-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.dashboard-trip-img-wrapper {
+  height: 160px;
+  overflow: hidden;
+  position: relative;
+}
+
+.dashboard-trip-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dashboard-trip-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dashboard-trip-badge-upcoming {
+  color: var(--primary);
+}
+
+.dashboard-trip-badge-ongoing {
+  color: var(--secondary);
+}
+
+.dashboard-trip-badge-completed {
+  color: var(--text-muted);
+}
+
+.dashboard-trip-content {
+  padding: 1.5rem;
+}
+
+.dashboard-trip-title {
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-trip-meta {
+  display: flex;
+  gap: 1rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.dashboard-trip-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dashboard-empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem;
+  background: #f1f5f9;
+  border: 2px dashed #cbd5e1;
+}
+
+.dashboard-empty-icon {
+  color: #cbd5e1;
+  margin-bottom: 1rem;
+}
+
+.dashboard-empty-title {
+  color: var(--text-muted);
+}
+
+.dashboard-empty-desc {
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-empty-btn {
+  padding: 0.75rem 2rem;
+}
+
+.dashboard-trending-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+
+.dashboard-trending-card {
+  padding: 0;
+  overflow: hidden;
+  height: 300px;
+  cursor: pointer;
+  position: relative;
+}
+
+.dashboard-trending-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dashboard-trending-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2rem 1.5rem 1rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+  color: white;
+}
+
+.dashboard-trending-title {
+  font-size: 1.25rem;
+}
+
+.dashboard-trending-desc {
+  font-size: 0.875rem;
+  opacity: 0.8;
+}

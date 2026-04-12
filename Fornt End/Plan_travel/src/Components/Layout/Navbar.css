@@ -1,0 +1,115 @@
+.navbar-header {
+  height: var(--header-height);
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.navbar-brand {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--primary);
+  font-family: 'Outfit';
+}
+
+.navbar-brand-text {
+  color: var(--text-main);
+}
+
+.navbar-search-container {
+  position: relative;
+  width: 300px;
+}
+
+.navbar-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.navbar-search-input {
+  width: 100%;
+  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: #f1f5f9;
+  font-size: 0.9rem;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.navbar-bell {
+  background: transparent;
+  color: var(--text-muted);
+  position: relative;
+}
+
+.navbar-bell-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-left: 1.5rem;
+  border-left: 1px solid var(--border-color);
+}
+
+.navbar-user-info {
+  text-align: right;
+}
+
+.navbar-user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.navbar-user-role {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.navbar-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary);
+}
+
+.navbar-logout {
+  padding: 0.5rem;
+  border-radius: 50%;
+}
+
+.navbar-auth {
+  display: flex;
+  gap: 1rem;
+}

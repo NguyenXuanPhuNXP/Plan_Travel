@@ -1,0 +1,17 @@
+.layout-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-content-area {
+  display: flex;
+  flex: 1;
+  margin-top: var(--header-height);
+}
+
+.layout-main {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  padding: 2.5rem;
+}
