@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Mail, Lock, Eye, EyeOff, Loader2, UserPlus } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, Loader2, UserPlus, Phone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import './Auth.css';
 
@@ -9,6 +9,7 @@ const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: ''
   });
@@ -94,6 +95,21 @@ const Register = () => {
                 className="btn-outline auth-input"
                 placeholder="you@example.com"
                 value={formData.email}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="auth-label">Số điện thoại (Không bắt buộc)</label>
+            <div className="auth-input-group">
+              <Phone size={18} className="auth-icon" />
+              <input
+                name="phone"
+                type="tel"
+                className="btn-outline auth-input"
+                placeholder="0987654321"
+                value={formData.phone}
                 onChange={handleChange}
               />
             </div>

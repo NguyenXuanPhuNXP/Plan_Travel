@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authService } from '../services/authService';
 
 const AuthContext = createContext();
 
@@ -7,66 +8,74 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check localStorage for existing session
-    const storedUser = localStorage.getItem('travel_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const fetchUser = async () => {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        try {
+          const userData = await authService.getMe();
+          setUser(userData);
+        } catch (error) {
+          console.error('Failed to fetch user:', error);
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          setUser(null);
+        }
+      }
+      setLoading(false);
+    };
+
+    fetchUser();
   }, []);
 
-  const login = (email, password) => {
-    // Mock login logic
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simple mock validation
-        if (email && password.length >= 6) {
-          const userData = {
-            id: 'user_1',
-            name: 'Traveler',
-            email: email,
-            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Lucky'
-          };
-          setUser(userData);
-          localStorage.setItem('travel_user', JSON.stringify(userData));
-          resolve(userData);
-        } else {
-          reject(new Error('Email hoặc mật khẩu không đúng (mật khẩu ít nhất 6 ký tự)'));
-        }
-      }, 1000);
-    });
+  const login = async (email, password) => {
+    try {
+      const response = await authService.login(email, password);
+      localStorage.setItem('access_token', response.token);
+      localStorage.setItem('refresh_token', response.refreshToken);
+      setUser(response.user);
+      return response.user;
+    } catch (error) {
+      if (error.response && error.response.data && error.response.data.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw new Error('Đăng nhập thất bại.');
+    }
   };
 
-  const register = (data) => {
-    // Mock register logic
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (data.email && data.password === data.confirmPassword) {
-          const userData = {
-            id: Date.now().toString(),
-            name: data.name,
-            email: data.email,
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.name}`
-          };
-          setUser(userData);
-          localStorage.setItem('travel_user', JSON.stringify(userData));
-          resolve(userData);
-        } else {
-          reject(new Error('Thông tin đăng ký không hợp lệ'));
-        }
-      }, 1000);
-    });
+  const register = async (data) => {
+    try {
+      const response = await authService.register(data);
+      localStorage.setItem('access_token', response.token);
+      localStorage.setItem('refresh_token', response.refreshToken);
+      setUser(response.user);
+      return response.user;
+    } catch (error) {
+      if (error.response && error.response.data && error.response.data.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw new Error('Đăng ký thất bại.');
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('travel_user');
+  const logout = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        await authService.logout(refreshToken);
+      }
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+    }
   };
 
   const updateProfile = (newData) => {
     const updatedUser = { ...user, ...newData };
     setUser(updatedUser);
-    localStorage.setItem('travel_user', JSON.stringify(updatedUser));
+    // Profile updates might need backend integration later, but for now we'll just update state
   };
 
   return (
