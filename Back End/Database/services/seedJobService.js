@@ -1,57 +1,47 @@
-import { pool } from "../db.js";
+import prisma from "../prismaClient.js";
 
 const JOB_TYPE = "geoapify_places";
 
 export async function getOrCreateSeedJob(regionName) {
-    const [rows] = await pool.query(
-        `
-      SELECT * 
-      FROM location_seed_jobs
-      WHERE region_name = ? AND job_type = ?
-      LIMIT 1
-    `,
-        [regionName, JOB_TYPE]
-    );
+    let job = await prisma.location_seed_jobs.findFirst({
+        where: {
+            region_name: regionName,
+            job_type: JOB_TYPE
+        }
+    });
 
-    if (rows.length > 0) {
-        return rows[0];
+    if (job) {
+        return job;
     }
 
-    await pool.query(
-        `
-      INSERT INTO location_seed_jobs (
-        region_name, job_type, status, last_page, last_offset,
-        fetched_total, inserted_total, skipped_total
-      )
-      VALUES (?, ?, 'pending', -1, 0, 0, 0, 0)
-    `,
-        [regionName, JOB_TYPE]
-    );
+    job = await prisma.location_seed_jobs.create({
+        data: {
+            region_name: regionName,
+            job_type: JOB_TYPE,
+            status: "pending",
+            last_page: -1,
+            last_offset: 0,
+            fetched_total: 0,
+            inserted_total: 0,
+            skipped_total: 0
+        }
+    });
 
-    const [newRows] = await pool.query(
-        `
-      SELECT * 
-      FROM location_seed_jobs
-      WHERE region_name = ? AND job_type = ?
-      LIMIT 1
-    `,
-        [regionName, JOB_TYPE]
-    );
-
-    return newRows[0];
+    return job;
 }
 
 export async function markJobRunning(regionName) {
-    await pool.query(
-        `
-      UPDATE location_seed_jobs
-      SET status = 'running',
-          started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
-          last_error = NULL
-      WHERE region_name = ? AND job_type = ?
-    `,
-        [regionName, JOB_TYPE]
-    );
+    const job = await getOrCreateSeedJob(regionName);
+    
+    await prisma.location_seed_jobs.update({
+        where: { id: job.id },
+        data: {
+            status: "running",
+            started_at: job.started_at ? undefined : new Date(), // only set if null
+            last_error: null,
+            updated_at: new Date()
+        }
+    });
 }
 
 export async function updateJobProgress(regionName, progress) {
@@ -63,27 +53,20 @@ export async function updateJobProgress(regionName, progress) {
         skippedTotal
     } = progress;
 
-    await pool.query(
-        `
-      UPDATE location_seed_jobs
-      SET status = 'running',
-          last_page = ?,
-          last_offset = ?,
-          fetched_total = ?,
-          inserted_total = ?,
-          skipped_total = ?
-      WHERE region_name = ? AND job_type = ?
-    `,
-        [
-            lastPage,
-            lastOffset,
-            fetchedTotal,
-            insertedTotal,
-            skippedTotal,
-            regionName,
-            JOB_TYPE
-        ]
-    );
+    const job = await getOrCreateSeedJob(regionName);
+
+    await prisma.location_seed_jobs.update({
+        where: { id: job.id },
+        data: {
+            status: "running",
+            last_page: lastPage,
+            last_offset: lastOffset,
+            fetched_total: fetchedTotal,
+            inserted_total: insertedTotal,
+            skipped_total: skippedTotal,
+            updated_at: new Date()
+        }
+    });
 }
 
 export async function markJobDone(regionName, progress) {
@@ -95,69 +78,59 @@ export async function markJobDone(regionName, progress) {
         skippedTotal
     } = progress;
 
-    await pool.query(
-        `
-      UPDATE location_seed_jobs
-      SET status = 'done',
-          last_page = ?,
-          last_offset = ?,
-          fetched_total = ?,
-          inserted_total = ?,
-          skipped_total = ?,
-          last_error = NULL,
-          finished_at = CURRENT_TIMESTAMP
-      WHERE region_name = ? AND job_type = ?
-    `,
-        [
-            lastPage,
-            lastOffset,
-            fetchedTotal,
-            insertedTotal,
-            skippedTotal,
-            regionName,
-            JOB_TYPE
-        ]
-    );
+    const job = await getOrCreateSeedJob(regionName);
+
+    await prisma.location_seed_jobs.update({
+        where: { id: job.id },
+        data: {
+            status: "done",
+            last_page: lastPage,
+            last_offset: lastOffset,
+            fetched_total: fetchedTotal,
+            inserted_total: insertedTotal,
+            skipped_total: skippedTotal,
+            last_error: null,
+            finished_at: new Date(),
+            updated_at: new Date()
+        }
+    });
 }
 
 export async function markJobFailed(regionName, errorMessage) {
-    await pool.query(
-        `
-      UPDATE location_seed_jobs
-      SET status = 'failed',
-          last_error = ?
-      WHERE region_name = ? AND job_type = ?
-    `,
-        [errorMessage, regionName, JOB_TYPE]
-    );
+    const job = await getOrCreateSeedJob(regionName);
+
+    await prisma.location_seed_jobs.update({
+        where: { id: job.id },
+        data: {
+            status: "failed",
+            last_error: errorMessage,
+            updated_at: new Date()
+        }
+    });
 }
 
 export async function getPendingOrResumableJobs() {
-    const [rows] = await pool.query(
-        `
-      SELECT *
-      FROM location_seed_jobs
-      WHERE job_type = ?
-        AND status IN ('pending', 'running', 'failed')
-      ORDER BY region_name ASC
-    `,
-        [JOB_TYPE]
-    );
-
-    return rows;
+    return await prisma.location_seed_jobs.findMany({
+        where: {
+            job_type: JOB_TYPE,
+            status: {
+                in: ["pending", "running", "failed"]
+            }
+        },
+        orderBy: {
+            region_name: 'asc'
+        }
+    });
 }
 
 export async function getDoneJobs() {
-    const [rows] = await pool.query(
-        `
-      SELECT *
-      FROM location_seed_jobs
-      WHERE job_type = ?
-        AND status = 'done'
-      ORDER BY region_name ASC
-    `,
-        [JOB_TYPE]
-    );
-
-    return rows;
+    return await prisma.location_seed_jobs.findMany({
+        where: {
+            job_type: JOB_TYPE,
+            status: "done"
+        },
+        orderBy: {
+            region_name: 'asc'
+        }
+    });
 }

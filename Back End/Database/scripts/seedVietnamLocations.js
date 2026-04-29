@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config({ path: "./Database/.env" });
 
-import { pool } from "../db.js";
+import prisma from "../prismaClient.js";
 import { geocodeRegionInVietnam, fetchPlacesByBbox } from "../services/geoapify.js";
 import {
     mapGeoapifyFeatureToLocation,
@@ -33,65 +33,40 @@ function sleep(ms) {
 }
 
 async function upsertLocation(location) {
-    const sql = `
-    INSERT INTO locations (
-      external_id, source, name, address, country, province, city, district, region,
-      category, subcategory, description, latitude, longitude, geo_point,
-      estimated_cost, suggested_duration, image_url, rating, tags, raw_json
-    )
-    VALUES (
-      ?, ?, ?, ?, ?, ?, ?, ?, ?,
-      ?, ?, ?, ?, ?, ST_SRID(POINT(?, ?), 4326),
-      ?, ?, ?, ?, CAST(? AS JSON), CAST(? AS JSON)
-    )
-    ON DUPLICATE KEY UPDATE
-      source = VALUES(source),
-      name = VALUES(name),
-      address = VALUES(address),
-      country = VALUES(country),
-      province = VALUES(province),
-      city = VALUES(city),
-      district = VALUES(district),
-      region = VALUES(region),
-      category = VALUES(category),
-      subcategory = VALUES(subcategory),
-      description = VALUES(description),
-      latitude = VALUES(latitude),
-      longitude = VALUES(longitude),
-      geo_point = VALUES(geo_point),
-      estimated_cost = VALUES(estimated_cost),
-      suggested_duration = VALUES(suggested_duration),
-      image_url = VALUES(image_url),
-      rating = VALUES(rating),
-      tags = VALUES(tags),
-      raw_json = VALUES(raw_json),
-      updated_at = CURRENT_TIMESTAMP
-  `;
-
-    await pool.query(sql, [
-        location.external_id,
-        location.source,
-        location.name,
-        location.address,
-        location.country,
-        location.province,
-        location.city,
-        location.district,
-        location.region,
-        location.category,
-        location.subcategory,
-        location.description,
-        location.latitude,
-        location.longitude,
-        location.longitude,
-        location.latitude,
-        location.estimated_cost,
-        location.suggested_duration,
-        location.image_url,
-        location.rating,
-        JSON.stringify(location.tags || []),
-        JSON.stringify(location.raw_json || {})
-    ]);
+    await prisma.$executeRaw`
+        INSERT INTO locations (
+            external_id, source, name, address, country, province, city, district, region,
+            category, subcategory, description, latitude, longitude, geo_point,
+            estimated_cost, suggested_duration, image_url, rating, tags, raw_json
+        )
+        VALUES (
+            ${location.external_id}, ${location.source}, ${location.name}, ${location.address}, ${location.country}, ${location.province}, ${location.city}, ${location.district}, ${location.region},
+            ${location.category}, ${location.subcategory}, ${location.description}, ${location.latitude}, ${location.longitude}, ST_SRID(POINT(${location.longitude}, ${location.latitude}), 4326),
+            ${location.estimated_cost}, ${location.suggested_duration}, ${location.image_url}, ${location.rating}, CAST(${JSON.stringify(location.tags || [])} AS JSON), CAST(${JSON.stringify(location.raw_json || {})} AS JSON)
+        )
+        ON DUPLICATE KEY UPDATE
+            source = VALUES(source),
+            name = VALUES(name),
+            address = VALUES(address),
+            country = VALUES(country),
+            province = VALUES(province),
+            city = VALUES(city),
+            district = VALUES(district),
+            region = VALUES(region),
+            category = VALUES(category),
+            subcategory = VALUES(subcategory),
+            description = VALUES(description),
+            latitude = VALUES(latitude),
+            longitude = VALUES(longitude),
+            geo_point = VALUES(geo_point),
+            estimated_cost = VALUES(estimated_cost),
+            suggested_duration = VALUES(suggested_duration),
+            image_url = VALUES(image_url),
+            rating = VALUES(rating),
+            tags = VALUES(tags),
+            raw_json = VALUES(raw_json),
+            updated_at = CURRENT_TIMESTAMP
+    `;
 }
 
 async function seedRegion(regionName) {
@@ -233,11 +208,11 @@ async function main() {
     console.log("totalSkipped =", totalSkipped);
     console.log("alreadyDoneSkipped =", totalDoneSkipped);
 
-    await pool.end();
+    await prisma.$disconnect();
 }
 
 main().catch(async (error) => {
     console.error("Seed lỗi:", error.message);
-    await pool.end();
+    await prisma.$disconnect();
     process.exit(1);
 });

@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model efmigrationshistory {
+  MigrationId    String @id @db.VarChar(150)
+  ProductVersion String @db.VarChar(32)
+
+  @@map("__efmigrationshistory")
+}
+
+model auth_challenges {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id         BigInt    @db.UnsignedBigInt
+  challenge_token String    @unique(map: "IX_auth_challenges_challenge_token") @db.VarChar(255)
+  expires_at      DateTime  @db.Timestamp(0)
+  used_at         DateTime? @db.Timestamp(0)
+  created_at      DateTime  @default(now()) @db.Timestamp(0)
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_auth_challenges_users_user_id")
+
+  @@index([user_id], map: "IX_auth_challenges_user_id")
+}
+
+model businesses {
+  id              BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  category_id     BigInt               @db.UnsignedBigInt
+  name            String               @db.VarChar(200)
+  address         String?              @db.VarChar(255)
+  latitude        Decimal              @db.Decimal(10, 7)
+  longitude       Decimal              @db.Decimal(10, 7)
+  geo_point       Unsupported("point")
+  image_url       String?              @db.VarChar(500)
+  detail          String?              @db.Text
+  opening_hours   String?              @db.VarChar(255)
+  is_active       Boolean              @default(true)
+  created_at      DateTime             @default(now()) @db.Timestamp(0)
+  categories      categories           @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "FK_businesses_categories_category_id")
+  itinerary_items itinerary_items[]
+  reviews         reviews[]
+  visit_history   visit_history[]
+
+  @@index([category_id], map: "idx_businesses_category")
+  @@index([latitude, longitude], map: "idx_businesses_latlng")
+}
+
+model categories {
+  id               BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  name             String                   @unique(map: "IX_categories_name") @db.VarChar(100)
+  category_type    categories_category_type @default(both)
+  description      String?                  @db.VarChar(500)
+  businesses       businesses[]
+  user_preferences user_preferences[]
+}
+
+model itineraries {
+  id              BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id         BigInt             @db.UnsignedBigInt
+  name            String             @db.VarChar(200)
+  trip_date       DateTime?          @db.Date
+  start_time      DateTime?          @db.DateTime(6)
+  end_time        DateTime?          @db.DateTime(6)
+  start_location  String?            @db.VarChar(255)
+  end_location    String?            @db.VarChar(255)
+  status          itineraries_status @default(draft)
+  created_at      DateTime           @default(now()) @db.Timestamp(0)
+  users           users              @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_itineraries_users_user_id")
+  itinerary_items itinerary_items[]
+
+  @@index([user_id], map: "idx_itineraries_user")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model itinerary_items {
+  id                 BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  itinerary_id       BigInt      @db.UnsignedBigInt
+  location_id        BigInt?     @db.UnsignedBigInt
+  business_id        BigInt?     @db.UnsignedBigInt
+  sort_order         Int         @db.UnsignedInt
+  planned_start_time DateTime?   @db.DateTime(6)
+  planned_end_time   DateTime?   @db.DateTime(6)
+  travel_minutes     Int?        @db.UnsignedInt
+  travel_distance_km Decimal?    @db.Decimal(8, 2)
+  note               String?     @db.VarChar(500)
+  created_at         DateTime    @default(now()) @db.Timestamp(0)
+  businesses         businesses? @relation(fields: [business_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_itinerary_items_businesses_business_id")
+  itineraries        itineraries @relation(fields: [itinerary_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_itinerary_items_itineraries_itinerary_id")
+  locations          locations?  @relation(fields: [location_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_itinerary_items_locations_location_id")
+
+  @@unique([itinerary_id, sort_order], map: "uq_itinerary_order")
+  @@index([business_id], map: "idx_itinerary_business")
+  @@index([location_id], map: "idx_itinerary_location")
+}
+
+model location_seed_jobs {
+  id             Int                       @id @default(autoincrement())
+  region_name    String                    @db.VarChar(100)
+  job_type       String                    @default("geoapify_places") @db.VarChar(50)
+  status         location_seed_jobs_status @default(pending)
+  last_page      Int                       @default(-1)
+  last_offset    Int                       @default(0)
+  fetched_total  Int                       @default(0)
+  inserted_total Int                       @default(0)
+  skipped_total  Int                       @default(0)
+  last_error     String?                   @db.Text
+  started_at     DateTime?                 @db.Timestamp(0)
+  finished_at    DateTime?                 @db.Timestamp(0)
+  updated_at     DateTime                  @default(now()) @db.Timestamp(0)
+  created_at     DateTime                  @default(now()) @db.Timestamp(0)
+
+  @@unique([region_name, job_type], map: "uq_seed_region_jobtype")
+}
+
+model locations {
+  id                 BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  external_id        String               @unique(map: "uq_locations_external_id") @db.VarChar(255)
+  source             String               @default("geoapify") @db.VarChar(50)
+  name               String               @db.VarChar(255)
+  address            String?              @db.Text
+  country            String?              @db.VarChar(100)
+  country_code       String?              @db.VarChar(10)
+  province           String?              @db.VarChar(100)
+  city               String?              @db.VarChar(100)
+  district           String?              @db.VarChar(100)
+  region             String?              @db.VarChar(100)
+  category           String?              @db.VarChar(100)
+  subcategory        String?              @db.VarChar(150)
+  description        String?              @db.Text
+  latitude           Decimal              @db.Decimal(10, 7)
+  longitude          Decimal              @db.Decimal(10, 7)
+  geo_point          Unsupported("point")
+  estimated_cost     Int                  @default(0)
+  suggested_duration String?              @db.VarChar(50)
+  image_url          String?              @db.Text
+  rating             Decimal?             @db.Decimal(3, 2)
+  tags               Json?
+  raw_json           Json?
+  created_at         DateTime             @default(now()) @db.Timestamp(0)
+  updated_at         DateTime             @default(now()) @db.Timestamp(0)
+  itinerary_items    itinerary_items[]
+  reviews            reviews[]
+  visit_history      visit_history[]
+
+  @@index([category], map: "idx_locations_category")
+  @@index([city], map: "idx_locations_city")
+  @@index([name], map: "idx_locations_name")
+  @@index([region], map: "idx_locations_region")
+}
+
+model refresh_tokens {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id    BigInt    @db.UnsignedBigInt
+  token_hash String    @unique(map: "IX_refresh_tokens_token_hash") @db.VarChar(255)
+  expires_at DateTime  @db.Timestamp(0)
+  revoked_at DateTime? @db.Timestamp(0)
+  created_at DateTime  @default(now()) @db.Timestamp(0)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_refresh_tokens_users_user_id")
+
+  @@index([user_id], map: "IX_refresh_tokens_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reviews {
+  id          BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id     BigInt      @db.UnsignedBigInt
+  location_id BigInt?     @db.UnsignedBigInt
+  business_id BigInt?     @db.UnsignedBigInt
+  rating      Int         @db.UnsignedTinyInt
+  content     String?     @db.Text
+  image_url   String?     @db.VarChar(500)
+  created_at  DateTime    @default(now()) @db.Timestamp(0)
+  businesses  businesses? @relation(fields: [business_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_reviews_businesses_business_id")
+  locations   locations?  @relation(fields: [location_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_reviews_locations_location_id")
+  users       users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_reviews_users_user_id")
+
+  @@unique([user_id, business_id], map: "uq_user_business_review")
+  @@unique([user_id, location_id], map: "uq_user_location_review")
+  @@index([business_id], map: "IX_reviews_business_id")
+  @@index([location_id], map: "IX_reviews_location_id")
+  @@index([rating], map: "idx_reviews_rating")
+}
+
+model user_preferences {
+  user_id     BigInt     @db.UnsignedBigInt
+  category_id BigInt     @db.UnsignedBigInt
+  created_at  DateTime   @default(now()) @db.Timestamp(0)
+  categories  categories @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_user_preferences_categories_category_id")
+  users       users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_user_preferences_users_user_id")
+
+  @@id([user_id, category_id])
+  @@index([category_id], map: "IX_user_preferences_category_id")
+}
+
+model users {
+  id               BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  full_name        String             @db.VarChar(150)
+  email            String             @unique(map: "IX_users_email") @db.VarChar(255)
+  phone            String?            @unique(map: "IX_users_phone") @db.VarChar(20)
+  password_hash    String             @db.VarChar(255)
+  role             users_role         @default(user)
+  avatar_url       String?            @db.VarChar(500)
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamp(0)
+  updated_at       DateTime           @default(now()) @db.Timestamp(0)
+  auth_challenges  auth_challenges[]
+  itineraries      itineraries[]
+  refresh_tokens   refresh_tokens[]
+  reviews          reviews[]
+  user_preferences user_preferences[]
+  visit_history    visit_history[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model visit_history {
+  id              BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id         BigInt               @db.UnsignedBigInt
+  location_id     BigInt?              @db.UnsignedBigInt
+  business_id     BigInt?              @db.UnsignedBigInt
+  user_latitude   Decimal              @db.Decimal(10, 7)
+  user_longitude  Decimal              @db.Decimal(10, 7)
+  gps_point       Unsupported("point")
+  distance_meters Decimal?             @db.Decimal(10, 2)
+  check_in_time   DateTime             @db.Timestamp(0)
+  check_out_time  DateTime?            @db.Timestamp(0)
+  created_at      DateTime             @default(now()) @db.Timestamp(0)
+  businesses      businesses?          @relation(fields: [business_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_visit_history_businesses_business_id")
+  locations       locations?           @relation(fields: [location_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_visit_history_locations_location_id")
+  users           users                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_visit_history_users_user_id")
+
+  @@index([business_id], map: "IX_visit_history_business_id")
+  @@index([location_id], map: "IX_visit_history_location_id")
+  @@index([user_id], map: "idx_visit_user")
+}
+
+enum categories_category_type {
+  location
+  business
+  both
+}
+
+enum location_seed_jobs_status {
+  pending
+  running
+  done
+  failed
+}
+
+enum users_role {
+  user
+  admin
+}
+
+enum itineraries_status {
+  draft
+  generated
+  completed
+  cancelled
+}
