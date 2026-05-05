@@ -1,0 +1,32 @@
+Dữ liệu truy xuất được từ hệ thống:
+
+{retrieved_context}
+
+Thông tin người dùng:
+- destination_type: {destination_type}
+- preferred_place_types: {preferred_place_types}
+- region: {region}
+- weather: {weather}
+- budget: {budget}
+
+Yêu cầu:
+Hãy tạo đúng 3 kế hoạch du lịch khác nhau.
+
+Mỗi kế hoạch phải có:
+- title
+- region
+- summary
+- estimatedBudget
+- reason
+- destinations
+- schedule
+
+Ưu tiên:
+1. phù hợp ngân sách
+2. đúng khu vực nếu có
+3. đúng loại địa điểm mong muốn
+4. lịch trình có thể thực hiện được
+
+Không được trả về văn bản ngoài JSON.
+Chỉ trả về JSON thuần.
+Nếu sai format JSON coi như thất bại.

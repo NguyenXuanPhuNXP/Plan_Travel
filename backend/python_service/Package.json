@@ -1,0 +1,24 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "Database/server.js",
+  "scripts": {
+    "start": "node Database/server.js",
+    "dev": "nodemon Database/server.js",
+    "seed:locations": "node Database/scripts/seedLocations.js",
+    "seed:vietnam": "node Database/scripts/seedVietnamLocations.js",
+    "init:seed-jobs": "node Database/scripts/initVietnamSeedJobs.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.8.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.18.2",
+    "mysql2": "^3.9.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
