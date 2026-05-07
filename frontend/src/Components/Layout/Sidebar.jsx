@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Map as MapIcon, 
@@ -8,23 +8,34 @@ import {
   Settings, 
   PlusCircle,
   Compass,
-  Sparkles
+  Sparkles,
+  Bell
 } from 'lucide-react';
 import './Sidebar.css';
 
 const Sidebar = () => {
+  const location = useLocation();
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/' },
-    { icon: Sparkles, label: 'Lập kế hoạch (AI)', path: '/planner' },
-    { icon: MapIcon, label: 'Lập kế hoạch (Thủ công)', path: '/planner/map' },
-    { icon: History, label: 'Lịch sử chuyến đi', path: '/history' },
-    { icon: Compass, label: 'Khám phá', path: '/explore' },
+    { key: 'dashboard', icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/', matchStartsWith: ['/'] },
+    { key: 'planner-ai', icon: Sparkles, label: 'Lập kế hoạch (AI)', path: '/planner', matchStartsWith: ['/planner'] },
+    { key: 'planner-manual', icon: MapIcon, label: 'Lập kế hoạch (Thủ công)', path: '/planner/map', matchStartsWith: ['/planner/map'] },
+    { key: 'history', icon: History, label: 'Lịch sử chuyến đi', path: '/history', matchStartsWith: ['/history', '/trip'] },
+    { key: 'explore', icon: Compass, label: 'Khám phá', path: '/explore', matchStartsWith: ['/explore'] },
   ];
 
   const profileItems = [
     { icon: User, label: 'Hồ sơ cá nhân', path: '/profile' },
+    { icon: Bell, label: 'Thông báo', path: '/notifications' },
     { icon: Settings, label: 'Cài đặt', path: '/settings' },
   ];
+
+  const isMenuItemActive = (item) => {
+    const path = location.pathname;
+    if (item.key === 'dashboard') return path === '/';
+    if (item.key === 'planner-manual') return path === '/planner/map';
+    if (item.key === 'planner-ai') return path === '/planner';
+    return item.matchStartsWith?.some((prefix) => path.startsWith(prefix));
+  };
 
   return (
     <aside className="sidebar-container">
@@ -33,16 +44,20 @@ const Sidebar = () => {
           Menu chính
         </div>
         <nav className="sidebar-nav">
-          {menuItems.map((item) => (
+          {menuItems.map((item) => {
+            const isActive = isMenuItemActive(item);
+
+            return (
             <NavLink
-              key={item.path}
+              key={item.key}
               to={item.path}
-              className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+              className={`sidebar-link ${isActive ? 'active' : ''}`}
             >
               <item.icon size={20} />
               {item.label}
             </NavLink>
-          ))}
+          );
+          })}
         </nav>
       </div>
 

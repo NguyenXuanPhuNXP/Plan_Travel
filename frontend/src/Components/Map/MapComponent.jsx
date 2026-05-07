@@ -98,7 +98,7 @@ const MapComponent = ({
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!searchQuery) return;
+    if (!searchQuery || !onLocationAdd) return;
     
     setIsSearching(true);
     try {
@@ -159,39 +159,41 @@ const MapComponent = ({
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       {/* Search Overlay */}
-      <div style={{ 
-        position: 'absolute', 
-        top: '20px', 
-        left: '50%', 
-        transform: 'translateX(-50%)', 
-        zIndex: 1000,
-        width: '90%',
-        maxWidth: '500px'
-      }}>
-        <form onSubmit={handleSearch} className="glass" style={{ 
-          display: 'flex', 
-          padding: '0.5rem', 
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-lg)'
+      {onLocationAdd && (
+        <div style={{ 
+          position: 'absolute', 
+          top: '20px', 
+          left: '50%', 
+          transform: 'translateX(-50%)', 
+          zIndex: 1000,
+          width: '90%',
+          maxWidth: '500px'
         }}>
-          <input 
-            type="text" 
-            placeholder="Tìm địa điểm du lịch..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ 
-              flex: 1, 
-              border: 'none', 
-              background: 'transparent', 
-              padding: '0.5rem 1rem',
-              fontSize: '0.9rem'
-            }}
-          />
-          <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)' }}>
-            {isSearching ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
-          </button>
-        </form>
-      </div>
+          <form onSubmit={handleSearch} className="glass" style={{ 
+            display: 'flex', 
+            padding: '0.5rem', 
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-lg)'
+          }}>
+            <input 
+              type="text" 
+              placeholder="Tìm địa điểm du lịch..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ 
+                flex: 1, 
+                border: 'none', 
+                background: 'transparent', 
+                padding: '0.5rem 1rem',
+                fontSize: '0.9rem'
+              }}
+            />
+            <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)' }}>
+              {isSearching ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Legend */}
       {suggestedLocations.length > 0 && (

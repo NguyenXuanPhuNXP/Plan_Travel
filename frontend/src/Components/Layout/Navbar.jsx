@@ -25,22 +25,24 @@ const Navbar = () => {
       </div>
 
       <div className="navbar-right">
-        <button className="navbar-bell">
+        <Link to="/notifications" className="navbar-bell" title="Thông báo">
           <Bell size={20} />
           <span className="navbar-bell-badge"></span>
-        </button>
+        </Link>
 
         {user ? (
           <div className="navbar-user">
-            <div className="navbar-user-info">
+            <Link to="/profile" className="navbar-user-info">
               <div className="navbar-user-name">{user.name}</div>
               <div className="navbar-user-role">Pro Traveler</div>
-            </div>
-            <img 
-              src={user.avatar} 
-              alt={user.name} 
-              className="navbar-user-avatar"
-            />
+            </Link>
+            <Link to="/profile">
+              <img 
+                src={user.avatar} 
+                alt={user.name} 
+                className="navbar-user-avatar"
+              />
+            </Link>
             <button onClick={logout} className="btn-outline navbar-logout" title="Đăng xuất">
               <LogOut size={18} />
             </button>

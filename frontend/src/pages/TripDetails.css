@@ -86,6 +86,15 @@
 .trip-details-actions {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.trip-details-actions-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
 }
 
 .trip-details-action-finish {
@@ -404,4 +413,16 @@
 
 .trip-details-not-found-btn {
   margin-top: 1rem;
+}
+
+@media (max-width: 1200px) {
+  .trip-details-hero-content {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .trip-details-actions-stack {
+    width: 100%;
+    align-items: flex-start;
+  }
 }

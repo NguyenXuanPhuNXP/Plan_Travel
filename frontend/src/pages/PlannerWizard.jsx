@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Layout from '../Components/Layout/Layout';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,6 +30,7 @@ const PlannerWizard = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState('');
 
   // Step 1: Trip info
   const [tripInfo, setTripInfo] = useState({
@@ -48,6 +49,7 @@ const PlannerWizard = () => {
 
   // Step 3: Timeline plan
   const [autoPlan, setAutoPlan] = useState(null);
+  const [currentPlan, setCurrentPlan] = useState(null);
 
   // Computed days from dates
   const computeDays = () => {
@@ -69,10 +71,20 @@ const PlannerWizard = () => {
     }));
   };
 
+  useEffect(() => {
+    if (tripInfo.startDate && tripInfo.endDate) {
+      const nextDays = computeDays();
+      if (nextDays !== tripInfo.totalDays) {
+        setTripInfo((prev) => ({ ...prev, totalDays: nextDays }));
+      }
+    }
+  }, [tripInfo.startDate, tripInfo.endDate]);
+
   // Step 1 → 2: Fetch suggestions
   const handleNextToStep2 = async () => {
     if (!tripInfo.destination.trim()) {
-      alert('Vui lòng nhập địa điểm bạn muốn đi!');
+      setToast('Vui lòng nhập địa điểm bạn muốn đi!');
+      setTimeout(() => setToast(''), 2500);
       return;
     }
 
@@ -88,7 +100,8 @@ const PlannerWizard = () => {
       setStep(2);
     } catch (error) {
       console.error('Fetch suggestions error:', error);
-      alert('Có lỗi khi tìm gợi ý. Vui lòng thử lại.');
+      setToast('Có lỗi khi tìm gợi ý. Vui lòng thử lại.');
+      setTimeout(() => setToast(''), 2500);
     } finally {
       setLoading(false);
     }
@@ -106,10 +119,12 @@ const PlannerWizard = () => {
         selectedLocationIds: selectedLocations.map(l => l.id)
       });
       setAutoPlan(plan);
+      setCurrentPlan(plan);
       setStep(3);
     } catch (error) {
       console.error('Auto plan error:', error);
       // Fallback: go to step 3 without auto plan
+      setCurrentPlan(null);
       setStep(3);
     } finally {
       setLoading(false);
@@ -152,7 +167,8 @@ const PlannerWizard = () => {
       navigate(`/trip/${itinerary.id}`);
     } catch (error) {
       console.error('Save error:', error);
-      alert('Có lỗi khi lưu. Vui lòng thử lại.');
+      setToast('Có lỗi khi lưu. Vui lòng thử lại.');
+      setTimeout(() => setToast(''), 2500);
     } finally {
       setSaving(false);
     }
@@ -161,6 +177,11 @@ const PlannerWizard = () => {
   return (
     <Layout>
       <div className="wizard-container">
+        {toast && (
+          <div className="card" style={{ position: 'fixed', right: 20, top: 90, zIndex: 3000, padding: '0.75rem 1rem' }}>
+            {toast}
+          </div>
+        )}
         {/* Progress Steps */}
         <div className="wizard-progress">
           {[
@@ -328,8 +349,12 @@ const PlannerWizard = () => {
               <DestinationPicker
                 suggestions={suggestions}
                 selectedLocations={selectedLocations}
-                onSelect={(loc) => setSelectedLocations(prev => [...prev, loc])}
-                onDeselect={(locId) => setSelectedLocations(prev => prev.filter(l => l.id !== locId))}
+                onSelect={(loc) => setSelectedLocations(prev => {
+                  const exists = prev.some((l) => String(l._clientKey || l.id) === String(loc._clientKey || loc.id));
+                  if (exists) return prev;
+                  return [...prev, loc];
+                })}
+                onDeselect={(locId) => setSelectedLocations(prev => prev.filter(l => String(l._clientKey || l.id) !== String(locId)))}
                 destination={tripInfo.destination}
               />
               <div className="wizard-nav-buttons">
@@ -364,13 +389,14 @@ const PlannerWizard = () => {
                 selectedLocations={selectedLocations}
                 totalDays={computeDays()}
                 destination={tripInfo.destination}
+                onPlanChange={setCurrentPlan}
               />
               <div className="wizard-nav-buttons">
                 <button onClick={() => setStep(2)} className="btn btn-outline wizard-back-btn">
                   <ChevronLeft size={18} /> Quay lại
                 </button>
                 <button
-                  onClick={() => handleSave(autoPlan)}
+                  onClick={() => handleSave(currentPlan)}
                   disabled={saving}
                   className="btn btn-primary wizard-save-btn"
                 >

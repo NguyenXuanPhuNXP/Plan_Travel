@@ -13,6 +13,9 @@ import TripHistory from './pages/TripHistory';
 import TripDetails from './pages/TripDetails';
 import Profile from './pages/Profile';
 import SharedTripView from './pages/SharedTripView';
+import Notifications from './pages/Notifications';
+import SettingsPage from './pages/SettingsPage';
+import Explore from './pages/Explore';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -77,6 +80,24 @@ function App() {
       <Route path="/profile" element={
         <ProtectedRoute>
           <Profile />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/explore" element={
+        <ProtectedRoute>
+          <Explore />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/notifications" element={
+        <ProtectedRoute>
+          <Notifications />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/settings" element={
+        <ProtectedRoute>
+          <SettingsPage />
         </ProtectedRoute>
       } />
       

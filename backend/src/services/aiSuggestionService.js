@@ -1,7 +1,29 @@
+import axios from 'axios';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "../config/db.js";
 import { geocodeRegionInVietnam, fetchPlacesByBbox } from "./geoapify.js";
 import { mapGeoapifyFeatureToLocation, isVietnamLocation } from "./locationMapper.js";
+
+const PYTHON_AI_URL = process.env.PYTHON_AI_URL || 'http://localhost:8000';
+
+/**
+ * AI tự động tạo lịch trình chi tiết bằng Python Service (từ nhánh Xphu cũ)
+ */
+export async function generatePlanWithPythonAI({ region, days, budget, preferences }) {
+    try {
+        const response = await axios.post(`${PYTHON_AI_URL}/ai/generate-plan`, {
+            destinationType: preferences?.includes("biển") ? "biển" : "văn hóa",
+            placeTypes: preferences || ["cafe", "quán ăn"],
+            region: region,
+            weather: "nắng nhẹ",
+            budget: budget || 5000000
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Lỗi khi gọi Python AI Service:", error.message);
+        throw error;
+    }
+}
 
 const SUGGESTION_CATEGORIES = [
     "tourism",
@@ -63,6 +85,16 @@ export async function getSuggestions({ region, days, budget, preferences }) {
  * AI tự động tạo lịch trình chi tiết theo ngày
  */
 export async function generateAutoPlan({ region, days, budget, preferences, selectedLocationIds }) {
+    // Ưu tiên dùng Python AI nếu không có selected locations cụ thể
+    if (!selectedLocationIds || selectedLocationIds.length === 0) {
+        try {
+            const pythonPlan = await generatePlanWithPythonAI({ region, days, budget, preferences });
+            if (pythonPlan) return pythonPlan;
+        } catch (err) {
+            console.warn("Python AI failed, falling back to Gemini:", err.message);
+        }
+    }
+
     // Lấy selected locations from DB
     let selectedLocations = [];
     if (selectedLocationIds && selectedLocationIds.length > 0) {

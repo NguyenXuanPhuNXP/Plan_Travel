@@ -30,18 +30,20 @@ const TripPlanner = () => {
   });
 
   const [selectedLocations, setSelectedLocations] = useState([]);
+  const [toast, setToast] = useState('');
 
   const handleLocationAdd = (loc) => {
     setSelectedLocations(prev => [...prev, { ...loc, tripLocId: `trip_loc_${Date.now()}` }]);
   };
 
   const handleLocationRemove = (tripLocId) => {
-    setSelectedLocations(prev => prev.filter(l => l.tripLocId !== tripLocId || l.id !== tripLocId));
+    setSelectedLocations(prev => prev.filter(l => (l.tripLocId || l.id) !== tripLocId));
   };
 
   const handleSaveTrip = async () => {
     if (!tripInfo.title || selectedLocations.length === 0) {
-      alert('Vui lòng nhập tên chuyến đi và chọn ít nhất một địa điểm');
+      setToast('Vui lòng nhập tên chuyến đi và chọn ít nhất một địa điểm');
+      setTimeout(() => setToast(''), 2500);
       return;
     }
 
@@ -56,24 +58,39 @@ const TripPlanner = () => {
       });
 
       // Add each location as an item
+      let hasAddedAnyItem = false;
       for (let i = 0; i < selectedLocations.length; i++) {
         const loc = selectedLocations[i];
+        // Backend expects numeric location ids (BigInt).
+        if (!/^\d+$/.test(String(loc.id))) continue;
         await itineraryService.addItem(newTrip.id, {
           locationId: loc.id,
           note: `Điểm dừng ${i + 1}`
         });
+        hasAddedAnyItem = true;
+      }
+
+      if (!hasAddedAnyItem) {
+        setToast('Đã tạo kế hoạch nhưng chưa thêm được điểm dừng từ dữ liệu hiện tại.');
+        setTimeout(() => setToast(''), 3000);
       }
 
       navigate(`/trip/${newTrip.id}`);
     } catch (err) {
       console.error(err);
-      alert('Có lỗi khi lưu kế hoạch. Vui lòng thử lại.');
+      setToast('Có lỗi khi lưu kế hoạch. Vui lòng thử lại.');
+      setTimeout(() => setToast(''), 2500);
     }
   };
 
   return (
     <Layout>
       <div className="trip-planner-container">
+        {toast && (
+          <div className="card" style={{ position: 'fixed', right: 20, top: 90, zIndex: 3000, padding: '0.75rem 1rem' }}>
+            {toast}
+          </div>
+        )}
         {/* Left Form */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}

@@ -3,6 +3,56 @@ import { itineraryService } from '../services/itineraryService';
 
 const TripContext = createContext();
 
+const toUiStatus = (status) => {
+  if (status === 'generated') return 'ongoing';
+  if (status === 'draft') return 'upcoming';
+  if (status === 'cancelled') return 'completed';
+  return status || 'upcoming';
+};
+
+const toBackendStatus = (status) => {
+  if (status === 'upcoming') return 'draft';
+  if (status === 'ongoing') return 'generated';
+  return status;
+};
+
+const normalizeLocation = (loc) => {
+  if (!loc) return null;
+  return {
+    id: String(loc.id),
+    name: loc.name || 'Địa điểm',
+    address: loc.address || '',
+    lat: loc.lat ?? loc.latitude ?? null,
+    lng: loc.lng ?? loc.longitude ?? null,
+    image: loc.image || loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1',
+    estimatedCost: loc.estimatedCost ?? 0,
+    suggestedDuration: loc.suggestedDuration || null,
+    category: loc.category || null
+  };
+};
+
+const normalizeTrip = (trip) => {
+  const items = Array.isArray(trip?.items) ? trip.items : [];
+  const itemLocations = items
+    .map((item) => normalizeLocation(item?.location))
+    .filter(Boolean);
+
+  const locations = Array.isArray(trip?.locations)
+    ? trip.locations.map((loc) => normalizeLocation(loc)).filter(Boolean)
+    : itemLocations;
+
+  return {
+    ...trip,
+    id: String(trip?.id),
+    rawStatus: trip?.status || 'draft',
+    status: toUiStatus(trip?.status),
+    title: trip?.title || trip?.name || 'Chuyến đi',
+    notes: trip?.notes || trip?.description || '',
+    budget: trip?.budget ? Number(trip.budget) : 0,
+    locations
+  };
+};
+
 export const TripProvider = ({ children }) => {
   const [trips, setTrips] = useState([]);
   const [currentTrip, setCurrentTrip] = useState(null);
@@ -13,7 +63,7 @@ export const TripProvider = ({ children }) => {
     setLoading(true);
     try {
       const data = await itineraryService.getAll();
-      setTrips(data);
+      setTrips((data || []).map(normalizeTrip));
     } catch (error) {
       console.error('Failed to fetch trips:', error);
       // Fallback to localStorage for offline
@@ -34,16 +84,18 @@ export const TripProvider = ({ children }) => {
   const addTrip = async (tripData) => {
     try {
       const newTrip = await itineraryService.create(tripData);
-      setTrips(prev => [newTrip, ...prev]);
-      return newTrip;
+      const normalized = normalizeTrip(newTrip);
+      setTrips(prev => [normalized, ...prev]);
+      return normalized;
     } catch (error) {
       console.error('Failed to create trip:', error);
       // Fallback: local-only
       const localTrip = {
         ...tripData,
         id: Date.now().toString(),
-        status: 'draft',
+        status: 'upcoming',
         createdAt: new Date().toISOString(),
+        locations: []
       };
       setTrips(prev => [localTrip, ...prev]);
       return localTrip;
@@ -51,13 +103,18 @@ export const TripProvider = ({ children }) => {
   };
 
   const updateTrip = async (tripId, updates) => {
+    const payload = {
+      ...updates,
+      status: updates.status ? toBackendStatus(updates.status) : updates.status
+    };
     try {
-      const updated = await itineraryService.update(tripId, updates);
-      setTrips(prev => prev.map(t => t.id === tripId ? { ...t, ...updated } : t));
-      return updated;
+      const updated = await itineraryService.update(tripId, payload);
+      const normalized = normalizeTrip(updated);
+      setTrips(prev => prev.map(t => t.id === String(tripId) ? { ...t, ...normalized } : t));
+      return normalized;
     } catch (error) {
       console.error('Failed to update trip:', error);
-      setTrips(prev => prev.map(t => t.id === tripId ? { ...t, ...updates } : t));
+      setTrips(prev => prev.map(t => t.id === String(tripId) ? { ...t, ...updates } : t));
     }
   };
 

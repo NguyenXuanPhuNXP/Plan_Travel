@@ -92,12 +92,15 @@ const Dashboard = () => {
           </div>
           
           <div className="dashboard-trips-grid">
-            {recentTrips.length > 0 ? recentTrips.map((trip) => (
+            {recentTrips.length > 0 ? recentTrips.map((trip) => {
+              const locations = Array.isArray(trip.locations) ? trip.locations : [];
+              const tripTitle = trip.title || trip.name || 'Chuyến đi';
+              return (
               <Link key={trip.id} to={`/trip/${trip.id}`} className="card dashboard-trip-card">
                 <div className="dashboard-trip-img-wrapper">
                   <img 
-                    src={trip.locations[0]?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'} 
-                    alt={trip.title} 
+                    src={locations[0]?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'} 
+                    alt={tripTitle} 
                     className="dashboard-trip-img"
                   />
                   <div className={`dashboard-trip-badge dashboard-trip-badge-${trip.status}`}>
@@ -105,7 +108,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="dashboard-trip-content">
-                  <h3 className="dashboard-trip-title">{trip.title}</h3>
+                  <h3 className="dashboard-trip-title">{tripTitle}</h3>
                   <div className="dashboard-trip-meta">
                     <div className="dashboard-trip-meta-item">
                       <Calendar size={14} />
@@ -113,12 +116,13 @@ const Dashboard = () => {
                     </div>
                     <div className="dashboard-trip-meta-item">
                       <MapPin size={14} />
-                      {trip.locations.length} điểm đến
+                      {locations.length} điểm đến
                     </div>
                   </div>
                 </div>
               </Link>
-            )) : (
+            );
+            }) : (
               <div className="card dashboard-empty-state">
                 <MapIcon size={48} className="dashboard-empty-icon" />
                 <h3 className="dashboard-empty-title">Bạn chưa có kế hoạch nào</h3>
@@ -133,18 +137,25 @@ const Dashboard = () => {
         <motion.section variants={item}>
           <div className="dashboard-section-header">
             <h2 className="dashboard-section-title">Điểm đến nổi bật</h2>
-            <button className="dashboard-section-btn">Khám phá thêm</button>
+            <Link to="/explore" className="dashboard-section-btn">Khám phá thêm</Link>
           </div>
           
           <div className="dashboard-trending-grid">
             {TRENDING_DESTINATIONS.map((dest) => (
-              <div key={dest.id} className="card dashboard-trending-card">
-                <img src={dest.image} alt={dest.name} className="dashboard-trending-img" />
+              <Link key={dest.id} to="/explore" className="card dashboard-trending-card">
+                <img
+                  src={dest.image}
+                  alt={dest.name}
+                  className="dashboard-trending-img"
+                  onError={(e) => {
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800';
+                  }}
+                />
                 <div className="dashboard-trending-overlay">
                   <h3 className="dashboard-trending-title">{dest.name}</h3>
                   <div className="dashboard-trending-desc">{dest.trips}+ lượt lên kế hoạch</div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </motion.section>

@@ -3,11 +3,11 @@ import { motion, Reorder } from 'framer-motion';
 import { 
   Clock, MapPin, GripVertical, Edit3, Check, X, 
   ChevronDown, ChevronUp, Sparkles, StickyNote, 
-  Navigation, Sun, Sunset, Moon
+  Navigation, Sun, Sunset, Moon, Plus
 } from 'lucide-react';
 import './TimelineEditor.css';
 
-const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destination }) => {
+const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destination, onPlanChange }) => {
   const [editingPlan, setEditingPlan] = useState(null);
   const [expandedDay, setExpandedDay] = useState(0);
   const [editingItem, setEditingItem] = useState(null);
@@ -85,6 +85,37 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
     });
   };
 
+  const handleAddItem = (dayIdx) => {
+    setEditingPlan(prev => {
+      const assignedIds = new Set(
+        prev.days.flatMap((d) => d.items.map((item) => item.locationId).filter(Boolean))
+      );
+      const candidate = selectedLocations.find((loc) => !assignedIds.has(loc.id));
+      if (!candidate) {
+        return prev;
+      }
+
+      const newDays = [...prev.days];
+      const insertIndex = newDays[dayIdx].items.length;
+      newDays[dayIdx].items.push({
+        locationName: candidate.name,
+        locationId: candidate.id,
+        location: candidate,
+        startTime: `${String(8 + insertIndex * 2).padStart(2, '0')}:00`,
+        endTime: `${String(9 + insertIndex * 2).padStart(2, '0')}:00`,
+        note: '',
+        travelMinutesToNext: 15
+      });
+      return { ...prev, days: newDays };
+    });
+  };
+
+  useEffect(() => {
+    if (editingPlan && onPlanChange) {
+      onPlanChange(editingPlan);
+    }
+  }, [editingPlan, onPlanChange]);
+
   if (!editingPlan) return null;
 
   return (
@@ -140,6 +171,14 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                 className="timeline-day-items"
               >
                 <div className="timeline-line" />
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => handleAddItem(dayIdx)}
+                  style={{ marginBottom: '0.75rem' }}
+                >
+                  <Plus size={14} /> Thêm điểm đến vào ngày này
+                </button>
                 
                 <Reorder.Group
                   axis="y"

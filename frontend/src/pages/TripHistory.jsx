@@ -18,12 +18,17 @@ import { format } from 'date-fns';
 import './TripHistory.css';
 
 const TripHistory = () => {
+  const safeFormatDate = (value) => {
+    if (!value) return '--/--/----';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '--/--/----' : format(date, 'dd/MM/yyyy');
+  };
   const { trips, deleteTrip } = useTrips();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredTrips = trips.filter(trip => {
-    const matchesSearch = trip.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (trip.title || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab = activeTab === 'all' || trip.status === activeTab;
     return matchesSearch && matchesTab;
   });
@@ -87,7 +92,9 @@ const TripHistory = () => {
         {/* Trips Grid */}
         <div className="trip-history-grid">
           <AnimatePresence>
-            {filteredTrips.length > 0 ? filteredTrips.map((trip) => (
+            {filteredTrips.length > 0 ? filteredTrips.map((trip) => {
+              const locations = Array.isArray(trip.locations) ? trip.locations : [];
+              return (
               <motion.div
                 key={trip.id}
                 layout
@@ -98,7 +105,7 @@ const TripHistory = () => {
               >
                 <Link to={`/trip/${trip.id}`} className="trip-history-img-wrapper">
                   <img 
-                    src={trip.locations[0]?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'} 
+                    src={locations[0]?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'} 
                     alt={trip.title} 
                     className="trip-history-img"
                   />
@@ -121,11 +128,11 @@ const TripHistory = () => {
                   <div className="trip-history-meta">
                     <div className="trip-history-meta-item">
                       <Calendar size={16} />
-                      <span>{format(new Date(trip.startDate), 'dd/MM/yyyy')} - {format(new Date(trip.endDate), 'dd/MM/yyyy')}</span>
+                      <span>{safeFormatDate(trip.startDate)} - {safeFormatDate(trip.endDate)}</span>
                     </div>
                     <div className="trip-history-meta-item">
                       <MapPin size={16} />
-                      <span>{trip.locations.length} điểm đến · {trip.locations[0]?.name.split(',')[0]}...</span>
+                      <span>{locations.length} điểm đến · {(locations[0]?.name || 'Chưa có điểm').split(',')[0]}...</span>
                     </div>
                   </div>
 
@@ -140,7 +147,8 @@ const TripHistory = () => {
                   </div>
                 </div>
               </motion.div>
-            )) : (
+            );
+            }) : (
               <div className="trip-history-empty">
                 <p>Không tìm thấy chuyến đi nào khớp với lựa chọn.</p>
               </div>

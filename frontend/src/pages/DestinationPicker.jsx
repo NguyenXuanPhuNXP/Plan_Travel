@@ -21,7 +21,8 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showMap, setShowMap] = useState(true);
 
-  const isSelected = (locId) => selectedLocations.some(l => l.id === locId);
+  const getLocKey = (loc) => String(loc?.id || `${loc?.name || ''}_${loc?.latitude || loc?.lat}_${loc?.longitude || loc?.lng}`);
+  const isSelected = (loc) => selectedLocations.some(l => getLocKey(l) === getLocKey(loc));
 
   const filteredSuggestions = useMemo(() => {
     return suggestions.filter(loc => {
@@ -47,10 +48,11 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
   }));
 
   const handleToggle = (loc) => {
-    if (isSelected(loc.id)) {
-      onDeselect(loc.id);
+    const key = getLocKey(loc);
+    if (isSelected(loc)) {
+      onDeselect(key);
     } else {
-      onSelect(loc);
+      onSelect({ ...loc, _clientKey: key });
     }
   };
 
@@ -99,6 +101,12 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
           ))}
         </div>
       </div>
+      {selectedLocations.length > 0 && (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <strong>Đã chọn ({selectedLocations.length}): </strong>
+          {selectedLocations.map((loc) => loc.name).join(', ')}
+        </div>
+      )}
 
       <div className="picker-content">
         {/* Cards Grid */}
@@ -110,11 +118,11 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
-                className={`picker-card ${isSelected(loc.id) ? 'selected' : ''}`}
+                className={`picker-card ${isSelected(loc) ? 'selected' : ''}`}
                 onClick={() => handleToggle(loc)}
               >
                 {/* Selection indicator */}
-                <div className={`picker-card-check ${isSelected(loc.id) ? 'checked' : ''}`}>
+                <div className={`picker-card-check ${isSelected(loc) ? 'checked' : ''}`}>
                   <Check size={14} />
                 </div>
 
@@ -193,17 +201,17 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
                 lat: loc.latitude,
                 lng: loc.longitude,
                 image: loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
-                isSuggested: !isSelected(loc.id)
+                isSuggested: !isSelected(loc)
               }))}
               onLocationAdd={(loc) => {
                 const matched = suggestions.find(s => 
                   s.latitude === loc.lat && s.longitude === loc.lng
                 );
-                if (matched && !isSelected(matched.id)) {
-                  onSelect(matched);
+                if (matched && !isSelected(matched)) {
+                  onSelect({ ...matched, _clientKey: getLocKey(matched) });
                 }
               }}
-              onLocationRemove={(locId) => onDeselect(locId)}
+              onLocationRemove={(locId) => onDeselect(String(locId))}
             />
           </div>
         )}
