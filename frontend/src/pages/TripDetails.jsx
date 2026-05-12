@@ -101,6 +101,13 @@ const TripDetails = () => {
     return R * c;
   };
 
+  const getLocCoords = (loc) => {
+    const lat = Number(loc?.lat ?? loc?.latitude);
+    const lng = Number(loc?.lng ?? loc?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
+  };
+
   const handleVerifyLocation = () => {
     getLocation();
     setIsConfirming(true);
@@ -109,21 +116,53 @@ const TripDetails = () => {
 
   useEffect(() => {
     if (currentPos && isConfirming && trip) {
-      const lastLoc = locations[locations.length - 1];
-      if (!lastLoc?.lat || !lastLoc?.lng) return;
-      const distance = calculateDistance(currentPos.lat, currentPos.lng, lastLoc.lat, lastLoc.lng);
+      // Kiểm tra tất cả các điểm đến, không chỉ điểm cuối
+      const validLocations = locations
+        .map((loc) => ({ ...loc, _coords: getLocCoords(loc) }))
+        .filter((loc) => !!loc._coords);
       
-      // If within 500m (0.5km)
-      if (distance < 0.5) {
-        setCompletionResult({ success: true, message: 'Bạn đang ở đúng vị trí điểm đến cuối cùng!' });
+      if (validLocations.length === 0) {
+        setCompletionResult({ 
+          success: false, 
+          message: 'Không có điểm đến nào có tọa độ GPS hợp lệ để xác nhận.' 
+        });
+        return;
+      }
+
+      // Tìm điểm gần nhất
+      let closestLoc = null;
+      let closestDist = Infinity;
+      for (const loc of validLocations) {
+        const dist = calculateDistance(currentPos.lat, currentPos.lng, loc._coords.lat, loc._coords.lng);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestLoc = loc;
+        }
+      }
+      
+      // Nếu trong phạm vi 1km của bất kỳ điểm nào
+      if (closestDist <= 2.0) {
+        setCompletionResult({ 
+          success: true, 
+          message: `Bạn đang ở gần "${closestLoc.name}" (cách ${(closestDist * 1000).toFixed(0)}m). Xác nhận thành công!` 
+        });
       } else {
         setCompletionResult({ 
           success: false, 
-          message: `Bạn đang ở cách điểm đến cuối cùng ${distance.toFixed(2)}km. Vui lòng đến gần hơn để xác nhận.` 
+          message: `Bạn đang ở cách điểm gần nhất "${closestLoc.name}" khoảng ${closestDist.toFixed(2)}km. Vui lòng đến gần hơn (< 1km) để xác nhận.` 
         });
       }
     }
   }, [currentPos, isConfirming, trip, locations]);
+
+  useEffect(() => {
+    if (isConfirming && geoError) {
+      setCompletionResult({
+        success: false,
+        message: 'Không lấy được vị trí hiện tại. Vui lòng bật GPS/quyền vị trí rồi thử lại.'
+      });
+    }
+  }, [geoError, isConfirming]);
 
   const handleFinishTrip = () => {
     updateTrip(trip.id, { status: 'completed' });
@@ -486,7 +525,7 @@ const TripDetails = () => {
                       {completionResult.message}
                     </div>
                   ) : (
-                    <button onClick={getLocation} className="btn btn-primary trip-details-modal-full-btn">Xác nhận vị trí hiện tại</button>
+                    <button onClick={handleVerifyLocation} className="btn btn-primary trip-details-modal-full-btn">Xác nhận vị trí hiện tại</button>
                   )}
                   
                   {geoError && (

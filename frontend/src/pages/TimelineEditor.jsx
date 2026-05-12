@@ -1,16 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, Reorder } from 'framer-motion';
 import { 
   Clock, MapPin, GripVertical, Edit3, Check, X, 
   ChevronDown, ChevronUp, Sparkles, StickyNote, 
-  Navigation, Sun, Sunset, Moon, Plus
+  Navigation, Sun, Sunset, Moon, Plus, Search
 } from 'lucide-react';
+import { locationService } from '../services/locationService';
 import './TimelineEditor.css';
 
-const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destination, onPlanChange }) => {
+const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destination, onPlanChange, onAddCustomLocation }) => {
   const [editingPlan, setEditingPlan] = useState(null);
   const [expandedDay, setExpandedDay] = useState(0);
   const [editingItem, setEditingItem] = useState(null);
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState('');
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerError, setPickerError] = useState('');
+  const [pickerResults, setPickerResults] = useState([]);
 
   useEffect(() => {
     if (plan?.days) {
@@ -44,6 +51,11 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
       });
     }
   }, [plan, selectedLocations, totalDays]);
+
+  const assignedLocationIds = useMemo(() => {
+    if (!editingPlan?.days) return new Set();
+    return new Set(editingPlan.days.flatMap((d) => d.items.map((i) => String(i.locationId || i.location?.id || '')).filter(Boolean)));
+  }, [editingPlan]);
 
   const getTimeIcon = (time) => {
     if (!time) return <Clock size={14} />;
@@ -110,6 +122,84 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
     });
   };
 
+  const openPickerForDay = (dayIdx) => {
+    setExpandedDay(dayIdx);
+    setPickerError('');
+    setPickerResults([]);
+    setPickerQuery('');
+    setIsPickerOpen(true);
+  };
+
+  const runPickerSearch = async () => {
+    setPickerLoading(true);
+    setPickerError('');
+    try {
+      const query = (pickerQuery || destination || '').trim();
+      const data = await locationService.searchLocations(query);
+      const results = (data?.locations || data || [])
+        .map((loc) => ({
+          ...loc,
+          id: String(loc.id),
+          latitude: Number(loc.latitude),
+          longitude: Number(loc.longitude)
+        }))
+        .filter((loc) => loc?.id && Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude));
+      setPickerResults(results);
+      if (results.length === 0) setPickerError('Không tìm thấy địa điểm phù hợp.');
+    } catch (e) {
+      setPickerError('Không thể tìm kiếm địa điểm lúc này.');
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
+  const addPickedLocationToDay = (dayIdx, loc) => {
+    const locId = String(loc.id);
+    setEditingPlan((prev) => {
+      const next = { ...prev };
+      const newDays = [...next.days];
+      const day = { ...newDays[dayIdx] };
+      const items = [...day.items];
+      const slot = items.length;
+      items.push({
+        locationName: loc.name,
+        locationId: locId,
+        location: {
+          id: locId,
+          name: loc.name,
+          address: loc.address || '',
+          latitude: Number(loc.latitude),
+          longitude: Number(loc.longitude),
+          category: loc.category || null,
+          imageUrl: loc.imageUrl || loc.image_url || null,
+          estimatedCost: loc.estimatedCost || loc.estimated_cost || 0,
+          suggestedDuration: loc.suggestedDuration || loc.suggested_duration || null
+        },
+        startTime: `${String(8 + slot * 2).padStart(2, '0')}:00`,
+        endTime: `${String(9 + slot * 2).padStart(2, '0')}:00`,
+        note: '',
+        travelMinutesToNext: 20
+      });
+      day.items = items;
+      newDays[dayIdx] = day;
+      next.days = newDays;
+      return next;
+    });
+
+    // Keep parent selectedLocations in sync (so subsequent auto-add works).
+    onAddCustomLocation?.({
+      id: locId,
+      name: loc.name,
+      address: loc.address || '',
+      latitude: Number(loc.latitude),
+      longitude: Number(loc.longitude),
+      imageUrl: loc.imageUrl || loc.image_url || null,
+      estimatedCost: loc.estimatedCost || loc.estimated_cost || 0,
+      suggestedDuration: loc.suggestedDuration || loc.suggested_duration || null,
+      category: loc.category || null
+    });
+  };
+
   useEffect(() => {
     if (editingPlan && onPlanChange) {
       onPlanChange(editingPlan);
@@ -127,9 +217,38 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
             <Sparkles size={24} />
           </div>
           <div>
-            <h2 className="timeline-plan-name">{editingPlan.planName}</h2>
-            {editingPlan.description && (
-              <p className="timeline-plan-desc">{editingPlan.description}</p>
+            <div className="timeline-plan-title-row">
+              {isEditingInfo ? (
+                <input
+                  className="timeline-plan-name-input"
+                  value={editingPlan.planName || ''}
+                  onChange={(e) => setEditingPlan((p) => ({ ...p, planName: e.target.value }))}
+                  placeholder="Tên kế hoạch"
+                />
+              ) : (
+                <h2 className="timeline-plan-name">{editingPlan.planName}</h2>
+              )}
+              <button
+                type="button"
+                className="timeline-edit-btn"
+                onClick={() => setIsEditingInfo((v) => !v)}
+                title="Chỉnh thông tin kế hoạch"
+              >
+                {isEditingInfo ? <Check size={16} /> : <Edit3 size={16} />}
+              </button>
+            </div>
+            {isEditingInfo ? (
+              <textarea
+                className="timeline-plan-desc-input"
+                value={editingPlan.description || ''}
+                onChange={(e) => setEditingPlan((p) => ({ ...p, description: e.target.value }))}
+                placeholder="Mô tả kế hoạch..."
+                rows={2}
+              />
+            ) : (
+              editingPlan.description && (
+                <p className="timeline-plan-desc">{editingPlan.description}</p>
+              )
             )}
             <div className="timeline-plan-stats">
               <span><MapPin size={14} /> {destination}</span>
@@ -171,14 +290,22 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                 className="timeline-day-items"
               >
                 <div className="timeline-line" />
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => handleAddItem(dayIdx)}
-                  style={{ marginBottom: '0.75rem' }}
-                >
-                  <Plus size={14} /> Thêm điểm đến vào ngày này
-                </button>
+                <div className="timeline-day-actions">
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => handleAddItem(dayIdx)}
+                  >
+                    <Plus size={14} /> Thêm từ danh sách gợi ý
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => openPickerForDay(dayIdx)}
+                  >
+                    <Search size={14} /> Chọn điểm đến...
+                  </button>
+                </div>
                 
                 <Reorder.Group
                   axis="y"
@@ -283,6 +410,60 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
           </motion.div>
         ))}
       </div>
+
+      {isPickerOpen && (
+        <div className="timeline-modal-overlay" onClick={() => setIsPickerOpen(false)}>
+          <div className="card timeline-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="timeline-modal-header">
+              <div>
+                <div className="timeline-modal-title">Chọn điểm đến để thêm</div>
+                <div className="timeline-modal-subtitle">Tìm theo tên hoặc khu vực (ví dụ: “chợ”, “cafe”, “bãi biển”)</div>
+              </div>
+              <button className="timeline-modal-close" onClick={() => setIsPickerOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="timeline-modal-search">
+              <input
+                value={pickerQuery}
+                onChange={(e) => setPickerQuery(e.target.value)}
+                className="timeline-modal-input"
+                placeholder={`Tìm trong ${destination || 'khu vực'}`}
+              />
+              <button className="btn btn-primary" onClick={runPickerSearch} disabled={pickerLoading}>
+                {pickerLoading ? 'Đang tìm...' : 'Tìm kiếm'}
+              </button>
+            </div>
+
+            {pickerError && <div className="timeline-modal-error">{pickerError}</div>}
+
+            <div className="timeline-modal-results">
+              {pickerResults.map((loc) => {
+                const locId = String(loc.id);
+                const alreadyUsed = assignedLocationIds.has(locId);
+                return (
+                  <button
+                    key={locId}
+                    className={`timeline-result ${alreadyUsed ? 'disabled' : ''}`}
+                    disabled={alreadyUsed}
+                    onClick={() => {
+                      addPickedLocationToDay(expandedDay >= 0 ? expandedDay : 0, loc);
+                      setIsPickerOpen(false);
+                    }}
+                  >
+                    <div className="timeline-result-main">
+                      <div className="timeline-result-name">{loc.name}</div>
+                      <div className="timeline-result-meta">{loc.address || loc.category || ''}</div>
+                    </div>
+                    <div className="timeline-result-action">{alreadyUsed ? 'Đã có' : 'Thêm'}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

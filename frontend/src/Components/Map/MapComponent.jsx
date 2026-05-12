@@ -66,9 +66,11 @@ const FitBoundsHandler = ({ locations }) => {
   
   useEffect(() => {
     if (locations && locations.length > 0) {
-      const validLocs = locations.filter(l => l.lat && l.lng);
+      const validLocs = locations
+        .map((l) => ({ ...l, _lat: Number(l.lat), _lng: Number(l.lng) }))
+        .filter((l) => Number.isFinite(l._lat) && Number.isFinite(l._lng));
       if (validLocs.length > 0) {
-        const bounds = L.latLngBounds(validLocs.map(l => [l.lat, l.lng]));
+        const bounds = L.latLngBounds(validLocs.map(l => [l._lat, l._lng]));
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
       }
     }
@@ -93,7 +95,7 @@ const MapComponent = ({
   // All locations for fit bounds
   const allLocations = [
     ...selectedLocations,
-    ...(suggestedLocations || []).filter(l => l.lat && l.lng)
+    ...(suggestedLocations || []).filter(l => Number.isFinite(Number(l.lat)) && Number.isFinite(Number(l.lng)))
   ];
 
   const handleSearch = async (e) => {
@@ -251,10 +253,12 @@ const MapComponent = ({
         )}
 
         {/* Suggested location markers (blue) */}
-        {suggestedLocations.filter(l => l.isSuggested && l.lat && l.lng).map((loc) => (
+        {suggestedLocations
+          .filter(l => l.isSuggested && Number.isFinite(Number(l.lat)) && Number.isFinite(Number(l.lng)))
+          .map((loc) => (
           <Marker 
             key={`suggested_${loc.id}`} 
-            position={[loc.lat, loc.lng]}
+            position={[Number(loc.lat), Number(loc.lng)]}
             icon={suggestedIcon()}
           >
             <Popup>
@@ -294,13 +298,16 @@ const MapComponent = ({
         ))}
 
         {/* Selected location markers (red, numbered) */}
-        {selectedLocations.map((loc, idx) => (
+        {selectedLocations
+          .map((loc) => ({ ...loc, _lat: Number(loc.lat), _lng: Number(loc.lng) }))
+          .filter((loc) => Number.isFinite(loc._lat) && Number.isFinite(loc._lng))
+          .map((loc, idx) => (
           <Marker 
             key={loc.id} 
-            position={[loc.lat, loc.lng]}
+            position={[loc._lat, loc._lng]}
             icon={selectedIcon(idx)}
             eventHandlers={{
-              click: () => fetchWeatherForLocation(loc.id, loc.lat, loc.lng)
+              click: () => fetchWeatherForLocation(loc.id, loc._lat, loc._lng)
             }}
           >
             <Popup>

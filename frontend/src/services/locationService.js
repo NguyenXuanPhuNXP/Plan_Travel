@@ -37,5 +37,18 @@ export const locationService = {
     if (category) params.set('category', category);
     const response = await apiClient.get(`/locations?${params.toString()}`);
     return response.data;
+  },
+
+  /**
+   * Lấy thống kê số lượng plans theo destination
+   */
+  getDestinationStats: async () => {
+    try {
+      const response = await apiClient.get('/locations/destination-stats');
+      return response.data;
+    } catch (err) {
+      console.warn('Failed to fetch destination stats:', err.message);
+      return {};
+    }
   }
 };

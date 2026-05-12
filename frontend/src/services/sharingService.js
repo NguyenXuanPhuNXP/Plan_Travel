@@ -10,10 +10,34 @@ export const sharingService = {
   },
 
   /**
-   * Xem plan qua share token (không cần auth)
+   * Xem plan qua share token (không cần auth, nhưng nếu có auth sẽ nhận permission)
    */
   getShared: async (token) => {
     const response = await apiClient.get(`/sharing/shared/${token}`);
+    return response.data;
+  },
+
+  /**
+   * Cập nhật itinerary qua share token (cần đăng nhập + permission edit)
+   */
+  updateShared: async (token, data) => {
+    const response = await apiClient.put(`/sharing/shared/${token}`, data);
+    return response.data;
+  },
+
+  /**
+   * Thêm item vào shared itinerary
+   */
+  addSharedItem: async (token, data) => {
+    const response = await apiClient.post(`/sharing/shared/${token}/items`, data);
+    return response.data;
+  },
+
+  /**
+   * Xóa item từ shared itinerary
+   */
+  removeSharedItem: async (token, itemId) => {
+    const response = await apiClient.delete(`/sharing/shared/${token}/items/${itemId}`);
     return response.data;
   },
 

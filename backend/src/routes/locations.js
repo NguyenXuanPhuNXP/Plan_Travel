@@ -212,4 +212,30 @@ router.get("/cache", async (req, res) => {
     }
 });
 
+/* ========================
+   DESTINATION STATS
+   Đếm số lượng itineraries theo destination
+========================== */
+router.get("/destination-stats", async (req, res) => {
+    try {
+        const rows = await prisma.$queryRawUnsafe(
+            `SELECT destination, COUNT(*) as plan_count 
+             FROM itineraries 
+             WHERE destination IS NOT NULL AND destination != ''
+             GROUP BY destination 
+             ORDER BY plan_count DESC
+             LIMIT 50`
+        );
+
+        const stats = {};
+        for (const row of rows) {
+            stats[row.destination] = Number(row.plan_count);
+        }
+
+        res.json(stats);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 export default router;

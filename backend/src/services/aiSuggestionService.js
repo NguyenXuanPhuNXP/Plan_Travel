@@ -44,16 +44,20 @@ const SUGGESTION_CATEGORIES = [
  * Kết hợp: DB cache + Geoapify API + Gemini AI ranking
  */
 export async function getSuggestions({ region, days, budget, preferences }) {
+    console.log(`[AI] getSuggestions for region="${region}", days=${days}, budget=${budget}, prefs=${preferences?.join(',') || 'none'}`);
+    
     // 1. Tìm trong DB trước (đã cache)
     let locations = await getLocationsFromDB(region);
+    console.log(`[AI] Found ${locations.length} locations in DB`);
 
     // 2. Nếu DB ít data → fetch từ Geoapify và cache
     if (locations.length < 10) {
         try {
             const fetched = await fetchAndCacheFromGeoapify(region);
             locations = [...locations, ...fetched];
+            console.log(`[AI] Fetched ${fetched.length} additional from Geoapify`);
         } catch (err) {
-            console.error("Geoapify fetch error:", err.message);
+            console.error("[AI] Geoapify fetch error:", err.message);
         }
     }
 
@@ -69,14 +73,21 @@ export async function getSuggestions({ region, days, budget, preferences }) {
 
     // 4. Dùng Gemini AI để rank và gợi ý
     let aiSuggestions = null;
-    try {
-        aiSuggestions = await getGeminiSuggestions(region, days, budget, preferences, locations);
-    } catch (err) {
-        console.error("Gemini AI error:", err.message);
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        console.warn("[AI] ⚠️ GEMINI_API_KEY chưa được cấu hình trong .env → sẽ dùng rule-based scoring");
+    } else {
+        try {
+            aiSuggestions = await getGeminiSuggestions(region, days, budget, preferences, locations);
+            console.log(`[AI] Gemini returned ${aiSuggestions?.length || 0} scored suggestions`);
+        } catch (err) {
+            console.error("[AI] Gemini AI error:", err.message);
+        }
     }
 
     // 5. Merge AI suggestions với location data
     const result = mergeAISuggestions(locations, aiSuggestions, preferences);
+    console.log(`[AI] Returning ${Math.min(result.length, 30)} suggestions`);
 
     return result.slice(0, 30); // Max 30 suggestions
 }
@@ -85,13 +96,15 @@ export async function getSuggestions({ region, days, budget, preferences }) {
  * AI tự động tạo lịch trình chi tiết theo ngày
  */
 export async function generateAutoPlan({ region, days, budget, preferences, selectedLocationIds }) {
+    console.log(`[AI] generateAutoPlan for region="${region}", days=${days}, selectedIds=${selectedLocationIds?.length || 0}`);
+
     // Ưu tiên dùng Python AI nếu không có selected locations cụ thể
     if (!selectedLocationIds || selectedLocationIds.length === 0) {
         try {
             const pythonPlan = await generatePlanWithPythonAI({ region, days, budget, preferences });
             if (pythonPlan) return pythonPlan;
         } catch (err) {
-            console.warn("Python AI failed, falling back to Gemini:", err.message);
+            console.warn("[AI] Python AI failed, falling back to Gemini:", err.message);
         }
     }
 
@@ -115,7 +128,7 @@ export async function generateAutoPlan({ region, days, budget, preferences, sele
     // Dùng Gemini để tạo plan chi tiết
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-        // Fallback: rule-based plan
+        console.warn("[AI] ⚠️ GEMINI_API_KEY chưa cấu hình → dùng rule-based plan");
         return generateRuleBasedPlan(selectedLocations, days || 3);
     }
 
@@ -138,7 +151,7 @@ Thông tin:
 Danh sách địa điểm có sẵn:
 ${locationList}
 
-Hãy trả về JSON (chỉ JSON, không markdown) theo format:
+Hãy trả về JSON (chỉ JSON, không markdown, không code block) theo format:
 {
   "planName": "Tên gợi ý cho lịch trình",
   "description": "Mô tả ngắn",
@@ -168,19 +181,23 @@ Lưu ý:
         const result = await model.generateContent(prompt);
         const text = result.response.text();
 
-        // Parse JSON từ response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            const plan = JSON.parse(jsonMatch[0]);
-
-            // Map locationName → actual location data
-            return mapPlanToLocations(plan, selectedLocations);
+        // Parse JSON từ response - thử nhiều cách
+        try {
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const plan = JSON.parse(jsonMatch[0]);
+                return mapPlanToLocations(plan, selectedLocations);
+            }
+        } catch (parseErr) {
+            console.error("[AI] JSON parse error from Gemini response:", parseErr.message);
+            console.error("[AI] Raw response:", text.substring(0, 500));
         }
     } catch (err) {
-        console.error("Gemini plan generation error:", err.message);
+        console.error("[AI] Gemini plan generation error:", err.message);
     }
 
     // Fallback
+    console.log("[AI] Using rule-based plan as fallback");
     return generateRuleBasedPlan(selectedLocations, days || 3);
 }
 

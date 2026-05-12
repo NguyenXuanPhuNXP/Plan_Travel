@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../Components/Layout/Layout';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MapPin, Calendar, DollarSign, Sparkles, ChevronRight, 
@@ -27,20 +27,28 @@ const PREFERENCE_OPTIONS = [
 
 const PlannerWizard = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
 
-  // Step 1: Trip info
+  // Step 1: Trip info - pre-fill destination from URL if available
+  const initialDestination = searchParams.get('destination') || '';
+  const initialBudget = searchParams.get('budget') || '';
+  const initialTotalDays = Number(searchParams.get('totalDays') || 3);
+  const initialPrefs = (searchParams.get('preferences') || '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
   const [tripInfo, setTripInfo] = useState({
-    destination: '',
-    name: '',
+    destination: initialDestination,
+    name: initialDestination ? `Du lịch ${initialDestination}` : '',
     startDate: '',
     endDate: '',
-    totalDays: 3,
-    budget: '',
-    preferences: []
+    totalDays: Number.isFinite(initialTotalDays) && initialTotalDays > 0 ? initialTotalDays : 3,
+    budget: initialBudget,
+    preferences: initialPrefs
   });
 
   // Step 2: Suggestions + selection
@@ -50,6 +58,33 @@ const PlannerWizard = () => {
   // Step 3: Timeline plan
   const [autoPlan, setAutoPlan] = useState(null);
   const [currentPlan, setCurrentPlan] = useState(null);
+  const [showEditTripInfo, setShowEditTripInfo] = useState(false);
+
+  const buildFallbackPlan = (locs) => {
+    const days = Array.from({ length: computeDays() }, (_, i) => ({
+      dayNumber: i + 1,
+      title: `Ngày ${i + 1}`,
+      items: []
+    }));
+    locs.forEach((loc, idx) => {
+      const dayIdx = idx % days.length;
+      const slot = days[dayIdx].items.length;
+      days[dayIdx].items.push({
+        locationName: loc.name,
+        locationId: loc.id,
+        location: loc,
+        startTime: `${String(8 + slot * 2).padStart(2, '0')}:00`,
+        endTime: `${String(9 + slot * 2).padStart(2, '0')}:00`,
+        note: '',
+        travelMinutesToNext: 20
+      });
+    });
+    return {
+      planName: tripInfo.name || `Kế hoạch ${tripInfo.destination}`,
+      description: `AI đã chuẩn bị lịch trình ban đầu cho ${tripInfo.destination}. Bạn có thể chỉnh sửa lại theo nhu cầu cá nhân.`,
+      days
+    };
+  };
 
   // Computed days from dates
   const computeDays = () => {
@@ -80,7 +115,7 @@ const PlannerWizard = () => {
     }
   }, [tripInfo.startDate, tripInfo.endDate]);
 
-  // Step 1 → 2: Fetch suggestions
+  // Step 1: AI generates an initial editable plan
   const handleNextToStep2 = async () => {
     if (!tripInfo.destination.trim()) {
       setToast('Vui lòng nhập địa điểm bạn muốn đi!');
@@ -96,11 +131,40 @@ const PlannerWizard = () => {
         tripInfo.budget ? Number(tripInfo.budget) : null,
         tripInfo.preferences
       );
-      setSuggestions(data.suggestions || []);
-      setStep(2);
+      let nextSuggestions = data.suggestions || [];
+      // Fallback when AI cannot infer destination reliably.
+      if (nextSuggestions.length === 0) {
+        const fallback = await locationService.searchLocations(tripInfo.destination);
+        nextSuggestions = fallback.locations || fallback || [];
+      }
+      if (nextSuggestions.length === 0) {
+        setToast('Chưa tìm thấy địa điểm phù hợp. Thử địa điểm cụ thể hơn nhé.');
+        setTimeout(() => setToast(''), 3000);
+        return;
+      }
+      const preselected = nextSuggestions.slice(0, Math.max(3, Math.min(8, computeDays() * 2)));
+      setSuggestions(nextSuggestions);
+      setSelectedLocations(preselected);
+
+      try {
+        const plan = await locationService.getAutoPlan({
+          region: tripInfo.destination,
+          days: computeDays(),
+          budget: tripInfo.budget ? Number(tripInfo.budget) : null,
+          preferences: tripInfo.preferences,
+          selectedLocationIds: preselected.map((l) => l.id).filter(Boolean)
+        });
+        setAutoPlan(plan);
+        setCurrentPlan(plan);
+      } catch (planError) {
+        const fallbackPlan = buildFallbackPlan(preselected);
+        setAutoPlan(fallbackPlan);
+        setCurrentPlan(fallbackPlan);
+      }
+      setStep(3);
     } catch (error) {
       console.error('Fetch suggestions error:', error);
-      setToast('Có lỗi khi tìm gợi ý. Vui lòng thử lại.');
+      setToast('AI chưa tạo được kế hoạch lúc này. Vui lòng thử lại.');
       setTimeout(() => setToast(''), 2500);
     } finally {
       setLoading(false);
@@ -216,7 +280,7 @@ const PlannerWizard = () => {
                   </div>
                   <div>
                     <h2 className="wizard-form-title">Bạn muốn đi đâu?</h2>
-                    <p className="wizard-form-subtitle">Nhập địa điểm và AI sẽ gợi ý những nơi tuyệt vời nhất</p>
+                    <p className="wizard-form-subtitle">Nhập thông tin chuyến đi, AI sẽ tự tạo sẵn một lịch trình để bạn chỉnh sửa lại.</p>
                   </div>
                 </div>
 
@@ -328,9 +392,9 @@ const PlannerWizard = () => {
                     className="btn btn-primary wizard-next-btn"
                   >
                     {loading ? (
-                      <><Loader2 className="animate-spin" size={18} /> Đang tìm gợi ý...</>
+                      <><Loader2 className="animate-spin" size={18} /> AI đang tạo kế hoạch...</>
                     ) : (
-                      <><Wand2 size={18} /> Tìm gợi ý AI</>
+                      <><Wand2 size={18} /> AI tạo kế hoạch trước</>
                     )}
                   </button>
                 </div>
@@ -390,10 +454,19 @@ const PlannerWizard = () => {
                 totalDays={computeDays()}
                 destination={tripInfo.destination}
                 onPlanChange={setCurrentPlan}
+                onAddCustomLocation={(loc) => setSelectedLocations((prev) => {
+                  const key = String(loc?.id || `${loc?.name || ''}_${loc?.latitude}_${loc?.longitude}`);
+                  const exists = prev.some((p) => String(p._clientKey || p.id) === key || String(p.id) === String(loc.id));
+                  if (exists) return prev;
+                  return [...prev, { ...loc, _clientKey: key }];
+                })}
               />
               <div className="wizard-nav-buttons">
                 <button onClick={() => setStep(2)} className="btn btn-outline wizard-back-btn">
-                  <ChevronLeft size={18} /> Quay lại
+                  <ChevronLeft size={18} /> Chỉnh danh sách địa điểm
+                </button>
+                <button onClick={() => setShowEditTripInfo(true)} className="btn btn-outline">
+                  Sửa thông tin
                 </button>
                 <button
                   onClick={() => handleSave(currentPlan)}
@@ -407,6 +480,50 @@ const PlannerWizard = () => {
                   )}
                 </button>
               </div>
+
+              <AnimatePresence>
+                {showEditTripInfo && (
+                  <div className="trip-details-modal-overlay">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="card trip-details-modal-card"
+                    >
+                      <div className="trip-details-modal-header">
+                        <h2 className="trip-details-modal-title">Sửa thông tin kế hoạch</h2>
+                        <button onClick={() => setShowEditTripInfo(false)} className="trip-details-modal-close">×</button>
+                      </div>
+                      <div className="trip-details-modal-body">
+                        <label className="wizard-label"><Tag size={16} /> Tên chuyến đi</label>
+                        <input className="wizard-input" value={tripInfo.name} onChange={(e) => setTripInfo((p) => ({ ...p, name: e.target.value }))} />
+                        <label className="wizard-label" style={{ marginTop: '0.75rem' }}><MapPin size={16} /> Địa điểm</label>
+                        <input className="wizard-input" value={tripInfo.destination} onChange={(e) => setTripInfo((p) => ({ ...p, destination: e.target.value }))} />
+                        <div className="wizard-field-row" style={{ marginTop: '0.75rem' }}>
+                          <div className="wizard-field">
+                            <label className="wizard-label"><Calendar size={16} /> Ngày đi</label>
+                            <input type="date" className="wizard-input" value={tripInfo.startDate} onChange={(e) => setTripInfo((p) => ({ ...p, startDate: e.target.value }))} />
+                          </div>
+                          <div className="wizard-field">
+                            <label className="wizard-label"><Calendar size={16} /> Ngày về</label>
+                            <input type="date" className="wizard-input" value={tripInfo.endDate} onChange={(e) => setTripInfo((p) => ({ ...p, endDate: e.target.value }))} />
+                          </div>
+                          <div className="wizard-field wizard-field-small">
+                            <label className="wizard-label">Số ngày</label>
+                            <input type="number" min="1" max="30" className="wizard-input" value={tripInfo.totalDays} onChange={(e) => setTripInfo((p) => ({ ...p, totalDays: Number(e.target.value) }))} />
+                          </div>
+                        </div>
+                        <label className="wizard-label" style={{ marginTop: '0.75rem' }}><DollarSign size={16} /> Ngân sách (VNĐ)</label>
+                        <input type="number" className="wizard-input" value={tripInfo.budget} onChange={(e) => setTripInfo((p) => ({ ...p, budget: e.target.value }))} />
+                      </div>
+                      <div className="trip-details-modal-footer">
+                        <button onClick={() => setShowEditTripInfo(false)} className="btn btn-outline trip-details-modal-btn">Đóng</button>
+                        <button onClick={() => setShowEditTripInfo(false)} className="btn btn-primary trip-details-modal-btn trip-details-modal-btn-confirm">Lưu</button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>

@@ -141,8 +141,8 @@ const Dashboard = () => {
           </div>
           
           <div className="dashboard-trending-grid">
-            {TRENDING_DESTINATIONS.map((dest) => (
-              <Link key={dest.id} to="/explore" className="card dashboard-trending-card">
+            {TRENDING_DESTINATIONS.slice(0, 4).map((dest) => (
+              <Link key={dest.id} to={`/planner?destination=${encodeURIComponent(dest.name)}`} className="card dashboard-trending-card">
                 <img
                   src={dest.image}
                   alt={dest.name}

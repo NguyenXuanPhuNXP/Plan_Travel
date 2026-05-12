@@ -20,10 +20,16 @@ export async function shareItinerary(itineraryId, userId, { visibility, permissi
         shareToken = crypto.randomBytes(16).toString("hex");
     }
 
+    const requestedVisibility = visibility || "public";
+    // Store link-level edit capability in visibility without schema change.
+    const effectiveVisibility = permission === "edit" && requestedVisibility !== "private"
+        ? "public_edit"
+        : requestedVisibility;
+
     await prisma.itineraries.update({
         where: { id: BigInt(itineraryId) },
         data: {
-            visibility: visibility || "public",
+            visibility: effectiveVisibility,
             share_token: shareToken,
             updated_at: new Date()
         }
@@ -32,7 +38,8 @@ export async function shareItinerary(itineraryId, userId, { visibility, permissi
     return {
         shareToken,
         shareUrl: `/shared/${shareToken}`,
-        visibility: visibility || "public"
+        visibility: effectiveVisibility,
+        permission: permission || "view"
     };
 }
 
@@ -63,7 +70,10 @@ export async function getSharedItinerary(shareToken) {
     if (!itinerary) return null;
     if (itinerary.visibility === "private") return null;
 
-    return serializeSharedItinerary(itinerary);
+    const serialized = serializeSharedItinerary(itinerary);
+    // Public link can optionally carry edit permission.
+    serialized.sharePermission = itinerary.visibility === "public_edit" ? "edit" : "view";
+    return serialized;
 }
 
 /**
@@ -220,4 +230,175 @@ function serializeSharedItinerary(it) {
             } : undefined
         })) || []
     };
+}
+
+/**
+ * Lấy shared itinerary với permission từ collaborator
+ */
+export async function getSharedItineraryWithPermission(shareToken, userId) {
+    const itinerary = await prisma.itineraries.findFirst({
+        where: { share_token: shareToken },
+        include: {
+            itinerary_items: {
+                include: { locations: true },
+                orderBy: { sort_order: "asc" }
+            },
+            users: {
+                select: { id: true, full_name: true, avatar_url: true }
+            },
+            collaborators: {
+                include: {
+                    users: {
+                        select: { id: true, full_name: true, email: true, avatar_url: true }
+                    }
+                }
+            }
+        }
+    });
+
+    if (!itinerary) return null;
+    if (itinerary.visibility === "private") return null;
+
+    const serialized = serializeSharedItinerary(itinerary);
+
+    // Xác định permission
+    if (userId) {
+        if (itinerary.user_id === BigInt(userId)) {
+            serialized.sharePermission = "edit";
+        } else {
+            const collab = itinerary.collaborators.find(
+                c => c.user_id === BigInt(userId)
+            );
+            serialized.sharePermission = collab?.permission || (itinerary.visibility === "public_edit" ? "edit" : "view");
+        }
+    } else {
+        serialized.sharePermission = itinerary.visibility === "public_edit" ? "edit" : "view";
+    }
+
+    return serialized;
+}
+
+/**
+ * Cập nhật itinerary qua share token (cần permission edit)
+ */
+export async function updateSharedItinerary(shareToken, userId, data) {
+    const itinerary = await prisma.itineraries.findFirst({
+        where: { share_token: shareToken }
+    });
+
+    if (!itinerary) throw { status: 404, message: "Không tìm thấy lịch trình." };
+    if (itinerary.visibility === "private") throw { status: 403, message: "Lịch trình này là riêng tư." };
+
+    // Kiểm tra quyền edit
+    const hasEditPerm = await checkSharedEditPermission(itinerary, userId);
+    if (!hasEditPerm) throw { status: 403, message: "Bạn không có quyền chỉnh sửa lịch trình này." };
+
+    const updateData = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.startDate !== undefined) updateData.start_time = data.startDate ? new Date(data.startDate) : null;
+    if (data.endDate !== undefined) updateData.end_time = data.endDate ? new Date(data.endDate) : null;
+    if (data.budget !== undefined) updateData.budget = data.budget;
+    updateData.updated_at = new Date();
+
+    const updated = await prisma.itineraries.update({
+        where: { id: itinerary.id },
+        data: updateData,
+        include: {
+            itinerary_items: {
+                include: { locations: true },
+                orderBy: { sort_order: "asc" }
+            },
+            users: {
+                select: { id: true, full_name: true, avatar_url: true }
+            },
+            collaborators: {
+                include: {
+                    users: {
+                        select: { id: true, full_name: true, email: true, avatar_url: true }
+                    }
+                }
+            }
+        }
+    });
+
+    return serializeSharedItinerary(updated);
+}
+
+/**
+ * Thêm item vào shared itinerary
+ */
+export async function addSharedItem(shareToken, userId, data) {
+    const itinerary = await prisma.itineraries.findFirst({
+        where: { share_token: shareToken }
+    });
+
+    if (!itinerary) throw { status: 404, message: "Không tìm thấy lịch trình." };
+
+    const hasEditPerm = await checkSharedEditPermission(itinerary, userId);
+    if (!hasEditPerm) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
+
+    const maxOrder = await prisma.itinerary_items.aggregate({
+        where: { itinerary_id: itinerary.id },
+        _max: { sort_order: true }
+    });
+
+    const item = await prisma.itinerary_items.create({
+        data: {
+            itinerary_id: itinerary.id,
+            location_id: data.locationId ? BigInt(data.locationId) : null,
+            sort_order: (maxOrder._max.sort_order || 0) + 1,
+            planned_start_time: data.startTime ? new Date(data.startTime) : null,
+            planned_end_time: data.endTime ? new Date(data.endTime) : null,
+            note: data.note || null
+        },
+        include: { locations: true }
+    });
+
+    return {
+        id: item.id?.toString(),
+        sortOrder: item.sort_order,
+        note: item.note,
+        location: item.locations ? {
+            id: item.locations.id?.toString(),
+            name: item.locations.name,
+            address: item.locations.address
+        } : null
+    };
+}
+
+/**
+ * Xóa item từ shared itinerary
+ */
+export async function removeSharedItem(shareToken, userId, itemId) {
+    const itinerary = await prisma.itineraries.findFirst({
+        where: { share_token: shareToken }
+    });
+
+    if (!itinerary) throw { status: 404, message: "Không tìm thấy lịch trình." };
+
+    const hasEditPerm = await checkSharedEditPermission(itinerary, userId);
+    if (!hasEditPerm) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
+
+    await prisma.itinerary_items.delete({
+        where: { id: BigInt(itemId) }
+    });
+}
+
+/**
+ * Helper: kiểm tra quyền edit cho shared itinerary
+ */
+async function checkSharedEditPermission(itinerary, userId) {
+    if (!userId) return false;
+    if (itinerary.user_id === BigInt(userId)) return true;
+    if (itinerary.visibility === "public_edit") return true;
+
+    const collab = await prisma.itinerary_collaborators.findFirst({
+        where: {
+            itinerary_id: itinerary.id,
+            user_id: BigInt(userId),
+            permission: "edit"
+        }
+    });
+    return !!collab;
 }
