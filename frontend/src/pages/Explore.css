@@ -1,0 +1,334 @@
+/* ==========================================
+   EXPLORE PAGE - Premium Design
+========================================== */
+
+.explore-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Hero Section */
+.explore-hero {
+  text-align: center;
+  padding: 2rem 0 2.5rem;
+}
+
+.explore-hero-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem;
+  background: linear-gradient(135deg, var(--text-primary), var(--primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.explore-hero-subtitle {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  margin: 0;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Search Bar */
+.explore-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 500px;
+  margin: 1.5rem auto 0;
+  padding: 0.6rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: all 0.3s;
+}
+
+.explore-search-bar:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.explore-search-bar svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.explore-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  outline: none;
+  font-family: inherit;
+}
+
+.explore-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Tag Filters */
+.explore-tags-wrap {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.5rem 0 0;
+}
+
+.explore-tag-btn {
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.25s;
+  font-family: inherit;
+}
+
+.explore-tag-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.explore-tag-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+/* Grid */
+.explore-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+/* Destination Card */
+.explore-card {
+  position: relative;
+  border-radius: var(--radius-lg, 16px);
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  color: inherit;
+}
+
+.explore-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+  border-color: var(--primary);
+}
+
+.explore-card-img-wrap {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+}
+
+.explore-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s, opacity 0.35s ease;
+}
+
+.explore-card:hover .explore-card-img {
+  transform: scale(1.08);
+}
+
+.explore-card-landmark-label {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.58);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
+}
+
+.explore-card-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem 1rem 0.75rem;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+}
+
+.explore-card-name {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: white;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.explore-card-plans-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.explore-card-weather {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Card Body */
+.explore-card-body {
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.explore-card-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.explore-card-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.explore-card-info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.explore-card-info-item svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.explore-card-info-label {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.explore-card-info-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Tags */
+.explore-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.explore-card-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border: none;
+}
+
+/* Empty State */
+.explore-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+  grid-column: 1 / -1;
+}
+
+.explore-empty-icon {
+  opacity: 0.3;
+  margin-bottom: 1rem;
+}
+
+/* Stats Row */
+.explore-stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin: 1.5rem 0 0;
+  flex-wrap: wrap;
+}
+
+.explore-stat {
+  text-align: center;
+}
+
+.explore-stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.explore-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .explore-hero-title {
+    font-size: 1.6rem;
+  }
+  
+  .explore-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .explore-card-img-wrap {
+    height: 170px;
+  }
+  
+  .explore-stats-row {
+    gap: 1.5rem;
+  }
+}
