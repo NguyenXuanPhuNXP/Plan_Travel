@@ -1,11 +1,47 @@
 import React from 'react';
-import { LogOut, User, Bell, Search } from 'lucide-react';
+import { LogOut, User, Bell, Search, MapPin, Sparkles, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { locationService } from '../../services/locationService';
 import './Navbar.css';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchResults, setSearchResults] = React.useState([]);
+  const [isSearching, setIsSearching] = React.useState(false);
+  const [showDropdown, setShowDropdown] = React.useState(false);
+
+  // Debounced search
+  React.useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.trim().length > 2) {
+        setIsSearching(true);
+        try {
+          const results = await locationService.hybridSearch(searchQuery, 5);
+          setSearchResults(results);
+          setShowDropdown(true);
+        } catch (err) {
+          console.error("Global search error:", err);
+          setSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setSearchResults([]);
+        setShowDropdown(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleResultClick = (loc) => {
+    setSearchQuery('');
+    setShowDropdown(false);
+    navigate(`/planner?destination=${encodeURIComponent(loc.name)}&locationId=${loc.id}&region=${encodeURIComponent(loc.region || '')}`);
+  };
 
   return (
     <header className="glass navbar-header">
@@ -13,14 +49,53 @@ const Navbar = () => {
         <Link to="/" className="navbar-brand">
           Travel<span className="navbar-brand-text">Plan</span>
         </Link>
-        
+
         <div className="navbar-search-container">
           <Search size={18} className="navbar-search-icon" />
-          <input 
-            type="text" 
-            placeholder="Tìm kiếm địa điểm..." 
+          <input
+            type="text"
+            placeholder="Tìm kiếm địa điểm..."
             className="navbar-search-input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => searchQuery.length > 2 && setShowDropdown(true)}
           />
+
+          {/* Dropdown Results */}
+          {showDropdown && (
+            <div className="navbar-search-dropdown glass">
+              {isSearching ? (
+                <div className="navbar-search-loading">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>AI đang tìm kiếm...</span>
+                </div>
+              ) : searchResults.length > 0 ? (
+                <div className="navbar-search-results">
+                  <div className="navbar-search-header">
+                    <Sparkles size={12} />
+                    Gợi ý thông minh
+                  </div>
+                  {searchResults.map(loc => (
+                    <div
+                      key={loc.id}
+                      className="navbar-search-item"
+                      onClick={() => handleResultClick(loc)}
+                    >
+                      <MapPin size={14} className="navbar-search-item-icon" />
+                      <div className="navbar-search-item-info">
+                        <div className="navbar-search-item-name">{loc.name}</div>
+                        <div className="navbar-search-item-region">{loc.region || loc.city || loc.province}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="navbar-search-no-results">
+                  Không tìm thấy địa điểm phù hợp
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -37,9 +112,9 @@ const Navbar = () => {
               <div className="navbar-user-role">Pro Traveler</div>
             </Link>
             <Link to="/profile">
-              <img 
-                src={user.avatar} 
-                alt={user.name} 
+              <img
+                src={user.avatar}
+                alt={user.name}
                 className="navbar-user-avatar"
               />
             </Link>

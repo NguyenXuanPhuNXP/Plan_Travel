@@ -41,9 +41,12 @@ const PlannerWizard = () => {
     .split(',')
     .map((p) => p.trim())
     .filter(Boolean);
+  const initialRegion = searchParams.get('region') || '';
+  const initialLocationId = searchParams.get('locationId') || '';
+  
   const [tripInfo, setTripInfo] = useState({
-    destination: initialDestination,
-    name: initialDestination ? `Du lịch ${initialDestination}` : '',
+    destination: initialRegion || initialDestination,
+    name: (initialRegion || initialDestination) ? `Du lịch ${initialRegion || initialDestination}` : '',
     startDate: '',
     endDate: '',
     totalDays: Number.isFinite(initialTotalDays) && initialTotalDays > 0 ? initialTotalDays : 3,
@@ -115,6 +118,31 @@ const PlannerWizard = () => {
     }
   }, [tripInfo.startDate, tripInfo.endDate]);
 
+  // Handle pre-selected location from Explore page
+  useEffect(() => {
+    const fetchPreselectedLocation = async () => {
+      if (initialLocationId && selectedLocations.length === 0) {
+        try {
+          const loc = await locationService.getLocationById(initialLocationId);
+          if (loc) {
+            setSelectedLocations([loc]);
+            // Nếu destination trống, lấy từ location này
+            if (!tripInfo.destination) {
+              setTripInfo(prev => ({
+                ...prev,
+                destination: loc.region || loc.city || loc.name,
+                name: `Chuyến đi ${loc.name}`
+              }));
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch preselected location:", err);
+        }
+      }
+    };
+    fetchPreselectedLocation();
+  }, [initialLocationId]);
+
   // Step 1: AI generates an initial editable plan
   const handleNextToStep2 = async () => {
     if (!tripInfo.destination.trim()) {
@@ -152,7 +180,8 @@ const PlannerWizard = () => {
           days: computeDays(),
           budget: tripInfo.budget ? Number(tripInfo.budget) : null,
           preferences: tripInfo.preferences,
-          selectedLocationIds: preselected.map((l) => l.id).filter(Boolean)
+          selectedLocationIds: preselected.map((l) => l.id).filter(Boolean),
+          focusLocationId: initialLocationId
         });
         setAutoPlan(plan);
         setCurrentPlan(plan);
@@ -180,7 +209,8 @@ const PlannerWizard = () => {
         days: computeDays(),
         budget: tripInfo.budget ? Number(tripInfo.budget) : null,
         preferences: tripInfo.preferences,
-        selectedLocationIds: selectedLocations.map(l => l.id)
+        selectedLocationIds: selectedLocations.map(l => l.id),
+        focusLocationId: initialLocationId
       });
       setAutoPlan(plan);
       setCurrentPlan(plan);
@@ -461,6 +491,39 @@ const PlannerWizard = () => {
                   return [...prev, { ...loc, _clientKey: key }];
                 })}
               />
+
+              {/* Budget Progress Bar */}
+              {tripInfo.budget && currentPlan && (
+                <div className="card budget-progress-card">
+                  <div className="budget-progress-header">
+                    <div className="budget-progress-info">
+                      <DollarSign size={16} />
+                      <span>Ngân sách: <strong>{Number(tripInfo.budget).toLocaleString()}đ</strong></span>
+                    </div>
+                    <div className="budget-progress-total">
+                      Chi phí dự kiến: <strong>
+                        {currentPlan.days.reduce((acc, day) => 
+                          acc + day.items.reduce((dAcc, item) => dAcc + (item.location?.estimatedCost || 0), 0)
+                        , 0).toLocaleString()}đ
+                      </strong>
+                    </div>
+                  </div>
+                  <div className="budget-progress-bar-bg">
+                    <motion.div 
+                      className={`budget-progress-bar-fill ${
+                        (currentPlan.days.reduce((acc, day) => acc + day.items.reduce((dAcc, item) => dAcc + (item.location?.estimatedCost || 0), 0), 0) / Number(tripInfo.budget)) > 1 ? 'over-budget' : ''
+                      }`}
+                      initial={{ width: 0 }}
+                      animate={{ 
+                        width: `${Math.min(100, (currentPlan.days.reduce((acc, day) => acc + day.items.reduce((dAcc, item) => dAcc + (item.location?.estimatedCost || 0), 0), 0) / Number(tripInfo.budget)) * 100)}%` 
+                      }}
+                    />
+                  </div>
+                  {(currentPlan.days.reduce((acc, day) => acc + day.items.reduce((dAcc, item) => dAcc + (item.location?.estimatedCost || 0), 0), 0) / Number(tripInfo.budget)) > 1 && (
+                    <p className="budget-warning">⚠️ Đã vượt quá ngân sách dự kiến!</p>
+                  )}
+                </div>
+              )}
               <div className="wizard-nav-buttons">
                 <button onClick={() => setStep(2)} className="btn btn-outline wizard-back-btn">
                   <ChevronLeft size={18} /> Chỉnh danh sách địa điểm

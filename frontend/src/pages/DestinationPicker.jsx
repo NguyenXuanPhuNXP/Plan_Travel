@@ -128,9 +128,9 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
 
                 {/* AI Score Badge */}
                 {loc.aiScore && (
-                  <div className="picker-card-score" title="AI Score">
+                  <div className="picker-card-score" title={`AI Score: ${loc.aiScore}/10`}>
                     <Sparkles size={10} />
-                    {loc.aiScore.toFixed(1)}
+                    <span>{loc.aiScore.toFixed(1)}</span>
                   </div>
                 )}
 
@@ -172,9 +172,14 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
                   </div>
 
                   {loc.aiReason && (
-                    <p className="picker-card-reason">
-                      <Sparkles size={12} /> {loc.aiReason}
-                    </p>
+                    <div className="picker-card-reason-box">
+                      <div className="picker-card-reason-header">
+                        <Sparkles size={10} /> <span>Gợi ý từ AI</span>
+                      </div>
+                      <p className="picker-card-reason-text">
+                        {loc.aiReason}
+                      </p>
+                    </div>
                   )}
                 </div>
               </motion.div>

@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 import os
 import httpx
 
-load_dotenv()  # Đọc file .env ở thư mục hiện tại
+from pathlib import Path
+load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
 OPEN_WEATHER_KEY = os.getenv('OPEN_WEATHER_KEY')
 
@@ -57,6 +58,9 @@ async def get_weather(lat: float, lon: float):
         rain_mm=rain_mm,
         city=data.get('name', 'Không rõ')
     )
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8002)
 
 # Chạy:
-# python -m uvicorn Weather:app --reload --port 8000
+# python -m uvicorn Weather:app --reload --port 8002

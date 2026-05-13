@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
-dotenv.config({ path: "./Database/.env" });
+dotenv.config();
 
-import prisma from "../prismaClient.js";
+import prisma from "../config/db.js";
 import { VIETNAM_REGIONS } from "../config/vietnamRegions.js";
 
 async function main() {

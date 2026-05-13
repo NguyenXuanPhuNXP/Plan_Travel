@@ -20,6 +20,8 @@ const Explore = () => {
   const [destinationStats, setDestinationStats] = useState({});
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [landmarkSlideIndex, setLandmarkSlideIndex] = useState(0);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Fetch weather for all destinations
   useEffect(() => {
@@ -62,7 +64,32 @@ const Explore = () => {
     return () => clearInterval(timer);
   }, [hoveredCardId]);
 
-  const filteredDestinations = useMemo(() => {
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (searchQuery.trim().length > 2) {
+        setIsSearching(true);
+        try {
+          const results = await locationService.hybridSearch(searchQuery);
+          setSearchResults(results);
+        } catch (err) {
+          console.error("Hybrid search error:", err);
+          setSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setSearchResults([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  const displayItems = useMemo(() => {
+    if (searchQuery.trim().length > 2 && (searchResults.length > 0 || isSearching)) {
+      return searchResults;
+    }
+
     return TRENDING_DESTINATIONS.filter(dest => {
       const matchSearch = !searchQuery || 
         dest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -73,17 +100,21 @@ const Explore = () => {
 
       return matchSearch && matchTag;
     });
-  }, [searchQuery, activeTag]);
+  }, [searchQuery, activeTag, searchResults, isSearching]);
 
   const handleCardClick = (dest) => {
-    const parsedDays = String(dest.idealDays || '').match(/\d+/)?.[0] || '';
+    // Nếu là kết quả từ hybrid search (có id là number) hoặc từ mock data
+    const destName = dest.name;
+    const destId = dest.id;
+    const destRegion = dest.region || dest.city || dest.province || '';
+    
     const params = new URLSearchParams({
-      destination: dest.name,
-      totalDays: parsedDays,
-      budget: dest.avgCost ? String(dest.avgCost) : '',
-      preferences: (dest.tags || []).join(','),
-      season: dest.bestSeason || ''
+      destination: destName,
+      locationId: destId,
+      region: destRegion,
+      // ... các params khác nếu cần
     });
+    
     navigate(`/planner?${params.toString()}`);
   };
 
@@ -178,7 +209,13 @@ const Explore = () => {
 
         {/* Destinations Grid */}
         <div className="explore-grid">
-          {filteredDestinations.map((dest, idx) => {
+          {isSearching && (
+            <div className="explore-searching-indicator">
+              <Sparkles className="animate-spin" />
+              <span>Đang tìm kiếm thông minh...</span>
+            </div>
+          )}
+          {displayItems.map((dest, idx) => {
             const weather = getWeatherDisplay(dest.id);
             const planCount = getPlanCount(dest);
             const landmarkVisual = getLandmarkImage(dest);
@@ -290,17 +327,29 @@ const Explore = () => {
                       );
                     })}
                   </div>
+
+                  {/* Plan with AI Button */}
+                  <button 
+                    className="explore-card-action"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCardClick(dest);
+                    }}
+                  >
+                    <Sparkles size={16} />
+                    Lên kế hoạch AI
+                  </button>
                 </div>
 
               </motion.div>
             );
           })}
 
-          {filteredDestinations.length === 0 && (
+          {displayItems.length === 0 && !isSearching && (
             <div className="explore-empty">
               <Search size={64} className="explore-empty-icon" />
               <h3>Không tìm thấy điểm đến</h3>
-              <p>Thử tìm kiếm với từ khóa khác hoặc bỏ bộ lọc.</p>
+              <p>Thử tìm kiếm với từ khóa khác như "biển", "núi", hoặc "phượt Hà Nội"...</p>
             </div>
           )}
         </div>

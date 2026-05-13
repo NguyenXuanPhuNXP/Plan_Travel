@@ -390,14 +390,21 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                           )}
 
                           {/* Inline note editing */}
-                          <div className="timeline-item-note">
-                            <StickyNote size={12} />
-                            <input
-                              type="text"
-                              className="timeline-note-input"
-                              placeholder="Thêm ghi chú..."
+                          <div className={`timeline-item-note ${item.note ? 'has-content' : ''}`}>
+                            <div className="timeline-note-header">
+                              <StickyNote size={12} /> 
+                              <span>Ghi chú {item.note && <Sparkles size={10} className="ai-note-sparkle" title="AI đã gợi ý ghi chú này" />}</span>
+                            </div>
+                            <textarea
+                              className="timeline-note-textarea"
+                              placeholder="Thêm ghi chú hoặc AI gợi ý..."
                               value={item.note || ''}
                               onChange={(e) => handleEditNote(dayIdx, itemIdx, e.target.value)}
+                              rows={1}
+                              onInput={(e) => {
+                                e.target.style.height = 'auto';
+                                e.target.style.height = e.target.scrollHeight + 'px';
+                              }}
                             />
                           </div>
                         </div>

@@ -42,7 +42,7 @@ router.post("/destinations", async (req, res) => {
  */
 router.post("/auto-plan", async (req, res) => {
     try {
-        const { region, days, budget, preferences, selectedLocationIds } = req.body;
+        const { region, days, budget, preferences, selectedLocationIds, focusLocationId } = req.body;
 
         if (!region) {
             return res.status(400).json({ message: "Vui lòng nhập địa điểm." });
@@ -53,7 +53,8 @@ router.post("/auto-plan", async (req, res) => {
             days: days || 3,
             budget: budget || null,
             preferences: preferences || [],
-            selectedLocationIds: selectedLocationIds || []
+            selectedLocationIds: selectedLocationIds || [],
+            focusLocationId: focusLocationId || null
         });
 
         res.json(plan);

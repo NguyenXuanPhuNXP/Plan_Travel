@@ -1,10 +1,9 @@
 import axios from 'axios';
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "../config/db.js";
 import { geocodeRegionInVietnam, fetchPlacesByBbox } from "./geoapify.js";
 import { mapGeoapifyFeatureToLocation, isVietnamLocation } from "./locationMapper.js";
 
-const PYTHON_AI_URL = process.env.PYTHON_AI_URL || 'http://localhost:8000';
+const PYTHON_AI_URL = process.env.PYTHON_AI_URL || 'http://localhost:8001';
 
 /**
  * AI tự động tạo lịch trình chi tiết bằng Python Service (từ nhánh Xphu cũ)
@@ -95,20 +94,10 @@ export async function getSuggestions({ region, days, budget, preferences }) {
 /**
  * AI tự động tạo lịch trình chi tiết theo ngày
  */
-export async function generateAutoPlan({ region, days, budget, preferences, selectedLocationIds }) {
-    console.log(`[AI] generateAutoPlan for region="${region}", days=${days}, selectedIds=${selectedLocationIds?.length || 0}`);
+export async function generateAutoPlan({ region, days, budget, preferences, selectedLocationIds, focusLocationId }) {
+    console.log(`[AI] generateAutoPlan for region="${region}", days=${days}, selectedIds=${selectedLocationIds?.length || 0}, focusId=${focusLocationId}`);
 
-    // Ưu tiên dùng Python AI nếu không có selected locations cụ thể
-    if (!selectedLocationIds || selectedLocationIds.length === 0) {
-        try {
-            const pythonPlan = await generatePlanWithPythonAI({ region, days, budget, preferences });
-            if (pythonPlan) return pythonPlan;
-        } catch (err) {
-            console.warn("[AI] Python AI failed, falling back to Gemini:", err.message);
-        }
-    }
-
-    // Lấy selected locations from DB
+    // 1. Lấy thông tin các địa điểm đã chọn
     let selectedLocations = [];
     if (selectedLocationIds && selectedLocationIds.length > 0) {
         const rows = await prisma.locations.findMany({
@@ -119,87 +108,70 @@ export async function generateAutoPlan({ region, days, budget, preferences, sele
         selectedLocations = rows.map(serializeLocation);
     }
 
-    // Nếu chưa có selected, lấy suggestions
-    if (selectedLocations.length === 0) {
-        selectedLocations = await getSuggestions({ region, days, budget, preferences });
-        selectedLocations = selectedLocations.slice(0, days ? days * 4 : 12);
-    }
-
-    // Dùng Gemini để tạo plan chi tiết
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        console.warn("[AI] ⚠️ GEMINI_API_KEY chưa cấu hình → dùng rule-based plan");
-        return generateRuleBasedPlan(selectedLocations, days || 3);
-    }
-
-    try {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-        const locationList = selectedLocations.map(l =>
-            `- ${l.name} (${l.category || "general"}, lat: ${l.latitude}, lng: ${l.longitude}, cost: ${l.estimatedCost || 0}đ, duration: ${l.suggestedDuration || "1-2h"})`
-        ).join("\n");
-
-        const prompt = `Bạn là chuyên gia du lịch Việt Nam. Hãy tạo lịch trình du lịch chi tiết.
-
-Thông tin:
-- Địa điểm: ${region}
-- Số ngày: ${days || 3}
-- Ngân sách: ${budget ? budget.toLocaleString() + " VNĐ" : "Không giới hạn"}
-- Sở thích: ${preferences?.join(", ") || "Đa dạng"}
-
-Danh sách địa điểm có sẵn:
-${locationList}
-
-Hãy trả về JSON (chỉ JSON, không markdown, không code block) theo format:
-{
-  "planName": "Tên gợi ý cho lịch trình",
-  "description": "Mô tả ngắn",
-  "days": [
-    {
-      "dayNumber": 1,
-      "title": "Tiêu đề ngày",
-      "items": [
-        {
-          "locationName": "Tên địa điểm (phải trùng khớp danh sách trên)",
-          "startTime": "08:00",
-          "endTime": "10:00",
-          "note": "Gợi ý cho du khách",
-          "travelMinutesToNext": 15
-        }
-      ]
-    }
-  ]
-}
-
-Lưu ý:
-- Sắp xếp các địa điểm gần nhau trong cùng ngày
-- Buổi sáng bắt đầu 7-8h, kết thúc khoảng 20-21h
-- Xen kẽ tham quan và ăn uống hợp lý
-- Nếu có budget, ưu tiên địa điểm phù hợp`;
-
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
-
-        // Parse JSON từ response - thử nhiều cách
-        try {
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const plan = JSON.parse(jsonMatch[0]);
-                return mapPlanToLocations(plan, selectedLocations);
+    // 2. Nếu có địa điểm chính (focus), nhưng ít địa điểm khác -> Tự động tìm thêm địa điểm lân cận
+    if (focusLocationId && selectedLocations.length < 10) {
+        const focusLoc = selectedLocations.find(l => String(l.id) === String(focusLocationId));
+        if (focusLoc) {
+            console.log(`[AI] Focus location found: ${focusLoc.name}. Fetching nearby...`);
+            // Tìm các địa điểm cùng Thành phố hoặc Tỉnh
+            const searchArea = focusLoc.city || focusLoc.province || focusLoc.region || region;
+            const nearby = await getLocationsFromDB(searchArea);
+            
+            // Hợp nhất và loại bỏ trùng
+            const existingIds = new Set(selectedLocations.map(l => String(l.id)));
+            for (const loc of nearby) {
+                if (!existingIds.has(String(loc.id))) {
+                    selectedLocations.push(loc);
+                    existingIds.add(String(loc.id));
+                }
             }
-        } catch (parseErr) {
-            console.error("[AI] JSON parse error from Gemini response:", parseErr.message);
-            console.error("[AI] Raw response:", text.substring(0, 500));
+        }
+    }
+
+    // 3. Nếu vẫn chưa có đủ địa điểm hoặc trường hợp tạo mới hoàn toàn
+    if (selectedLocations.length < 15) {
+        const suggestions = await getSuggestions({ region, days, budget, preferences });
+        // Hợp nhất
+        const existingIds = new Set(selectedLocations.map(l => String(l.id)));
+        for (const loc of suggestions) {
+            if (!existingIds.has(String(loc.id))) {
+                selectedLocations.push(loc);
+                existingIds.add(String(loc.id));
+            }
+        }
+    }
+
+    // 4. Dùng Python AI để tổ chức lịch trình chi tiết (Gửi tối đa 30 địa điểm để AI có đủ lựa chọn ăn/ngủ/chơi)
+    try {
+        const response = await axios.post(`${PYTHON_AI_URL}/ai/organize-plan`, {
+            region,
+            days: days || 3,
+            budget,
+            preferences: preferences || [],
+            focusLocationId: focusLocationId ? String(focusLocationId) : null,
+            locations: selectedLocations.slice(0, 30).map(l => ({
+                id: l.id,
+                name: l.name,
+                category: l.category,
+                estimatedCost: l.estimatedCost || 0,
+                latitude: l.latitude,
+                longitude: l.longitude,
+                suggestedDuration: l.suggestedDuration
+            }))
+        });
+
+        if (response.data) {
+            return mapPlanToLocations(response.data, selectedLocations);
         }
     } catch (err) {
-        console.error("[AI] Gemini plan generation error:", err.message);
+        console.error("[AI] Python organize-plan error:", err.message);
     }
 
     // Fallback
     console.log("[AI] Using rule-based plan as fallback");
     return generateRuleBasedPlan(selectedLocations, days || 3);
 }
+
 
 // ===== INTERNAL HELPERS =====
 
@@ -209,7 +181,7 @@ async function getLocationsFromDB(region) {
          WHERE country = 'Vietnam' 
          AND (region LIKE ? OR city LIKE ? OR province LIKE ? OR name LIKE ?)
          ORDER BY rating DESC, updated_at DESC 
-         LIMIT 50`,
+         LIMIT 100`,
         `%${region}%`, `%${region}%`, `%${region}%`, `%${region}%`
     );
 
@@ -268,33 +240,27 @@ async function fetchAndCacheFromGeoapify(region) {
 }
 
 async function getGeminiSuggestions(region, days, budget, preferences, locations) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return null;
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-    const locationNames = locations.slice(0, 30).map(l =>
-        `${l.name} (${l.category || "general"}, cost: ~${l.estimatedCost || 0}đ)`
-    ).join(", ");
-
-    const prompt = `Bạn là chuyên gia du lịch Việt Nam. Đánh giá và xếp hạng các địa điểm sau cho chuyến đi ${region}${days ? ` ${days} ngày` : ""}${budget ? `, ngân sách ${budget}đ` : ""}${preferences?.length ? `, sở thích: ${preferences.join(", ")}` : ""}.
-
-Danh sách: ${locationNames}
-
-Trả về JSON array (chỉ JSON):
-[{"name": "tên địa điểm", "score": 1-10, "reason": "lý do ngắn gọn"}]
-Sắp xếp theo score giảm dần.`;
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+    try {
+        const response = await axios.post(`${PYTHON_AI_URL}/ai/rank-locations`, {
+            region,
+            days: days || 3,
+            budget: budget || 5000000,
+            preferences: preferences || [],
+            locations: locations.slice(0, 30).map(l => ({
+                id: l.id,
+                name: l.name,
+                category: l.category,
+                estimatedCost: l.estimatedCost || 0
+            }))
+        });
+        
+        return response.data.rankings;
+    } catch (error) {
+        console.error("[AI] Error calling Python rank-locations:", error.message);
+        return null;
     }
-    return null;
 }
+
 
 function mergeAISuggestions(locations, aiSuggestions, preferences) {
     if (!aiSuggestions) {
@@ -308,13 +274,13 @@ function mergeAISuggestions(locations, aiSuggestions, preferences) {
 
     // Map AI scores to locations
     return locations.map(loc => {
-        const aiMatch = aiSuggestions.find(ai =>
-            ai.name && loc.name && (
+        const aiMatch = aiSuggestions.find(ai => 
+            (ai.id && String(ai.id) === String(loc.id)) || 
+            (ai.name && loc.name && (
                 loc.name.toLowerCase().includes(ai.name.toLowerCase()) ||
                 ai.name.toLowerCase().includes(loc.name.toLowerCase())
-            )
+            ))
         );
-
         return {
             ...loc,
             aiScore: aiMatch?.score || calculateBasicScore(loc, preferences),
@@ -354,8 +320,8 @@ function generateRuleBasedPlan(locations, totalDays) {
                 locationName: loc.name,
                 locationId: loc.id,
                 location: loc,
-                startTime: `${Math.floor(startHour).toString().padStart(2, "0")}:${(startHour % 1 * 60).toString().padStart(2, "0")}`,
-                endTime: `${Math.floor(endHour).toString().padStart(2, "0")}:00`,
+                startTime: `${Math.floor(startHour).toString().padStart(2, "0")}:${(Math.round((startHour % 1) * 60)).toString().padStart(2, "0")}`,
+                endTime: `${Math.floor(endHour).toString().padStart(2, "0")}:${(Math.round((endHour % 1) * 60)).toString().padStart(2, "0")}`,
                 note: loc.description || "",
                 travelMinutesToNext: 15
             };
@@ -380,10 +346,11 @@ function mapPlanToLocations(plan, locations) {
         ...day,
         items: day.items.map(item => {
             const matched = locations.find(l =>
-                l.name && item.locationName && (
+                (item.locationId && String(l.id) === String(item.locationId)) ||
+                (l.name && item.locationName && (
                     l.name.toLowerCase().includes(item.locationName.toLowerCase()) ||
                     item.locationName.toLowerCase().includes(l.name.toLowerCase())
-                )
+                ))
             );
             return {
                 ...item,

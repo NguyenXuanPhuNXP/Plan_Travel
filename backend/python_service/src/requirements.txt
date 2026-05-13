@@ -3,4 +3,8 @@ uvicorn==0.35.0
 pydantic==2.11.7
 pymysql==1.1.1
 python-dotenv==1.1.1
-google-generativeai
+google-genai
+httpx
+sentence-transformers
+numpy
+torch

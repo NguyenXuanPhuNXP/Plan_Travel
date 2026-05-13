@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8000/api';
+const BASE_URL = 'http://localhost:8002/api';
 
 export const WeatherService = {
   getWeather: async (lat, lon) => {
