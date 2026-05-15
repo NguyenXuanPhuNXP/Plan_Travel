@@ -67,30 +67,64 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
     const {
         name,
+        address,
         latitude,
         longitude,
         category,
         region,
-        country = "Vietnam"
+        country = "Vietnam",
+        imageUrl,
+        estimatedCost = 0,
+        suggestedDuration
     } = req.body;
 
     try {
-        const externalId = `manual_${Date.now()}`;
+        if (!name || latitude === undefined || longitude === undefined) {
+            return res.status(400).json({ error: "name, latitude and longitude are required" });
+        }
+
+        const lat = Number(latitude);
+        const lng = Number(longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return res.status(400).json({ error: "latitude and longitude must be valid numbers" });
+        }
+
+        const externalId = `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
         await prisma.$executeRaw`
             INSERT INTO locations
             (
-                external_id, source, name, country, region, category,
-                latitude, longitude, geo_point, tags, raw_json
+                external_id, source, name, address, country, region, category,
+                latitude, longitude, geo_point, estimated_cost, suggested_duration, image_url, tags, raw_json
             )
             VALUES
             (
-                ${externalId}, 'manual', ${name}, ${country}, ${region || null}, ${category || null},
-                ${latitude}, ${longitude}, ST_SRID(POINT(${longitude}, ${latitude}), 4326), JSON_ARRAY(), JSON_OBJECT()
+                ${externalId}, 'manual', ${name}, ${address || null}, ${country}, ${region || null}, ${category || null},
+                ${lat}, ${lng}, ST_SRID(POINT(${lng}, ${lat}), 4326), ${Number(estimatedCost) || 0}, ${suggestedDuration || null}, ${imageUrl || null}, JSON_ARRAY(), JSON_OBJECT()
             )
         `;
 
-        res.json({ message: "Created!" });
+        const rows = await prisma.$queryRaw`
+            SELECT id, name, address, country, region, category, latitude, longitude, estimated_cost, suggested_duration, image_url
+            FROM locations
+            WHERE external_id = ${externalId}
+            LIMIT 1
+        `;
+        const created = rows?.[0];
+
+        res.status(201).json({
+            id: created.id?.toString(),
+            name: created.name,
+            address: created.address,
+            country: created.country,
+            region: created.region,
+            category: created.category,
+            latitude: Number(created.latitude),
+            longitude: Number(created.longitude),
+            estimatedCost: created.estimated_cost,
+            suggestedDuration: created.suggested_duration,
+            imageUrl: created.image_url
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -233,6 +267,82 @@ router.get("/destination-stats", async (req, res) => {
         }
 
         res.json(stats);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get("/hot", async (req, res) => {
+    try {
+        const limit = Math.min(Number(req.query.limit || 10), 50);
+        const rows = await prisma.$queryRaw`
+            SELECT l.*,
+                   COALESCE(pc.plan_count, 0) AS plan_count
+            FROM locations l
+            LEFT JOIN (
+                SELECT location_id, COUNT(*) AS plan_count
+                FROM itinerary_items
+                WHERE location_id IS NOT NULL
+                GROUP BY location_id
+            ) pc ON pc.location_id = l.id
+            ORDER BY plan_count DESC, l.updated_at DESC
+            LIMIT ${limit}
+        `;
+
+        res.json(rows.map((loc) => ({
+            id: loc.id?.toString(),
+            name: loc.name,
+            description: loc.description,
+            address: loc.address,
+            region: loc.region,
+            category: loc.category,
+            latitude: Number(loc.latitude),
+            longitude: Number(loc.longitude),
+            imageUrl: loc.image_url,
+            estimatedCost: loc.estimated_cost,
+            suggestedDuration: loc.suggested_duration,
+            planCount: Number(loc.plan_count || 0)
+        })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get("/:id", async (req, res) => {
+    try {
+        if (!/^\d+$/.test(String(req.params.id))) {
+            return res.status(400).json({ error: "Invalid location id" });
+        }
+
+        const rows = await prisma.$queryRaw`
+            SELECT id, name, address, country, province, city, district, region, category,
+                   latitude, longitude, estimated_cost, suggested_duration, image_url, rating, tags
+            FROM locations
+            WHERE id = ${BigInt(req.params.id)}
+            LIMIT 1
+        `;
+
+        const loc = rows?.[0];
+        if (!loc) return res.status(404).json({ error: "Location not found" });
+
+        res.json({
+            id: loc.id?.toString(),
+            name: loc.name,
+            address: loc.address,
+            country: loc.country,
+            province: loc.province,
+            city: loc.city,
+            district: loc.district,
+            region: loc.region,
+            category: loc.category,
+            latitude: Number(loc.latitude),
+            longitude: Number(loc.longitude),
+            estimatedCost: loc.estimated_cost,
+            suggestedDuration: loc.suggested_duration,
+            imageUrl: loc.image_url,
+            rating: loc.rating ? Number(loc.rating) : null,
+            tags: loc.tags
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

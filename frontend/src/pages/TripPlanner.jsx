@@ -4,6 +4,7 @@ import MapComponent from '../components/Map/MapComponent';
 import { useTrips } from '../context/TripContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { itineraryService } from '../services/itineraryService';
+import { locationService } from '../services/locationService';
 import { motion, Reorder } from 'framer-motion';
 import {
   Save,
@@ -18,11 +19,13 @@ import { format } from 'date-fns';
 import './TripPlanner.css';
 
 const TripPlanner = () => {
-  const { addTrip } = useTrips();
+  const { addTrip, fetchTrips } = useTrips();
   const navigate = useNavigate();
 
   const [tripInfo, setTripInfo] = useState({
     title: '',
+    startLocation: '',
+    endLocation: '',
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: format(new Date(Date.now() + 86400000 * 3), 'yyyy-MM-dd'),
     budget: '',
@@ -33,48 +36,98 @@ const TripPlanner = () => {
   const [toast, setToast] = useState('');
 
   const handleLocationAdd = (loc) => {
-    setSelectedLocations(prev => [...prev, { ...loc, tripLocId: `trip_loc_${Date.now()}` }]);
+    setSelectedLocations(prev => {
+      const locKey = String(loc.id || `${loc.name}_${loc.lat}_${loc.lng}`);
+      const exists = prev.some((item) => {
+        const itemKey = String(item.id || `${item.name}_${item.lat}_${item.lng}`);
+        return itemKey === locKey;
+      });
+      if (exists) return prev;
+      return [...prev, { ...loc, tripLocId: `trip_loc_${Date.now()}_${prev.length}` }];
+    });
   };
 
   const handleLocationRemove = (tripLocId) => {
-    setSelectedLocations(prev => prev.filter(l => (l.tripLocId || l.id) !== tripLocId));
+    setSelectedLocations(prev => prev.filter(
+      l => String(l.tripLocId) !== String(tripLocId) && String(l.id) !== String(tripLocId)
+    ));
+  };
+
+  const computeDays = () => {
+    if (!tripInfo.startDate || !tripInfo.endDate) return null;
+    const diff = Math.ceil((new Date(tripInfo.endDate) - new Date(tripInfo.startDate)) / 86400000) + 1;
+    return diff > 0 ? diff : null;
+  };
+
+  const ensurePersistedLocation = async (loc) => {
+    if (/^\d+$/.test(String(loc.id))) return loc;
+
+    const created = await locationService.createManual({
+      name: loc.name,
+      address: loc.address,
+      latitude: loc.latitude ?? loc.lat,
+      longitude: loc.longitude ?? loc.lng,
+      category: loc.category || 'manual',
+      region: tripInfo.endLocation,
+      imageUrl: loc.imageUrl || loc.image,
+      estimatedCost: loc.estimatedCost || 0,
+      suggestedDuration: loc.suggestedDuration
+    });
+
+    return {
+      ...loc,
+      id: created.id,
+      name: created.name || loc.name,
+      address: created.address || loc.address,
+      lat: created.latitude ?? loc.lat,
+      lng: created.longitude ?? loc.lng,
+      latitude: created.latitude ?? loc.latitude,
+      longitude: created.longitude ?? loc.longitude,
+      image: created.imageUrl || loc.image,
+      imageUrl: created.imageUrl || loc.imageUrl,
+      estimatedCost: created.estimatedCost ?? loc.estimatedCost,
+      suggestedDuration: created.suggestedDuration || loc.suggestedDuration
+    };
   };
 
   const handleSaveTrip = async () => {
-    if (!tripInfo.title || selectedLocations.length === 0) {
-      setToast('Vui lòng nhập tên chuyến đi và chọn ít nhất một địa điểm');
+    if (!tripInfo.title || !tripInfo.startLocation || selectedLocations.length === 0) {
+      setToast('Vui lòng nhập tên chuyến đi, điểm đi và chọn ít nhất một điểm đến.');
       setTimeout(() => setToast(''), 2500);
       return;
     }
 
     try {
+      const persistedLocations = [];
+      for (const loc of selectedLocations) {
+        persistedLocations.push(await ensurePersistedLocation(loc));
+      }
+
+      const destinationNames = persistedLocations.map((loc) => loc.name).filter(Boolean);
+      const mainDestination = destinationNames.slice(0, 3).join(', ');
+      const finalDestination = tripInfo.endLocation.trim() || destinationNames[destinationNames.length - 1] || mainDestination;
+
       const newTrip = await addTrip({
         name: tripInfo.title,
         startDate: tripInfo.startDate,
         endDate: tripInfo.endDate,
+        totalDays: computeDays(),
         budget: tripInfo.budget ? Number(tripInfo.budget) : null,
         description: tripInfo.notes,
-        destination: "Tự lên kế hoạch"
+        destination: mainDestination,
+        startLocation: tripInfo.startLocation.trim(),
+        endLocation: finalDestination
       });
 
-      // Add each location as an item
-      let hasAddedAnyItem = false;
-      for (let i = 0; i < selectedLocations.length; i++) {
-        const loc = selectedLocations[i];
-        // Backend expects numeric location ids (BigInt).
-        if (!/^\d+$/.test(String(loc.id))) continue;
+      for (let i = 0; i < persistedLocations.length; i++) {
+        const loc = persistedLocations[i];
         await itineraryService.addItem(newTrip.id, {
           locationId: loc.id,
           note: `Điểm dừng ${i + 1}`
         });
-        hasAddedAnyItem = true;
       }
 
-      if (!hasAddedAnyItem) {
-        setToast('Đã tạo kế hoạch nhưng chưa thêm được điểm dừng từ dữ liệu hiện tại.');
-        setTimeout(() => setToast(''), 3000);
-      }
-
+      await fetchTrips();
       navigate(`/trip/${newTrip.id}`);
     } catch (err) {
       console.error(err);
@@ -91,7 +144,6 @@ const TripPlanner = () => {
             {toast}
           </div>
         )}
-        {/* Left Form */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -100,7 +152,7 @@ const TripPlanner = () => {
           <div className="trip-planner-breadcrumb">
             <Link to="/" className="trip-planner-breadcrumb-link"><ArrowLeft size={14} /> Dashboard</Link>
             <ChevronRight size={14} />
-            <span>Lập kế hoạch</span>
+            <span>Lập kế hoạch thủ công</span>
           </div>
 
           <h2 className="trip-planner-title">Chi tiết chuyến đi</h2>
@@ -114,6 +166,28 @@ const TripPlanner = () => {
                 className="btn-outline trip-planner-input"
                 value={tripInfo.title}
                 onChange={(e) => setTripInfo({ ...tripInfo, title: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="trip-planner-label">Điểm đi</label>
+              <input
+                type="text"
+                placeholder="Ví dụ: TP. Hồ Chí Minh"
+                className="btn-outline trip-planner-input"
+                value={tripInfo.startLocation}
+                onChange={(e) => setTripInfo({ ...tripInfo, startLocation: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="trip-planner-label">Điểm kết thúc</label>
+              <input
+                type="text"
+                placeholder="Để trống để lấy theo điểm dừng cuối"
+                className="btn-outline trip-planner-input"
+                value={tripInfo.endLocation}
+                onChange={(e) => setTripInfo({ ...tripInfo, endLocation: e.target.value })}
               />
             </div>
 
@@ -138,19 +212,19 @@ const TripPlanner = () => {
               </div>
             </div>
 
-            {/* <div>
+            <div>
               <label className="trip-planner-label">Ngân sách dự kiến (VNĐ)</label>
               <div className="trip-planner-input-group">
                 <DollarSign size={16} className="trip-planner-input-icon" />
-                <input 
-                  type="number" 
-                  placeholder="5000000" 
-                  className="btn-outline trip-planner-input-with-icon" 
+                <input
+                  type="number"
+                  placeholder="5000000"
+                  className="btn-outline trip-planner-input-with-icon"
                   value={tripInfo.budget}
                   onChange={(e) => setTripInfo({ ...tripInfo, budget: e.target.value })}
                 />
               </div>
-            </div> */}
+            </div>
 
             <div>
               <label className="trip-planner-label">Ghi chú</label>
@@ -173,7 +247,6 @@ const TripPlanner = () => {
           </div>
         </motion.div>
 
-        {/* Center Map */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -186,19 +259,18 @@ const TripPlanner = () => {
           />
         </motion.div>
 
-        {/* Right Locations List */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           className="card trip-planner-locations-card"
         >
           <h3 className="trip-planner-locations-title">
-            <MapPin size={18} color="var(--primary)" /> Điểm dừng ({selectedLocations.length})
+            <MapPin size={18} color="var(--primary)" /> Điểm đến ({selectedLocations.length})
           </h3>
 
           {selectedLocations.length === 0 ? (
             <div className="trip-planner-locations-empty">
-              <p>Mẹo: Click vào bản đồ hoặc tìm kiếm để thêm điểm dừng.</p>
+              <p>Mẹo: click vào bản đồ hoặc tìm kiếm để thêm nhiều điểm đến cho lịch trình.</p>
             </div>
           ) : (
             <Reorder.Group
@@ -216,7 +288,7 @@ const TripPlanner = () => {
                     <GripVertical size={16} color="var(--text-muted)" />
                     <div className="trip-planner-location-info">
                       <div className="trip-planner-location-name">{loc.name}</div>
-                      <div className="trip-planner-location-sub">{idx + 1}. Stop</div>
+                      <div className="trip-planner-location-sub">{idx + 1}. Điểm đến</div>
                     </div>
                     <button
                       onClick={() => handleLocationRemove(loc.tripLocId || loc.id)}
@@ -233,7 +305,7 @@ const TripPlanner = () => {
           <div className="trip-planner-tip">
             <div className="trip-planner-tip-title">Gợi ý</div>
             <p className="trip-planner-tip-content">
-              Bạn có thể kéo thả để thay đổi thứ tự các địa điểm trong lịch trình của mình.
+              Có thể thêm nhiều điểm đến và kéo thả để đổi thứ tự. Điểm kết thúc sẽ tự lấy theo điểm cuối nếu bạn không nhập riêng.
             </p>
           </div>
         </motion.div>

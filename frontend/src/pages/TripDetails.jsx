@@ -50,12 +50,16 @@ const TripDetails = () => {
   const [editingLocations, setEditingLocations] = useState([]);
   const [editForm, setEditForm] = useState({
     title: '',
+    startLocation: '',
+    endLocation: '',
     startDate: '',
     endDate: '',
     budget: '',
     notes: ''
   });
   const locations = Array.isArray(trip?.locations) ? trip.locations : [];
+  const lastLocation = locations[locations.length - 1];
+  const displayEndLocation = trip?.endLocation || lastLocation?.name || trip?.destination || 'Chưa có điểm đến';
   const safeFormatDate = (value) => {
     if (!value) return '--/--/----';
     const date = new Date(value);
@@ -74,6 +78,8 @@ const TripDetails = () => {
     if (trip) {
       setEditForm({
         title: trip.title || trip.name || '',
+        startLocation: trip.startLocation || '',
+        endLocation: trip.endLocation || '',
         startDate: trip.startDate ? new Date(trip.startDate).toISOString().slice(0, 10) : '',
         endDate: trip.endDate ? new Date(trip.endDate).toISOString().slice(0, 10) : '',
         budget: trip.budget || '',
@@ -196,6 +202,8 @@ const TripDetails = () => {
       await updateTrip(trip.id, {
         name: editForm.title,
         title: editForm.title,
+        startLocation: editForm.startLocation,
+        endLocation: editForm.endLocation,
         startDate: editForm.startDate || null,
         endDate: editForm.endDate || null,
         budget: editForm.budget ? Number(editForm.budget) : null,
@@ -311,7 +319,7 @@ const TripDetails = () => {
               </div>
               <h1 className="trip-details-title">{trip.title || trip.name}</h1>
               <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>
-                {trip.destination || 'Chưa có điểm đến chính'} · {locations.length} điểm dừng
+                {trip.startLocation || 'Chưa có điểm đi'} → {displayEndLocation} · {locations.length} điểm dừng
               </p>
               <div className="trip-details-meta">
                 <div className="trip-details-meta-item">
@@ -327,6 +335,8 @@ const TripDetails = () => {
                 <div className="card" style={{ marginTop: '0.8rem', padding: '0.8rem' }}>
                   <div style={{ display: 'grid', gap: '0.6rem' }}>
                     <input className="btn-outline trip-planner-input" value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} placeholder="Tên chuyến đi" />
+                    <input className="btn-outline trip-planner-input" value={editForm.startLocation} onChange={(e) => setEditForm((p) => ({ ...p, startLocation: e.target.value }))} placeholder="Điểm đi" />
+                    <input className="btn-outline trip-planner-input" value={editForm.endLocation} onChange={(e) => setEditForm((p) => ({ ...p, endLocation: e.target.value }))} placeholder="Điểm kết thúc" />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                       <input type="date" className="btn-outline trip-planner-input" value={editForm.startDate} onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))} />
                       <input type="date" className="btn-outline trip-planner-input" value={editForm.endDate} onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))} />

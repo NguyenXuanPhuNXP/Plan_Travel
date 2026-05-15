@@ -3,6 +3,7 @@ import Layout from '../components/Layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import { useTrips } from '../context/TripContext';
 import { TRENDING_DESTINATIONS } from '../utils/mockData';
+import { locationService } from '../services/locationService';
 import { motion } from 'framer-motion';
 import { Calendar, MapPin, ArrowRight, Plus, Map as MapIcon, ChevronRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -13,6 +14,13 @@ import './Dashboard.css';
 const Dashboard = () => {
   const { user } = useAuth();
   const { trips } = useTrips();
+  const [hotLocations, setHotLocations] = React.useState([]);
+
+  React.useEffect(() => {
+    locationService.getHotLocations(4).then((locations) => {
+      if (locations.length > 0) setHotLocations(locations);
+    });
+  }, []);
 
   // Get recent trips (last 3)
   const recentTrips = [...trips]
@@ -141,10 +149,10 @@ const Dashboard = () => {
           </div>
           
           <div className="dashboard-trending-grid">
-            {TRENDING_DESTINATIONS.slice(0, 4).map((dest) => (
+            {(hotLocations.length > 0 ? hotLocations : TRENDING_DESTINATIONS.slice(0, 4)).map((dest) => (
               <Link key={dest.id} to={`/planner?destination=${encodeURIComponent(dest.name)}`} className="card dashboard-trending-card">
                 <img
-                  src={dest.image}
+                  src={dest.imageUrl || dest.image}
                   alt={dest.name}
                   className="dashboard-trending-img"
                   onError={(e) => {
@@ -153,7 +161,7 @@ const Dashboard = () => {
                 />
                 <div className="dashboard-trending-overlay">
                   <h3 className="dashboard-trending-title">{dest.name}</h3>
-                  <div className="dashboard-trending-desc">{dest.trips}+ lượt lên kế hoạch</div>
+                  <div className="dashboard-trending-desc">{dest.planCount ?? dest.trips ?? 0}+ lượt lên kế hoạch</div>
                 </div>
               </Link>
             ))}

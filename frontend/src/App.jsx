@@ -14,11 +14,13 @@ import TripDetails from './pages/TripDetails';
 import Profile from './pages/Profile';
 import SharedTripView from './pages/SharedTripView';
 import Notifications from './pages/Notifications';
-import SettingsPage from './pages/SettingsPage';
 import Explore from './pages/Explore';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminUsers from './pages/AdminUsers';
+import AdminExplore from './pages/AdminExplore';
 
 // Protected Route Component
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
@@ -31,6 +33,10 @@ const ProtectedRoute = ({ children }) => {
   
   if (!user) {
     return <Navigate to="/login" />;
+  }
+
+  if (adminOnly && !(user.role === 1 || user.role === 'admin')) {
+    return <Navigate to="/" />;
   }
   
   return children;
@@ -95,9 +101,21 @@ function App() {
         </ProtectedRoute>
       } />
 
-      <Route path="/settings" element={
-        <ProtectedRoute>
-          <SettingsPage />
+      <Route path="/admin" element={
+        <ProtectedRoute adminOnly>
+          <AdminDashboard />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/users" element={
+        <ProtectedRoute adminOnly>
+          <AdminUsers />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/explore" element={
+        <ProtectedRoute adminOnly>
+          <AdminExplore />
         </ProtectedRoute>
       } />
       

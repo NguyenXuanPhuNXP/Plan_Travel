@@ -30,6 +30,43 @@ export const locationService = {
     return response.data;
   },
 
+  searchLocations: async (query, limit = 30) => {
+    const response = await apiClient.get('/locations', {
+      params: {
+        region: query || undefined,
+        limit
+      }
+    });
+    const locations = response.data || [];
+    return {
+      locations: locations.map((loc) => ({
+        ...loc,
+        id: String(loc.id),
+        latitude: loc.latitude ?? loc.lat,
+        longitude: loc.longitude ?? loc.lng,
+        imageUrl: loc.image_url || loc.imageUrl,
+        estimatedCost: loc.estimated_cost ?? loc.estimatedCost,
+        suggestedDuration: loc.suggested_duration || loc.suggestedDuration
+      }))
+    };
+  },
+
+  createManual: async (location) => {
+    const response = await apiClient.post('/locations', {
+      name: location.name,
+      address: location.address || '',
+      latitude: location.latitude ?? location.lat,
+      longitude: location.longitude ?? location.lng,
+      category: location.category || 'manual',
+      region: location.region || '',
+      country: location.country || 'Vietnam',
+      imageUrl: location.imageUrl || location.image,
+      estimatedCost: location.estimatedCost || 0,
+      suggestedDuration: location.suggestedDuration || null
+    });
+    return response.data;
+  },
+
   /**
    * Tìm kiếm hybrid (Semantic + Keyword) từ Python AI Service
    */
@@ -60,6 +97,16 @@ export const locationService = {
     } catch (err) {
       console.warn('Failed to fetch destination stats:', err.message);
       return {};
+    }
+  },
+
+  getHotLocations: async (limit = 10) => {
+    try {
+      const response = await apiClient.get('/locations/hot', { params: { limit } });
+      return response.data;
+    } catch (err) {
+      console.warn('Failed to fetch hot locations:', err.message);
+      return [];
     }
   }
 };

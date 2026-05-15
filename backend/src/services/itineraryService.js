@@ -9,6 +9,8 @@ export async function createItinerary(userId, data) {
             user_id: BigInt(userId),
             name: data.name,
             destination: data.destination || null,
+            start_location: data.startLocation || null,
+            end_location: data.endLocation || null,
             trip_date: data.tripDate ? new Date(data.tripDate) : null,
             start_time: data.startDate ? new Date(data.startDate) : null,
             end_time: data.endDate ? new Date(data.endDate) : null,
@@ -98,6 +100,8 @@ export async function updateItinerary(itineraryId, userId, data) {
     const updateData = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.destination !== undefined) updateData.destination = data.destination;
+    if (data.startLocation !== undefined) updateData.start_location = data.startLocation;
+    if (data.endLocation !== undefined) updateData.end_location = data.endLocation;
     if (data.tripDate !== undefined) updateData.trip_date = data.tripDate ? new Date(data.tripDate) : null;
     if (data.startDate !== undefined) updateData.start_time = data.startDate ? new Date(data.startDate) : null;
     if (data.endDate !== undefined) updateData.end_time = data.endDate ? new Date(data.endDate) : null;
@@ -110,7 +114,13 @@ export async function updateItinerary(itineraryId, userId, data) {
 
     const updated = await prisma.itineraries.update({
         where: { id: BigInt(itineraryId) },
-        data: updateData
+        data: updateData,
+        include: {
+            itinerary_items: {
+                include: { locations: true, businesses: true },
+                orderBy: { sort_order: "asc" }
+            }
+        }
     });
 
     return serializeItinerary(updated);
@@ -269,6 +279,8 @@ function serializeItinerary(it) {
         userId: it.user_id?.toString(),
         name: it.name,
         destination: it.destination,
+        startLocation: it.start_location,
+        endLocation: it.end_location,
         tripDate: it.trip_date,
         startDate: it.start_time,
         endDate: it.end_time,

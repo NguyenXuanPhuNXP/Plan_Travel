@@ -185,6 +185,8 @@ function serializeSharedItinerary(it) {
         id: it.id?.toString(),
         name: it.name,
         destination: it.destination,
+        startLocation: it.start_location,
+        endLocation: it.end_location,
         tripDate: it.trip_date,
         startDate: it.start_time,
         endDate: it.end_time,
@@ -295,6 +297,9 @@ export async function updateSharedItinerary(shareToken, userId, data) {
 
     const updateData = {};
     if (data.name !== undefined) updateData.name = data.name;
+    if (data.destination !== undefined) updateData.destination = data.destination;
+    if (data.startLocation !== undefined) updateData.start_location = data.startLocation;
+    if (data.endLocation !== undefined) updateData.end_location = data.endLocation;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.startDate !== undefined) updateData.start_time = data.startDate ? new Date(data.startDate) : null;
     if (data.endDate !== undefined) updateData.end_time = data.endDate ? new Date(data.endDate) : null;

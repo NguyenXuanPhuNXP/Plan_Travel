@@ -9,6 +9,7 @@ import locationRoutes from "./routes/locations.js";
 import itineraryRoutes from "./routes/itineraries.js";
 import suggestionRoutes from "./routes/suggestions.js";
 import sharingRoutes from "./routes/sharing.js";
+import adminRoutes from "./routes/admin.js";
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use("/api/locations", locationRoutes);
 app.use("/api/itineraries", itineraryRoutes);
 app.use("/api/suggestions", suggestionRoutes);
 app.use("/api/sharing", sharingRoutes);
+app.use("/api/admin", adminRoutes);
 
 /* =========================
    START SERVER

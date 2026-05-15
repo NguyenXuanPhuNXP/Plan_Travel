@@ -48,6 +48,8 @@ const normalizeTrip = (trip) => {
     status: toUiStatus(trip?.status),
     title: trip?.title || trip?.name || 'Chuyến đi',
     notes: trip?.notes || trip?.description || '',
+    startLocation: trip?.startLocation || '',
+    endLocation: trip?.endLocation || '',
     budget: trip?.budget ? Number(trip.budget) : 0,
     locations
   };
@@ -110,7 +112,16 @@ export const TripProvider = ({ children }) => {
     try {
       const updated = await itineraryService.update(tripId, payload);
       const normalized = normalizeTrip(updated);
-      setTrips(prev => prev.map(t => t.id === String(tripId) ? { ...t, ...normalized } : t));
+      setTrips(prev => prev.map(t => {
+        if (t.id !== String(tripId)) return t;
+
+        const hasUpdatedLocations = normalized.locations.length > 0;
+        return {
+          ...t,
+          ...normalized,
+          locations: hasUpdatedLocations ? normalized.locations : t.locations
+        };
+      }));
       return normalized;
     } catch (error) {
       console.error('Failed to update trip:', error);

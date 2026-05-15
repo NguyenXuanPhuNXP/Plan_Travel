@@ -1,11 +1,10 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Map as MapIcon, 
-  History, 
-  User, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Map as MapIcon,
+  History,
+  User,
   PlusCircle,
   Compass,
   Sparkles,
@@ -15,6 +14,7 @@ import './Sidebar.css';
 
 const Sidebar = () => {
   const location = useLocation();
+
   const menuItems = [
     { key: 'dashboard', icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/', matchStartsWith: ['/'] },
     { key: 'planner-ai', icon: Sparkles, label: 'Lập kế hoạch (AI)', path: '/planner', matchStartsWith: ['/planner'] },
@@ -26,7 +26,6 @@ const Sidebar = () => {
   const profileItems = [
     { icon: User, label: 'Hồ sơ cá nhân', path: '/profile' },
     { icon: Bell, label: 'Thông báo', path: '/notifications' },
-    { icon: Settings, label: 'Cài đặt', path: '/settings' },
   ];
 
   const isMenuItemActive = (item) => {
@@ -40,31 +39,26 @@ const Sidebar = () => {
   return (
     <aside className="sidebar-container">
       <div>
-        <div className="sidebar-section-title">
-          Menu chính
-        </div>
+        <div className="sidebar-section-title">Menu chính</div>
         <nav className="sidebar-nav">
           {menuItems.map((item) => {
             const isActive = isMenuItemActive(item);
-
             return (
-            <NavLink
-              key={item.key}
-              to={item.path}
-              className={`sidebar-link ${isActive ? 'active' : ''}`}
-            >
-              <item.icon size={20} />
-              {item.label}
-            </NavLink>
-          );
+              <NavLink
+                key={item.key}
+                to={item.path}
+                className={`sidebar-link ${isActive ? 'active' : ''}`}
+              >
+                <item.icon size={20} />
+                {item.label}
+              </NavLink>
+            );
           })}
         </nav>
       </div>
 
       <div className="sidebar-bottom">
-        <div className="sidebar-section-title">
-          Tài khoản
-        </div>
+        <div className="sidebar-section-title">Tài khoản</div>
         <nav className="sidebar-nav">
           {profileItems.map((item) => (
             <NavLink

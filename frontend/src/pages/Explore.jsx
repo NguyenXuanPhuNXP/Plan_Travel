@@ -22,10 +22,31 @@ const Explore = () => {
   const [landmarkSlideIndex, setLandmarkSlideIndex] = useState(0);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [hotDestinations, setHotDestinations] = useState([]);
+  const baseDestinations = hotDestinations.length > 0 ? hotDestinations : TRENDING_DESTINATIONS;
+
+  useEffect(() => {
+    locationService.getHotLocations(12).then((locations) => {
+      const mapped = locations.map((loc) => ({
+        id: loc.id,
+        name: loc.name,
+        image: loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
+        trips: loc.planCount || 0,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        bestSeason: 'Quanh năm',
+        avgCost: loc.estimatedCost || 0,
+        idealDays: loc.suggestedDuration || '1-2 ngày',
+        tags: [loc.category || 'nature'],
+        description: loc.description || loc.address || 'Địa điểm đang được nhiều người thêm vào kế hoạch.'
+      }));
+      if (mapped.length > 0) setHotDestinations(mapped);
+    }).catch(() => {});
+  }, []);
 
   // Fetch weather for all destinations
   useEffect(() => {
-    TRENDING_DESTINATIONS.forEach(async (dest) => {
+    baseDestinations.forEach(async (dest) => {
       if (dest.latitude && dest.longitude && !weatherCache[dest.id]) {
         try {
           const data = await WeatherService.getWeather(dest.latitude, dest.longitude);
@@ -35,7 +56,7 @@ const Explore = () => {
         }
       }
     });
-  }, []);
+  }, [baseDestinations]);
 
   // Fetch destination plan counts
   useEffect(() => {
@@ -90,7 +111,7 @@ const Explore = () => {
       return searchResults;
     }
 
-    return TRENDING_DESTINATIONS.filter(dest => {
+    return baseDestinations.filter(dest => {
       const matchSearch = !searchQuery || 
         dest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         dest.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -100,7 +121,7 @@ const Explore = () => {
 
       return matchSearch && matchTag;
     });
-  }, [searchQuery, activeTag, searchResults, isSearching]);
+  }, [searchQuery, activeTag, searchResults, isSearching, baseDestinations]);
 
   const handleCardClick = (dest) => {
     // Nếu là kết quả từ hybrid search (có id là number) hoặc từ mock data
@@ -120,7 +141,7 @@ const Explore = () => {
 
   const allTags = Object.entries(PREFERENCE_TAGS);
 
-  const totalPlans = TRENDING_DESTINATIONS.reduce((sum, d) => sum + getPlanCount(d), 0);
+  const totalPlans = baseDestinations.reduce((sum, d) => sum + getPlanCount(d), 0);
 
   const getWeatherDisplay = (destId) => {
     const w = weatherCache[destId];
@@ -162,7 +183,7 @@ const Explore = () => {
           {/* Stats */}
           <div className="explore-stats-row">
             <div className="explore-stat">
-              <div className="explore-stat-value">{TRENDING_DESTINATIONS.length}</div>
+              <div className="explore-stat-value">{baseDestinations.length}</div>
               <div className="explore-stat-label">Điểm đến</div>
             </div>
             <div className="explore-stat">
