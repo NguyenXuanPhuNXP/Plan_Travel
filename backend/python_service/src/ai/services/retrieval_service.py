@@ -1,6 +1,6 @@
 from typing import List
-from src.ai.services.db_reader import get_connection
-from src.ai.config.ai_settings import MAX_RETRIEVED_LOCATIONS
+from ai.services.db_reader import get_connection
+from ai.config.ai_settings import MAX_RETRIEVED_LOCATIONS
 
 
 CATEGORY_KEYWORDS = {

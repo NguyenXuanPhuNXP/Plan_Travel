@@ -2,7 +2,7 @@ import json
 import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer, util
-from src.ai.services.db_reader import get_connection
+from ai.services.db_reader import get_connection
 
 class SearchService:
     def __init__(self):

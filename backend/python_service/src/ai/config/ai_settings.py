@@ -1,4 +1,4 @@
-from src.ai.services.prompt_builder import BASE_DIR
+from ai.services.prompt_builder import BASE_DIR
 from pathlib import Path
 from dotenv import load_dotenv
 import os

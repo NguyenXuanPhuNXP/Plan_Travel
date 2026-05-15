@@ -1,7 +1,7 @@
 import json
 import pymysql
 from sentence_transformers import SentenceTransformer
-from src.ai.config.ai_settings import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+from ai.config.ai_settings import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 
 def get_connection():
     return pymysql.connect(

@@ -6,9 +6,9 @@ import httpx
 from dotenv import load_dotenv
 
 # Import logic from other files
-from src.ai.services.planner_service import PlannerService
-from src.ai.services.search_service import SearchService
-from src.ai.schemas.trip_plan_schema import (
+from ai.services.planner_service import PlannerService
+from ai.services.search_service import SearchService
+from ai.schemas.trip_plan_schema import (
     TripRecommendationRequest,
     LocationRankingRequest,
     OrganizePlanRequest,

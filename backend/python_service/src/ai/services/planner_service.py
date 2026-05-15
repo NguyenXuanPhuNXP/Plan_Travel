@@ -3,8 +3,8 @@ from google import genai
 from google.genai import types
 from pydantic import ValidationError
 
-from src.ai.config.ai_settings import GEMINI_API_KEY, GEMINI_MODEL
-from src.ai.schemas.trip_plan_schema import (
+from ai.config.ai_settings import GEMINI_API_KEY, GEMINI_MODEL
+from ai.schemas.trip_plan_schema import (
     TripRecommendationRequest,
     TripPlanResponse,
     LocationRankingRequest,
@@ -12,8 +12,8 @@ from src.ai.schemas.trip_plan_schema import (
     OrganizePlanRequest,
     OrganizedTripPlan,
 )
-from src.ai.services.prompt_builder import build_messages
-from src.ai.services.retrieval_service import (
+from ai.services.prompt_builder import build_messages
+from ai.services.retrieval_service import (
     retrieve_locations,
     build_context_from_locations,
 )

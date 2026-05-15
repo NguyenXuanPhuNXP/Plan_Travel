@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.ai.schemas.trip_plan_schema import (
+from ai.schemas.trip_plan_schema import (
     TripRecommendationRequest, 
     TripPlanResponse,
     LocationRankingRequest,
@@ -11,8 +11,8 @@ from src.ai.schemas.trip_plan_schema import (
     HybridSearchRequest,
     HybridSearchResponse
 )
-from src.ai.services.planner_service import PlannerService
-from src.ai.services.search_service import SearchService
+from ai.services.planner_service import PlannerService
+from ai.services.search_service import SearchService
 
 app = FastAPI(title="AI Recommendation Service")
 
