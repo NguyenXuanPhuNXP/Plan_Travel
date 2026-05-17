@@ -16,6 +16,62 @@ const DEFAULT_CATEGORIES = [
     "accommodation.hotel"
 ];
 
+const toJsonObject = (value) => {
+    if (!value) return {};
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value);
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+    return typeof value === "object" && !Array.isArray(value) ? value : {};
+};
+
+const toJsonArray = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return value.split(",").map((item) => item.trim()).filter(Boolean);
+        }
+    }
+    return [];
+};
+
+const serializeLocation = (loc) => {
+    const rawJson = toJsonObject(loc.raw_json);
+    const display = toJsonObject(rawJson.adminDisplay);
+    return {
+        id: loc.id?.toString(),
+        name: loc.name,
+        description: loc.description,
+        address: loc.address,
+        country: loc.country,
+        province: loc.province,
+        city: loc.city,
+        district: loc.district,
+        region: loc.region,
+        category: loc.category,
+        latitude: Number(loc.latitude),
+        longitude: Number(loc.longitude),
+        imageUrl: loc.image_url,
+        image_url: loc.image_url,
+        estimatedCost: loc.estimated_cost,
+        estimated_cost: loc.estimated_cost,
+        suggestedDuration: loc.suggested_duration,
+        suggested_duration: loc.suggested_duration,
+        rating: loc.rating ? Number(loc.rating) : null,
+        bestSeason: display.bestSeason || "Quanh năm",
+        tags: toJsonArray(loc.tags),
+        planCount: Number(loc.plan_count || 0)
+    };
+};
+
 /* =========================
    GET LOCATIONS
    Có hỗ trợ lọc cơ bản
@@ -47,15 +103,7 @@ router.get("/", async (req, res) => {
         // Prisma raw query because of dynamic SQL and JSON_CONTAINS
         const rows = await prisma.$queryRawUnsafe(sql, ...params);
         
-        // Convert BigInt to string/number for JSON serialization
-        const serializedRows = rows.map(row => {
-            return {
-                ...row,
-                id: row.id ? row.id.toString() : row.id
-            }
-        });
-
-        res.json(serializedRows);
+        res.json(rows.map(serializeLocation));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -289,20 +337,7 @@ router.get("/hot", async (req, res) => {
             LIMIT ${limit}
         `;
 
-        res.json(rows.map((loc) => ({
-            id: loc.id?.toString(),
-            name: loc.name,
-            description: loc.description,
-            address: loc.address,
-            region: loc.region,
-            category: loc.category,
-            latitude: Number(loc.latitude),
-            longitude: Number(loc.longitude),
-            imageUrl: loc.image_url,
-            estimatedCost: loc.estimated_cost,
-            suggestedDuration: loc.suggested_duration,
-            planCount: Number(loc.plan_count || 0)
-        })));
+        res.json(rows.map(serializeLocation));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -316,7 +351,7 @@ router.get("/:id", async (req, res) => {
 
         const rows = await prisma.$queryRaw`
             SELECT id, name, address, country, province, city, district, region, category,
-                   latitude, longitude, estimated_cost, suggested_duration, image_url, rating, tags
+                   latitude, longitude, estimated_cost, suggested_duration, image_url, rating, tags, raw_json
             FROM locations
             WHERE id = ${BigInt(req.params.id)}
             LIMIT 1
@@ -325,24 +360,7 @@ router.get("/:id", async (req, res) => {
         const loc = rows?.[0];
         if (!loc) return res.status(404).json({ error: "Location not found" });
 
-        res.json({
-            id: loc.id?.toString(),
-            name: loc.name,
-            address: loc.address,
-            country: loc.country,
-            province: loc.province,
-            city: loc.city,
-            district: loc.district,
-            region: loc.region,
-            category: loc.category,
-            latitude: Number(loc.latitude),
-            longitude: Number(loc.longitude),
-            estimatedCost: loc.estimated_cost,
-            suggestedDuration: loc.suggested_duration,
-            imageUrl: loc.image_url,
-            rating: loc.rating ? Number(loc.rating) : null,
-            tags: loc.tags
-        });
+        res.json(serializeLocation(loc));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

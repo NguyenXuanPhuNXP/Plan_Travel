@@ -11,6 +11,15 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import './Dashboard.css';
 
+const DEFAULT_LOCATION_IMAGE = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800';
+
+const normalizeFeaturedLocation = (loc) => ({
+  ...loc,
+  id: String(loc.id),
+  image: loc.imageUrl || loc.image_url || loc.image || DEFAULT_LOCATION_IMAGE,
+  planCount: Number(loc.planCount ?? 0) || 0
+});
+
 const Dashboard = () => {
   const { user } = useAuth();
   const { trips } = useTrips();
@@ -18,7 +27,7 @@ const Dashboard = () => {
 
   React.useEffect(() => {
     locationService.getHotLocations(4).then((locations) => {
-      if (locations.length > 0) setHotLocations(locations);
+      if (locations.length > 0) setHotLocations(locations.map(normalizeFeaturedLocation));
     });
   }, []);
 
@@ -149,14 +158,17 @@ const Dashboard = () => {
           </div>
           
           <div className="dashboard-trending-grid">
-            {(hotLocations.length > 0 ? hotLocations : TRENDING_DESTINATIONS.slice(0, 4)).map((dest) => (
-              <Link key={dest.id} to={`/planner?destination=${encodeURIComponent(dest.name)}`} className="card dashboard-trending-card">
+            {(hotLocations.length > 0
+              ? hotLocations
+              : TRENDING_DESTINATIONS.slice(0, 4).map((dest) => normalizeFeaturedLocation({ ...dest, planCount: 0, trips: 0 }))
+            ).map((dest) => (
+              <Link key={dest.id} to={`/planner?destination=${encodeURIComponent(dest.name)}&locationId=${encodeURIComponent(dest.id)}`} className="card dashboard-trending-card">
                 <img
-                  src={dest.imageUrl || dest.image}
+                  src={dest.image}
                   alt={dest.name}
                   className="dashboard-trending-img"
                   onError={(e) => {
-                    e.currentTarget.src = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800';
+                    e.currentTarget.src = DEFAULT_LOCATION_IMAGE;
                   }}
                 />
                 <div className="dashboard-trending-overlay">

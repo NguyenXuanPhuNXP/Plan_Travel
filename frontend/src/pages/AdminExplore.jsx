@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../Components/AdminLayout/AdminLayout';
 import { adminService } from '../services/adminService';
+import { PREFERENCE_TAGS } from '../utils/mockData';
 import { Save, MapPin } from 'lucide-react';
 import './Admin.css';
+
+const preferenceEntries = Object.entries(PREFERENCE_TAGS);
 
 const AdminExplore = () => {
   const [locations, setLocations] = useState([]);
@@ -16,6 +19,24 @@ const AdminExplore = () => {
     setLocations((prev) => prev.map((loc) => String(loc.id) === String(id) ? { ...loc, [key]: value } : loc));
   };
 
+  const handleImageFile = (id, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => updateLocal(id, 'imageUrl', reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const toggleTag = (id, tag) => {
+    setLocations((prev) => prev.map((loc) => {
+      if (String(loc.id) !== String(id)) return loc;
+      const currentTags = Array.isArray(loc.tags) ? loc.tags : [];
+      const nextTags = currentTags.includes(tag)
+        ? currentTags.filter((item) => item !== tag)
+        : [...currentTags, tag];
+      return { ...loc, tags: nextTags };
+    }));
+  };
+
   const saveLocation = async (loc) => {
     setSavingId(loc.id);
     try {
@@ -25,9 +46,11 @@ const AdminExplore = () => {
         category: loc.category,
         imageUrl: loc.imageUrl,
         estimatedCost: loc.estimatedCost,
-        suggestedDuration: loc.suggestedDuration
+        suggestedDuration: loc.suggestedDuration,
+        bestSeason: loc.bestSeason,
+        tags: Array.isArray(loc.tags) ? loc.tags : []
       });
-      setLocations((prev) => prev.map((item) => String(item.id) === String(loc.id) ? { ...item, ...updated, planCount: loc.planCount } : item));
+      setLocations((prev) => prev.map((item) => String(item.id) === String(loc.id) ? { ...item, ...updated } : item));
     } finally {
       setSavingId(null);
     }
@@ -53,12 +76,32 @@ const AdminExplore = () => {
               />
               <input className="admin-input" value={loc.name || ''} onChange={(e) => updateLocal(loc.id, 'name', e.target.value)} />
               <textarea className="admin-textarea" value={loc.description || ''} onChange={(e) => updateLocal(loc.id, 'description', e.target.value)} placeholder="Mô tả hiển thị" />
-              <input className="admin-input" value={loc.imageUrl || ''} onChange={(e) => updateLocal(loc.id, 'imageUrl', e.target.value)} placeholder="Image URL" />
+              <label className="admin-file-picker">
+                <span>Chọn ảnh hiển thị</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageFile(loc.id, e.target.files?.[0])}
+                />
+              </label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <input className="admin-input" value={loc.category || ''} onChange={(e) => updateLocal(loc.id, 'category', e.target.value)} placeholder="Loại" />
                 <input className="admin-input" value={loc.suggestedDuration || ''} onChange={(e) => updateLocal(loc.id, 'suggestedDuration', e.target.value)} placeholder="Thời lượng" />
               </div>
               <input className="admin-input" type="number" value={loc.estimatedCost || 0} onChange={(e) => updateLocal(loc.id, 'estimatedCost', e.target.value)} placeholder="Chi phí" />
+              <input className="admin-input" value={loc.bestSeason || ''} onChange={(e) => updateLocal(loc.id, 'bestSeason', e.target.value)} placeholder="Mùa đẹp" />
+              <div className="admin-vibe-tags">
+                {preferenceEntries.map(([tag, info]) => (
+                  <button
+                    type="button"
+                    key={tag}
+                    className={`admin-vibe-tag ${Array.isArray(loc.tags) && loc.tags.includes(tag) ? 'active' : ''}`}
+                    onClick={() => toggleTag(loc.id, tag)}
+                  >
+                    {info.label}
+                  </button>
+                ))}
+              </div>
               <div className="admin-actions" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="admin-badge ok"><MapPin size={13} /> {loc.planCount} plan</span>
                 <button className="btn btn-primary" onClick={() => saveLocation(loc)} disabled={savingId === loc.id}>

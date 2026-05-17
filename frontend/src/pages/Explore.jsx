@@ -12,18 +12,85 @@ import {
 } from 'lucide-react';
 import './Explore.css';
 
+const DEFAULT_LOCATION_IMAGE = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800';
+
+const CATEGORY_TO_VIBE_TAGS = {
+  tourism: ['culture'],
+  entertainment: ['culture'],
+  catering: ['food'],
+  cafe: ['food'],
+  restaurant: ['food'],
+  accommodation: ['relax'],
+  beach: ['beach'],
+  mountain: ['mountain'],
+  nature: ['nature'],
+  photography: ['photography'],
+  shopping: ['shopping'],
+  nightlife: ['nightlife'],
+  adventure: ['adventure'],
+  relax: ['relax'],
+  'du-lich': ['culture'],
+  'quan-an': ['food'],
+  'bao-tang': ['culture'],
+  'khach-san': ['relax'],
+  bien: ['beach'],
+  nui: ['mountain'],
+  ho: ['nature'],
+  'mua-sam': ['shopping'],
+  'tham-quan': ['culture']
+};
+
+const normalizeVibeTags = (tags = [], category = '') => {
+  const rawTags = Array.isArray(tags) ? tags : String(tags || '').split(',');
+  const mapped = rawTags.flatMap((tag) => {
+    const normalized = String(tag || '').trim();
+    if (!normalized) return [];
+    if (PREFERENCE_TAGS[normalized]) return [normalized];
+    return CATEGORY_TO_VIBE_TAGS[normalized] || [];
+  });
+
+  String(category || '').split(/[.,_\s]+/).forEach((part) => {
+    if (PREFERENCE_TAGS[part]) mapped.push(part);
+    if (CATEGORY_TO_VIBE_TAGS[part]) mapped.push(...CATEGORY_TO_VIBE_TAGS[part]);
+  });
+
+  return [...new Set(mapped)].filter((tag) => PREFERENCE_TAGS[tag]);
+};
+
+const normalizeExploreDestination = (loc, fallbackPlanCount = 0) => {
+  const tags = normalizeVibeTags(loc.tags, loc.category);
+  const planCount = Number(loc.planCount ?? loc.trips ?? fallbackPlanCount) || 0;
+  return {
+    ...loc,
+    id: String(loc.id),
+    image: loc.imageUrl || loc.image_url || loc.image || DEFAULT_LOCATION_IMAGE,
+    planCount,
+    trips: planCount,
+    latitude: loc.latitude ?? loc.lat,
+    longitude: loc.longitude ?? loc.lng,
+    bestSeason: loc.bestSeason || 'Quanh năm',
+    avgCost: Number(loc.estimatedCost ?? loc.estimated_cost ?? loc.avgCost ?? 0) || 0,
+    idealDays: loc.suggestedDuration || loc.suggested_duration || loc.idealDays || '2-4 giờ',
+    tags: tags.length ? tags : ['culture'],
+    description: loc.description || loc.address || 'Địa điểm đang được đồng bộ từ khu vực quản trị.'
+  };
+};
+
 const Explore = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState('all');
   const [weatherCache, setWeatherCache] = useState({});
-  const [destinationStats, setDestinationStats] = useState({});
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [landmarkSlideIndex, setLandmarkSlideIndex] = useState(0);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hotDestinations, setHotDestinations] = useState([]);
-  const baseDestinations = hotDestinations.length > 0 ? hotDestinations : TRENDING_DESTINATIONS;
+  const fallbackDestinations = useMemo(
+    () => TRENDING_DESTINATIONS.map((dest) => normalizeExploreDestination({ ...dest, planCount: 0, trips: 0 })),
+    []
+  );
+  const baseDestinations = hotDestinations.length > 0 ? hotDestinations : fallbackDestinations;
 
   useEffect(() => {
     locationService.getHotLocations(12).then((locations) => {
@@ -40,7 +107,12 @@ const Explore = () => {
         tags: [loc.category || 'nature'],
         description: loc.description || loc.address || 'Địa điểm đang được nhiều người thêm vào kế hoạch.'
       }));
-      if (mapped.length > 0) setHotDestinations(mapped);
+      if (mapped.length > 0) {
+        setHotDestinations(mapped.map((loc, index) => normalizeExploreDestination({
+          ...loc,
+          ...locations[index]
+        })));
+      }
     }).catch(() => {});
   }, []);
 
@@ -58,23 +130,8 @@ const Explore = () => {
     });
   }, [baseDestinations]);
 
-  // Fetch destination plan counts
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const stats = await locationService.getDestinationStats();
-        if (stats && typeof stats === 'object') {
-          setDestinationStats(stats);
-        }
-      } catch (err) {
-        // Use mock data as fallback
-      }
-    };
-    fetchStats();
-  }, []);
-
   const getPlanCount = (dest) => {
-    return destinationStats[dest.name] || dest.trips || 0;
+    return Number(dest.planCount ?? dest.trips ?? 0) || 0;
   };
 
   useEffect(() => {
@@ -91,7 +148,7 @@ const Explore = () => {
         setIsSearching(true);
         try {
           const results = await locationService.hybridSearch(searchQuery);
-          setSearchResults(results);
+          setSearchResults((results || []).map((loc) => normalizeExploreDestination(loc)));
         } catch (err) {
           console.error("Hybrid search error:", err);
           setSearchResults([]);
@@ -262,7 +319,7 @@ const Explore = () => {
                     alt={dest.name}
                     className="explore-card-img"
                     onError={(e) => {
-                      e.currentTarget.src = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800';
+                      e.currentTarget.src = DEFAULT_LOCATION_IMAGE;
                     }}
                   />
                   <div className="explore-card-overlay">

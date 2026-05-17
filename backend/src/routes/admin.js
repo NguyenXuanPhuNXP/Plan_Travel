@@ -25,20 +25,57 @@ const serializeUser = (user, extra = {}) => ({
     ...extra
 });
 
-const serializeLocation = (loc) => ({
-    id: loc.id?.toString(),
-    name: loc.name,
-    address: loc.address,
-    region: loc.region,
-    category: loc.category,
-    description: loc.description,
-    latitude: Number(loc.latitude),
-    longitude: Number(loc.longitude),
-    imageUrl: loc.image_url,
-    estimatedCost: loc.estimated_cost,
-    suggestedDuration: loc.suggested_duration,
-    planCount: Number(loc.plan_count || 0)
-});
+const toJsonObject = (value) => {
+    if (!value) return {};
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value);
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+    return typeof value === "object" && !Array.isArray(value) ? value : {};
+};
+
+const toJsonArray = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return value.split(",").map((item) => item.trim()).filter(Boolean);
+        }
+    }
+    return [];
+};
+
+const getDisplayMeta = (loc) => {
+    const raw = toJsonObject(loc.raw_json);
+    return toJsonObject(raw.adminDisplay);
+};
+
+const serializeLocation = (loc) => {
+    const display = getDisplayMeta(loc);
+    return {
+        id: loc.id?.toString(),
+        name: loc.name,
+        address: loc.address,
+        region: loc.region,
+        category: loc.category,
+        description: loc.description,
+        latitude: Number(loc.latitude),
+        longitude: Number(loc.longitude),
+        imageUrl: loc.image_url,
+        estimatedCost: loc.estimated_cost,
+        suggestedDuration: loc.suggested_duration,
+        bestSeason: display.bestSeason || "Quanh năm",
+        tags: toJsonArray(loc.tags),
+        planCount: Number(loc.plan_count || 0)
+    };
+};
 
 router.get("/stats", async (_req, res) => {
     try {
@@ -157,6 +194,16 @@ router.get("/hot-locations", async (_req, res) => {
 
 router.patch("/hot-locations/:id", async (req, res) => {
     try {
+        const locationId = BigInt(req.params.id);
+        const existing = await prisma.locations.findUnique({
+            where: { id: locationId },
+            select: { raw_json: true }
+        });
+
+        if (!existing) {
+            return res.status(404).json({ message: "Khong tim thay dia diem." });
+        }
+
         const data = {};
         if (req.body.name !== undefined) data.name = req.body.name;
         if (req.body.description !== undefined) data.description = req.body.description;
@@ -164,14 +211,39 @@ router.patch("/hot-locations/:id", async (req, res) => {
         if (req.body.imageUrl !== undefined) data.image_url = req.body.imageUrl;
         if (req.body.estimatedCost !== undefined) data.estimated_cost = Number(req.body.estimatedCost) || 0;
         if (req.body.suggestedDuration !== undefined) data.suggested_duration = req.body.suggestedDuration;
+        if (req.body.tags !== undefined) data.tags = toJsonArray(req.body.tags);
+        if (req.body.bestSeason !== undefined) {
+            const rawJson = toJsonObject(existing.raw_json);
+            data.raw_json = {
+                ...rawJson,
+                adminDisplay: {
+                    ...toJsonObject(rawJson.adminDisplay),
+                    bestSeason: req.body.bestSeason
+                }
+            };
+        }
         data.updated_at = new Date();
 
-        const updated = await prisma.locations.update({
-            where: { id: BigInt(req.params.id) },
+        await prisma.locations.update({
+            where: { id: locationId },
             data
         });
 
-        res.json(serializeLocation({ ...updated, plan_count: 0 }));
+        const rows = await prisma.$queryRaw`
+            SELECT l.*,
+                   COALESCE(pc.plan_count, 0) AS plan_count
+            FROM locations l
+            LEFT JOIN (
+                SELECT location_id, COUNT(*) AS plan_count
+                FROM itinerary_items
+                WHERE location_id IS NOT NULL
+                GROUP BY location_id
+            ) pc ON pc.location_id = l.id
+            WHERE l.id = ${locationId}
+            LIMIT 1
+        `;
+
+        res.json(serializeLocation(rows[0]));
     } catch (error) {
         res.status(500).json({ message: error.message || "Không thể cập nhật địa điểm." });
     }
