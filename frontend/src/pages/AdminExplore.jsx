@@ -10,6 +10,8 @@ const preferenceEntries = Object.entries(PREFERENCE_TAGS);
 const AdminExplore = () => {
   const [locations, setLocations] = useState([]);
   const [savingId, setSavingId] = useState(null);
+  const [uploadingId, setUploadingId] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     adminService.getHotLocations().then(setLocations).catch(console.error);
@@ -19,11 +21,27 @@ const AdminExplore = () => {
     setLocations((prev) => prev.map((loc) => String(loc.id) === String(id) ? { ...loc, [key]: value } : loc));
   };
 
-  const handleImageFile = (id, file) => {
-    if (!file) return;
+  const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => updateLocal(id, 'imageUrl', reader.result);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
     reader.readAsDataURL(file);
+  });
+
+  const handleImageFile = async (id, file) => {
+    if (!file) return;
+    setErrorMessage('');
+    setUploadingId(id);
+    try {
+      const imageDataUrl = await readFileAsDataUrl(file);
+      updateLocal(id, 'imageUrl', imageDataUrl);
+      const uploaded = await adminService.uploadLocationImage(imageDataUrl);
+      updateLocal(id, 'imageUrl', uploaded.imageUrl);
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || 'Không thể tải ảnh lên.');
+    } finally {
+      setUploadingId(null);
+    }
   };
 
   const toggleTag = (id, tag) => {
@@ -39,6 +57,7 @@ const AdminExplore = () => {
 
   const saveLocation = async (loc) => {
     setSavingId(loc.id);
+    setErrorMessage('');
     try {
       const updated = await adminService.updateHotLocation(loc.id, {
         name: loc.name,
@@ -51,6 +70,8 @@ const AdminExplore = () => {
         tags: Array.isArray(loc.tags) ? loc.tags : []
       });
       setLocations((prev) => prev.map((item) => String(item.id) === String(loc.id) ? { ...item, ...updated } : item));
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || 'Không thể lưu thay đổi.');
     } finally {
       setSavingId(null);
     }
@@ -67,6 +88,7 @@ const AdminExplore = () => {
         </div>
 
         <div className="admin-hot-list">
+          {errorMessage && <div className="admin-error-message">{errorMessage}</div>}
           {locations.map((loc) => (
             <div className="card admin-location-card" key={loc.id}>
               <img
@@ -82,8 +104,10 @@ const AdminExplore = () => {
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleImageFile(loc.id, e.target.files?.[0])}
+                  disabled={uploadingId === loc.id}
                 />
               </label>
+              {uploadingId === loc.id && <div className="admin-inline-status">Đang tải ảnh...</div>}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <input className="admin-input" value={loc.category || ''} onChange={(e) => updateLocal(loc.id, 'category', e.target.value)} placeholder="Loại" />
                 <input className="admin-input" value={loc.suggestedDuration || ''} onChange={(e) => updateLocal(loc.id, 'suggestedDuration', e.target.value)} placeholder="Thời lượng" />
@@ -104,7 +128,7 @@ const AdminExplore = () => {
               </div>
               <div className="admin-actions" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="admin-badge ok"><MapPin size={13} /> {loc.planCount} plan</span>
-                <button className="btn btn-primary" onClick={() => saveLocation(loc)} disabled={savingId === loc.id}>
+                <button className="btn btn-primary" onClick={() => saveLocation(loc)} disabled={savingId === loc.id || uploadingId === loc.id}>
                   <Save size={16} /> {savingId === loc.id ? 'Đang lưu' : 'Lưu'}
                 </button>
               </div>

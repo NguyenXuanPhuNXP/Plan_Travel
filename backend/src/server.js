@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 
 dotenv.config();
 
@@ -17,7 +18,8 @@ app.use(cors({
     origin: "http://localhost:5173", // Allow frontend URL
     credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: "15mb" }));
+app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 
 /* =========================
    TEST API

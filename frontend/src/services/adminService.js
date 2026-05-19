@@ -26,6 +26,11 @@ export const adminService = {
     return response.data;
   },
 
+  uploadLocationImage: async (imageDataUrl) => {
+    const response = await apiClient.post('/admin/uploads/location-image', { imageDataUrl });
+    return response.data;
+  },
+
   updateHotLocation: async (id, data) => {
     const response = await apiClient.patch(`/admin/hot-locations/${id}`, data);
     return response.data;

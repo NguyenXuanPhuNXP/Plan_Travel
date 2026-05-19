@@ -1,6 +1,9 @@
 import express from "express";
 import prisma from "../config/db.js";
 import { authenticate } from "../middleware/authMiddleware.js";
+import { randomUUID } from "crypto";
+import fs from "fs/promises";
+import path from "path";
 
 const router = express.Router();
 
@@ -55,6 +58,40 @@ const toJsonArray = (value) => {
 const getDisplayMeta = (loc) => {
     const raw = toJsonObject(loc.raw_json);
     return toJsonObject(raw.adminDisplay);
+};
+
+const dataUrlToImageFile = async (dataUrl) => {
+    const match = /^data:(image\/(?:png|jpe?g|webp|gif));base64,(.+)$/i.exec(String(dataUrl || ""));
+    if (!match) {
+        const error = new Error("File anh khong hop le.");
+        error.status = 400;
+        throw error;
+    }
+
+    const mime = match[1].toLowerCase();
+    const extension = mime.includes("png")
+        ? "png"
+        : mime.includes("webp")
+            ? "webp"
+            : mime.includes("gif")
+                ? "gif"
+                : "jpg";
+    const buffer = Buffer.from(match[2], "base64");
+
+    if (!buffer.length || buffer.length > 8 * 1024 * 1024) {
+        const error = new Error("Anh phai nho hon 8MB.");
+        error.status = 400;
+        throw error;
+    }
+
+    const uploadDir = path.resolve(process.cwd(), "uploads", "admin-locations");
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const filename = `${Date.now()}-${randomUUID()}.${extension}`;
+    const filePath = path.join(uploadDir, filename);
+    await fs.writeFile(filePath, buffer);
+
+    return `/uploads/admin-locations/${filename}`;
 };
 
 const serializeLocation = (loc) => {
@@ -189,6 +226,16 @@ router.get("/hot-locations", async (_req, res) => {
         res.json(await getHotLocations(50));
     } catch (error) {
         res.status(500).json({ message: error.message || "Không thể tải địa điểm hot." });
+    }
+});
+
+router.post("/uploads/location-image", async (req, res) => {
+    try {
+        const publicPath = await dataUrlToImageFile(req.body.imageDataUrl);
+        const origin = `${req.protocol}://${req.get("host")}`;
+        res.status(201).json({ imageUrl: `${origin}${publicPath}` });
+    } catch (error) {
+        res.status(error.status || 500).json({ message: error.message || "Khong the tai anh len." });
     }
 });
 
