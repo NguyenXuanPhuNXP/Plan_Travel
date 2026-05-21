@@ -26,5 +26,13 @@ export const authService = {
   getMe: async () => {
     const response = await apiClient.get('/auth/me');
     return response.data;
+  },
+  updateProfile: async (data) => {
+    const response = await apiClient.patch('/auth/profile', data);
+    return response.data;
+  },
+  changePassword: async (data) => {
+    const response = await apiClient.patch('/auth/change-password', data);
+    return response.data;
   }
 };

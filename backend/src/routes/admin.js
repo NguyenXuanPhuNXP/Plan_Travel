@@ -55,6 +55,23 @@ const toJsonArray = (value) => {
     return [];
 };
 
+const normalizeGallerySlides = (value, fallbackName = "") => toJsonArray(value)
+    .map((slide) => {
+        if (typeof slide === "string") {
+            return { image: slide, name: fallbackName };
+        }
+
+        const item = toJsonObject(slide);
+        const image = String(item.image || item.imageUrl || item.url || "").trim();
+        if (!image) return null;
+
+        return {
+            image,
+            name: String(item.name || fallbackName || "").trim()
+        };
+    })
+    .filter(Boolean);
+
 const getDisplayMeta = (loc) => {
     const raw = toJsonObject(loc.raw_json);
     return toJsonObject(raw.adminDisplay);
@@ -96,6 +113,8 @@ const dataUrlToImageFile = async (dataUrl) => {
 
 const serializeLocation = (loc) => {
     const display = getDisplayMeta(loc);
+    const savedSlides = toJsonArray(display.gallerySlides);
+    const gallerySlides = normalizeGallerySlides(savedSlides.length ? savedSlides : display.galleryImages, loc.name);
     return {
         id: loc.id?.toString(),
         name: loc.name,
@@ -106,6 +125,8 @@ const serializeLocation = (loc) => {
         latitude: Number(loc.latitude),
         longitude: Number(loc.longitude),
         imageUrl: loc.image_url,
+        galleryImages: gallerySlides.map((slide) => slide.image),
+        gallerySlides,
         estimatedCost: loc.estimated_cost,
         suggestedDuration: loc.suggested_duration,
         bestSeason: display.bestSeason || "Quanh năm",
@@ -259,13 +280,21 @@ router.patch("/hot-locations/:id", async (req, res) => {
         if (req.body.estimatedCost !== undefined) data.estimated_cost = Number(req.body.estimatedCost) || 0;
         if (req.body.suggestedDuration !== undefined) data.suggested_duration = req.body.suggestedDuration;
         if (req.body.tags !== undefined) data.tags = toJsonArray(req.body.tags);
-        if (req.body.bestSeason !== undefined) {
+        if (req.body.bestSeason !== undefined || req.body.galleryImages !== undefined || req.body.gallerySlides !== undefined) {
             const rawJson = toJsonObject(existing.raw_json);
+            const displayJson = toJsonObject(rawJson.adminDisplay);
+            const gallerySlides = req.body.gallerySlides !== undefined
+                ? normalizeGallerySlides(req.body.gallerySlides, req.body.name || "")
+                : normalizeGallerySlides(req.body.galleryImages, req.body.name || "");
             data.raw_json = {
                 ...rawJson,
                 adminDisplay: {
-                    ...toJsonObject(rawJson.adminDisplay),
-                    bestSeason: req.body.bestSeason
+                    ...displayJson,
+                    ...(req.body.bestSeason !== undefined ? { bestSeason: req.body.bestSeason } : {}),
+                    ...(req.body.galleryImages !== undefined || req.body.gallerySlides !== undefined ? {
+                        galleryImages: gallerySlides.map((slide) => slide.image),
+                        gallerySlides
+                    } : {})
                 }
             };
         }
@@ -307,6 +336,7 @@ async function getHotLocations(limit = 10) {
             WHERE location_id IS NOT NULL
             GROUP BY location_id
         ) pc ON pc.location_id = l.id
+        WHERE l.source = 'explore_sample'
         ORDER BY plan_count DESC, l.updated_at DESC
         LIMIT ${Number(limit)}
     `;

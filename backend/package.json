@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "seed:explore": "node src/scripts/seedExploreSamples.js",
     "seed:vietnam": "node src/scripts/seedVietnamLocations.js",
     "init:seed-jobs": "node src/scripts/initVietnamSeedJobs.js",
     "cache:vietnam": "npm run init:seed-jobs && npm run seed:vietnam"

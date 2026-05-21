@@ -57,22 +57,55 @@ const normalizeVibeTags = (tags = [], category = '') => {
   return [...new Set(mapped)].filter((tag) => PREFERENCE_TAGS[tag]);
 };
 
+const normalizeDestinationName = (value = '') => String(value)
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/gi, 'd')
+  .toLowerCase()
+  .trim();
+
+const getDestinationTemplate = (name) => TRENDING_DESTINATIONS.find((dest) => (
+  normalizeDestinationName(dest.name) === normalizeDestinationName(name)
+));
+
+const normalizeGallerySlides = (loc) => {
+  const slides = Array.isArray(loc.gallerySlides) && loc.gallerySlides.length
+    ? loc.gallerySlides
+    : (loc.galleryImages || []);
+
+  return slides.map((slide) => {
+    if (typeof slide === 'string') {
+      return { image: slide, name: loc.name };
+    }
+
+    return {
+      image: slide?.image || slide?.imageUrl || slide?.url || '',
+      name: slide?.name || loc.name
+    };
+  }).filter((slide) => slide.image);
+};
+
 const normalizeExploreDestination = (loc, fallbackPlanCount = 0) => {
-  const tags = normalizeVibeTags(loc.tags, loc.category);
+  const template = getDestinationTemplate(loc.name);
+  const tags = normalizeVibeTags(loc.tags?.length ? loc.tags : template?.tags, loc.category);
   const planCount = Number(loc.planCount ?? loc.trips ?? fallbackPlanCount) || 0;
+  const locationCost = Number(loc.estimatedCost ?? loc.estimated_cost ?? loc.avgCost ?? 0) || 0;
+  const gallerySlides = normalizeGallerySlides(loc);
   return {
+    ...template,
     ...loc,
     id: String(loc.id),
-    image: loc.imageUrl || loc.image_url || loc.image || DEFAULT_LOCATION_IMAGE,
+    image: loc.imageUrl || loc.image_url || loc.image || template?.image || DEFAULT_LOCATION_IMAGE,
     planCount,
     trips: planCount,
-    latitude: loc.latitude ?? loc.lat,
-    longitude: loc.longitude ?? loc.lng,
-    bestSeason: loc.bestSeason || 'Quanh năm',
-    avgCost: Number(loc.estimatedCost ?? loc.estimated_cost ?? loc.avgCost ?? 0) || 0,
-    idealDays: loc.suggestedDuration || loc.suggested_duration || loc.idealDays || '2-4 giờ',
+    latitude: loc.latitude ?? loc.lat ?? template?.latitude,
+    longitude: loc.longitude ?? loc.lng ?? template?.longitude,
+    bestSeason: loc.bestSeason || template?.bestSeason || 'Quanh năm',
+    avgCost: locationCost || template?.avgCost || 0,
+    idealDays: loc.suggestedDuration || loc.suggested_duration || loc.idealDays || template?.idealDays || '2-4 giờ',
+    landmarkSlides: gallerySlides.length ? gallerySlides : (loc.landmarkSlides || template?.landmarkSlides || []),
     tags: tags.length ? tags : ['culture'],
-    description: loc.description || loc.address || 'Địa điểm đang được đồng bộ từ khu vực quản trị.'
+    description: loc.description || template?.description || loc.address || 'Địa điểm đang được đồng bộ từ khu vực quản trị.'
   };
 };
 
@@ -86,33 +119,11 @@ const Explore = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hotDestinations, setHotDestinations] = useState([]);
-  const fallbackDestinations = useMemo(
-    () => TRENDING_DESTINATIONS.map((dest) => normalizeExploreDestination({ ...dest, planCount: 0, trips: 0 })),
-    []
-  );
-  const baseDestinations = hotDestinations.length > 0 ? hotDestinations : fallbackDestinations;
+  const baseDestinations = hotDestinations;
 
   useEffect(() => {
     locationService.getHotLocations(12).then((locations) => {
-      const mapped = locations.map((loc) => ({
-        id: loc.id,
-        name: loc.name,
-        image: loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
-        trips: loc.planCount || 0,
-        latitude: loc.latitude,
-        longitude: loc.longitude,
-        bestSeason: 'Quanh năm',
-        avgCost: loc.estimatedCost || 0,
-        idealDays: loc.suggestedDuration || '1-2 ngày',
-        tags: [loc.category || 'nature'],
-        description: loc.description || loc.address || 'Địa điểm đang được nhiều người thêm vào kế hoạch.'
-      }));
-      if (mapped.length > 0) {
-        setHotDestinations(mapped.map((loc, index) => normalizeExploreDestination({
-          ...loc,
-          ...locations[index]
-        })));
-      }
+      setHotDestinations((locations || []).map((loc) => normalizeExploreDestination(loc)));
     }).catch(() => {});
   }, []);
 
@@ -190,6 +201,7 @@ const Explore = () => {
       destination: destName,
       locationId: destId,
       region: destRegion,
+      preferences: (dest.tags || []).join(','),
       // ... các params khác nếu cần
     });
     
@@ -323,7 +335,7 @@ const Explore = () => {
                     }}
                   />
                   <div className="explore-card-overlay">
-                    <h3 className="explore-card-name">{dest.name}</h3>
+                    <h3 className="explore-card-name">{landmarkVisual.name}</h3>
                   </div>
 
                   {hoveredCardId === dest.id && (
@@ -388,7 +400,7 @@ const Explore = () => {
 
                   {/* Tags */}
                   <div className="explore-card-tags">
-                    {dest.tags?.map(tag => {
+                    {(dest.tags || []).slice(0, 3).map(tag => {
                       const tagInfo = PREFERENCE_TAGS[tag];
                       if (!tagInfo) return null;
                       return (
@@ -404,6 +416,11 @@ const Explore = () => {
                         </span>
                       );
                     })}
+                    {(dest.tags || []).length > 3 && (
+                      <span className="explore-card-tag explore-card-tag-more">
+                        +{dest.tags.length - 3}
+                      </span>
+                    )}
                   </div>
 
                   {/* Plan with AI Button */}

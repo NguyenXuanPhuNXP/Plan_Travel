@@ -131,6 +131,80 @@ export async function getUserProfile(userId) {
     return buildUserProfile(user);
 }
 
+export async function updateUserProfile(userId, dto) {
+    const fullName = String(dto.fullName || "").trim();
+    const email = String(dto.email || "").trim().toLowerCase();
+    const phone = String(dto.phone || "").trim() || null;
+    const avatarUrl = String(dto.avatarUrl || "").trim() || null;
+
+    if (!fullName || !email) {
+        throw { status: 400, message: "Tên hiển thị và email là bắt buộc." };
+    }
+
+    const duplicateEmail = await prisma.users.findFirst({
+        where: {
+            email,
+            NOT: { id: BigInt(userId) }
+        }
+    });
+    if (duplicateEmail) {
+        throw { status: 400, message: "Email này đã được sử dụng." };
+    }
+
+    if (phone) {
+        const duplicatePhone = await prisma.users.findFirst({
+            where: {
+                phone,
+                NOT: { id: BigInt(userId) }
+            }
+        });
+        if (duplicatePhone) {
+            throw { status: 400, message: "Số điện thoại này đã được sử dụng." };
+        }
+    }
+
+    const updated = await prisma.users.update({
+        where: { id: BigInt(userId) },
+        data: {
+            full_name: fullName,
+            email,
+            phone,
+            avatar_url: avatarUrl,
+            updated_at: new Date()
+        }
+    });
+
+    return buildUserProfile(updated);
+}
+
+export async function changePassword(userId, dto) {
+    const currentPassword = String(dto.currentPassword || "");
+    const newPassword = String(dto.newPassword || "");
+    const confirmPassword = String(dto.confirmPassword || "");
+
+    if (!currentPassword || newPassword.length < 6) {
+        throw { status: 400, message: "Mật khẩu mới cần ít nhất 6 ký tự." };
+    }
+    if (newPassword !== confirmPassword) {
+        throw { status: 400, message: "Mật khẩu xác nhận không khớp." };
+    }
+
+    const user = await prisma.users.findUnique({ where: { id: BigInt(userId) } });
+    if (!user || !(await bcrypt.compare(currentPassword, user.password_hash))) {
+        throw { status: 400, message: "Mật khẩu hiện tại không đúng." };
+    }
+
+    await prisma.users.update({
+        where: { id: BigInt(userId) },
+        data: {
+            password_hash: await bcrypt.hash(newPassword, 10),
+            updated_at: new Date()
+        }
+    });
+
+    return { message: "Đổi mật khẩu thành công." };
+}
+
 // ===== HELPERS =====
 
 async function createAuthResponse(user) {

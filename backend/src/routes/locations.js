@@ -43,9 +43,28 @@ const toJsonArray = (value) => {
     return [];
 };
 
+const normalizeGallerySlides = (value, fallbackName = "") => toJsonArray(value)
+    .map((slide) => {
+        if (typeof slide === "string") {
+            return { image: slide, name: fallbackName };
+        }
+
+        const item = toJsonObject(slide);
+        const image = String(item.image || item.imageUrl || item.url || "").trim();
+        if (!image) return null;
+
+        return {
+            image,
+            name: String(item.name || fallbackName || "").trim()
+        };
+    })
+    .filter(Boolean);
+
 const serializeLocation = (loc) => {
     const rawJson = toJsonObject(loc.raw_json);
     const display = toJsonObject(rawJson.adminDisplay);
+    const savedSlides = toJsonArray(display.gallerySlides);
+    const gallerySlides = normalizeGallerySlides(savedSlides.length ? savedSlides : display.galleryImages, loc.name);
     return {
         id: loc.id?.toString(),
         name: loc.name,
@@ -61,6 +80,8 @@ const serializeLocation = (loc) => {
         longitude: Number(loc.longitude),
         imageUrl: loc.image_url,
         image_url: loc.image_url,
+        galleryImages: gallerySlides.map((slide) => slide.image),
+        gallerySlides,
         estimatedCost: loc.estimated_cost,
         estimated_cost: loc.estimated_cost,
         suggestedDuration: loc.suggested_duration,
@@ -333,6 +354,7 @@ router.get("/hot", async (req, res) => {
                 WHERE location_id IS NOT NULL
                 GROUP BY location_id
             ) pc ON pc.location_id = l.id
+            WHERE l.source = 'explore_sample'
             ORDER BY plan_count DESC, l.updated_at DESC
             LIMIT ${limit}
         `;

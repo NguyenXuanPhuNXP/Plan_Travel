@@ -72,14 +72,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const updateProfile = (newData) => {
-    const updatedUser = { ...user, ...newData };
+  const updateProfile = async (newData) => {
+    const updatedUser = await authService.updateProfile(newData);
     setUser(updatedUser);
-    // Profile updates might need backend integration later, but for now we'll just update state
+    return updatedUser;
   };
 
+  const changePassword = (data) => authService.changePassword(data);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

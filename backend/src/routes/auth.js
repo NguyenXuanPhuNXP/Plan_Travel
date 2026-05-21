@@ -4,7 +4,9 @@ import {
     login,
     refreshToken,
     logout,
-    getUserProfile
+    getUserProfile,
+    updateUserProfile,
+    changePassword
 } from "../services/authService.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 
@@ -81,6 +83,28 @@ router.get("/me", authenticate, async (req, res) => {
     } catch (error) {
         const status = error.status || 500;
         res.status(status).json({
+            message: error.message || "Lỗi máy chủ nội bộ.",
+            details: error.details
+        });
+    }
+});
+
+router.patch("/profile", authenticate, async (req, res) => {
+    try {
+        res.status(200).json(await updateUserProfile(req.user.id, req.body));
+    } catch (error) {
+        res.status(error.status || 500).json({
+            message: error.message || "Lỗi máy chủ nội bộ.",
+            details: error.details
+        });
+    }
+});
+
+router.patch("/change-password", authenticate, async (req, res) => {
+    try {
+        res.status(200).json(await changePassword(req.user.id, req.body));
+    } catch (error) {
+        res.status(error.status || 500).json({
             message: error.message || "Lỗi máy chủ nội bộ.",
             details: error.details
         });

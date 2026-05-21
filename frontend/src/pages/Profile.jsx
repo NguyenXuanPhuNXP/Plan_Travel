@@ -1,158 +1,236 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  User, 
-  Mail, 
-  Shield, 
-  Camera, 
-  Settings, 
-  Bell, 
-  LogOut,
-  ChevronRight,
+import {
   CheckCircle,
-  Loader2
+  Loader2,
+  LockKeyhole,
+  LogOut,
+  Mail,
+  Phone,
+  User
 } from 'lucide-react';
 import './Profile.css';
 
-const Profile = () => {
-  const { user, updateProfile, logout } = useAuth();
-  const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    bio: 'Professional traveler and explorer. Passionate about discovering new cultures and cuisines.'
-  });
-  const [isSaving, setIsSaving] = useState(false);
-  const [showToast, setShowToast] = useState(false);
+const SAMPLE_AVATARS = [
+  { id: 'traveler', src: '/avatars/traveler.svg', label: 'Traveler' },
+  { id: 'coast', src: '/avatars/coast.svg', label: 'Coast' },
+  { id: 'mountain', src: '/avatars/mountain.svg', label: 'Mountain' }
+];
 
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setIsSaving(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    updateProfile({ name: formData.name, email: formData.email });
-    setIsSaving(false);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+const DEFAULT_AVATAR = SAMPLE_AVATARS[0].src;
+
+const useAvatarPreview = (avatarUrl) => {
+  const [avatarSrc, setAvatarSrc] = useState(avatarUrl || DEFAULT_AVATAR);
+
+  useEffect(() => {
+    setAvatarSrc(avatarUrl || DEFAULT_AVATAR);
+  }, [avatarUrl]);
+
+  return [avatarSrc, () => setAvatarSrc(DEFAULT_AVATAR)];
+};
+
+const Profile = () => {
+  const { user, updateProfile, changePassword, logout } = useAuth();
+  const [profileData, setProfileData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    avatarUrl: DEFAULT_AVATAR
+  });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [avatarPreview, fallbackAvatarPreview] = useAvatarPreview(profileData.avatarUrl);
+
+  useEffect(() => {
+    setProfileData({
+      fullName: user?.fullName || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      avatarUrl: user?.avatarUrl || DEFAULT_AVATAR
+    });
+  }, [user]);
+
+  const showSuccess = (message) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(''), 3000);
   };
 
-  const sections = [
-    { title: 'Cài đặt tài khoản', icon: Settings, items: ['Đổi mật khẩu', 'Xác thực 2 yếu tố', 'Quản lý thiết bị'] },
-    { title: 'Thông báo', icon: Bell, items: ['Cài đặt email', 'Thông báo đẩy', 'Cập nhật tin tức'] },
-    { title: 'Quyền riêng tư', icon: Shield, items: ['Chế độ riêng tư', 'Chia sẻ lịch trình', 'Dữ liệu cá nhân'] },
-  ];
+  const handleProfileSave = async (event) => {
+    event.preventDefault();
+    setErrorMessage('');
+    setIsSavingProfile(true);
+    try {
+      await updateProfile(profileData);
+      showSuccess('Đã cập nhật thông tin cá nhân.');
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || 'Không thể cập nhật hồ sơ.');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handlePasswordSave = async (event) => {
+    event.preventDefault();
+    setErrorMessage('');
+    setIsSavingPassword(true);
+    try {
+      await changePassword(passwordData);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      showSuccess('Đã đổi mật khẩu.');
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || 'Không thể đổi mật khẩu.');
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
 
   return (
     <Layout>
       <div className="profile-container">
-        <h1 className="profile-title">Hồ sơ người dùng</h1>
+        <h1 className="profile-title">Hồ sơ cá nhân</h1>
+
+        {errorMessage && <div className="profile-error">{errorMessage}</div>}
 
         <div className="profile-grid">
-          {/* Avatar & Sidebar */}
-          <div className="profile-sidebar">
+          <aside className="profile-sidebar">
             <div className="card profile-card-center">
               <div className="profile-avatar-container">
-                <img 
-                  src={user?.avatar} 
-                  alt={user?.name} 
+                <img
+                  src={avatarPreview}
+                  alt={profileData.fullName || 'Avatar'}
                   className="profile-avatar-img"
+                  onError={fallbackAvatarPreview}
                 />
-                <button className="profile-avatar-btn">
-                  <Camera size={16} />
-                </button>
               </div>
-              <h2 className="profile-name">{user?.name}</h2>
-              <p className="profile-member-since">Thành viên từ 2026</p>
+              <h2 className="profile-name">{profileData.fullName || 'Người dùng'}</h2>
+              <p className="profile-member-since">{profileData.email || 'Chưa có email'}</p>
+
+              <div className="profile-avatar-options" aria-label="Avatar mẫu">
+                {SAMPLE_AVATARS.map((avatar) => (
+                  <button
+                    key={avatar.id}
+                    type="button"
+                    className={`profile-avatar-option ${profileData.avatarUrl === avatar.src ? 'active' : ''}`}
+                    onClick={() => setProfileData((prev) => ({ ...prev, avatarUrl: avatar.src }))}
+                    title={avatar.label}
+                  >
+                    <img src={avatar.src} alt="" />
+                  </button>
+                ))}
+              </div>
+
               <button onClick={logout} className="btn btn-outline profile-logout-btn">
                 <LogOut size={16} /> Đăng xuất
               </button>
             </div>
+          </aside>
 
-            <div className="card profile-settings-card">
-              {sections.map((section, idx) => (
-                <div key={idx} className="profile-settings-section">
-                  <div className="profile-settings-header">
-                    <section.icon size={14} /> {section.title}
-                  </div>
-                  <div className="profile-settings-list">
-                    {section.items.map((item, i) => (
-                      <button key={i} className="profile-settings-item">
-                        {item} <ChevronRight size={14} color="var(--text-muted)" />
-                      </button>
-                    ))}
-                  </div>
+          <div className="profile-main">
+            <section className="card profile-edit-card">
+              <h2 className="profile-edit-title">Thông tin cá nhân</h2>
+              <form onSubmit={handleProfileSave} className="profile-form">
+                <label className="profile-field">
+                  <span className="profile-label">Tên hiển thị</span>
+                  <span className="profile-input-group">
+                    <User size={18} className="profile-icon" />
+                    <input
+                      type="text"
+                      className="btn-outline profile-input"
+                      value={profileData.fullName}
+                      onChange={(event) => setProfileData((prev) => ({ ...prev, fullName: event.target.value }))}
+                      required
+                    />
+                  </span>
+                </label>
+
+                <label className="profile-field">
+                  <span className="profile-label">Email liên hệ</span>
+                  <span className="profile-input-group">
+                    <Mail size={18} className="profile-icon" />
+                    <input
+                      type="email"
+                      className="btn-outline profile-input"
+                      value={profileData.email}
+                      onChange={(event) => setProfileData((prev) => ({ ...prev, email: event.target.value }))}
+                      required
+                    />
+                  </span>
+                </label>
+
+                <label className="profile-field">
+                  <span className="profile-label">Số điện thoại</span>
+                  <span className="profile-input-group">
+                    <Phone size={18} className="profile-icon" />
+                    <input
+                      type="tel"
+                      className="btn-outline profile-input"
+                      value={profileData.phone}
+                      onChange={(event) => setProfileData((prev) => ({ ...prev, phone: event.target.value }))}
+                    />
+                  </span>
+                </label>
+
+                <div className="profile-form-footer">
+                  <button type="submit" className="btn btn-primary profile-submit-btn" disabled={isSavingProfile}>
+                    {isSavingProfile ? <Loader2 size={18} className="animate-spin" /> : 'Lưu thông tin'}
+                  </button>
                 </div>
-              ))}
-            </div>
-          </div>
+              </form>
+            </section>
 
-          {/* Edit Form */}
-          <div className="card profile-edit-card">
-            <h3 className="profile-edit-title">Thông tin cá nhân</h3>
-            
-            <form onSubmit={handleSave} className="profile-form">
-              <div>
-                <label className="profile-label">Tên hiển thị</label>
-                <div className="profile-input-group">
-                  <User size={18} className="profile-icon" />
-                  <input
-                    type="text"
-                    className="btn-outline profile-input"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
+            <section className="card profile-edit-card">
+              <h2 className="profile-edit-title">Đổi mật khẩu</h2>
+              <form onSubmit={handlePasswordSave} className="profile-form">
+                {[
+                  ['currentPassword', 'Mật khẩu hiện tại'],
+                  ['newPassword', 'Mật khẩu mới'],
+                  ['confirmPassword', 'Xác nhận mật khẩu mới']
+                ].map(([key, label]) => (
+                  <label className="profile-field" key={key}>
+                    <span className="profile-label">{label}</span>
+                    <span className="profile-input-group">
+                      <LockKeyhole size={18} className="profile-icon" />
+                      <input
+                        type="password"
+                        className="btn-outline profile-input"
+                        value={passwordData[key]}
+                        onChange={(event) => setPasswordData((prev) => ({ ...prev, [key]: event.target.value }))}
+                        minLength={key === 'currentPassword' ? undefined : 6}
+                        required
+                      />
+                    </span>
+                  </label>
+                ))}
+
+                <div className="profile-form-footer">
+                  <button type="submit" className="btn btn-primary profile-submit-btn" disabled={isSavingPassword}>
+                    {isSavingPassword ? <Loader2 size={18} className="animate-spin" /> : 'Đổi mật khẩu'}
+                  </button>
                 </div>
-              </div>
-
-              <div>
-                <label className="profile-label">Email liên hệ</label>
-                <div className="profile-input-group">
-                  <Mail size={18} className="profile-icon" />
-                  <input
-                    type="email"
-                    className="btn-outline profile-input"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="profile-label">Giới thiệu bản thân</label>
-                <textarea
-                  className="btn-outline profile-textarea"
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                />
-              </div>
-
-              <div className="profile-form-footer">
-                <button 
-                  type="submit" 
-                  className="btn btn-primary profile-submit-btn" 
-                  disabled={isSaving}
-                >
-                  {isSaving ? <Loader2 size={18} className="animate-spin" /> : 'Lưu thay đổi'}
-                </button>
-              </div>
-            </form>
+              </form>
+            </section>
           </div>
         </div>
 
-        {/* Success Toast */}
         <AnimatePresence>
-          {showToast && (
-            <motion.div 
+          {toastMessage && (
+            <motion.div
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 50 }}
               className="profile-toast"
             >
               <CheckCircle size={20} color="var(--secondary)" />
-              Đã cập nhật thông tin thành công!
+              {toastMessage}
             </motion.div>
           )}
         </AnimatePresence>

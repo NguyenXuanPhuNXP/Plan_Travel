@@ -12,6 +12,13 @@ const Navbar = () => {
   const [searchResults, setSearchResults] = React.useState([]);
   const [isSearching, setIsSearching] = React.useState(false);
   const [showDropdown, setShowDropdown] = React.useState(false);
+  const userName = user?.fullName || user?.name || 'Người dùng';
+  const userAvatar = user?.avatarUrl || user?.avatar || '/avatars/traveler.svg';
+  const [avatarSrc, setAvatarSrc] = React.useState(userAvatar);
+
+  React.useEffect(() => {
+    setAvatarSrc(userAvatar);
+  }, [userAvatar]);
 
   // Debounced search
   React.useEffect(() => {
@@ -108,14 +115,15 @@ const Navbar = () => {
         {user ? (
           <div className="navbar-user">
             <Link to="/profile" className="navbar-user-info">
-              <div className="navbar-user-name">{user.name}</div>
+              <div className="navbar-user-name">{userName}</div>
               <div className="navbar-user-role">Pro Traveler</div>
             </Link>
             <Link to="/profile">
               <img
-                src={user.avatar}
-                alt={user.name}
+                src={avatarSrc}
+                alt={userName}
                 className="navbar-user-avatar"
+                onError={() => setAvatarSrc('/avatars/traveler.svg')}
               />
             </Link>
             <button onClick={logout} className="btn-outline navbar-logout" title="Đăng xuất">

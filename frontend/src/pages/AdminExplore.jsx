@@ -7,6 +7,23 @@ import './Admin.css';
 
 const preferenceEntries = Object.entries(PREFERENCE_TAGS);
 
+const normalizeGallerySlides = (loc) => {
+  const slides = Array.isArray(loc.gallerySlides) && loc.gallerySlides.length
+    ? loc.gallerySlides
+    : (loc.galleryImages || []);
+
+  return slides.map((slide) => {
+    if (typeof slide === 'string') {
+      return { image: slide, name: loc.name || '' };
+    }
+
+    return {
+      image: slide?.image || slide?.imageUrl || slide?.url || '',
+      name: slide?.name || loc.name || ''
+    };
+  }).filter((slide) => slide.image);
+};
+
 const AdminExplore = () => {
   const [locations, setLocations] = useState([]);
   const [savingId, setSavingId] = useState(null);
@@ -28,20 +45,71 @@ const AdminExplore = () => {
     reader.readAsDataURL(file);
   });
 
-  const handleImageFile = async (id, file) => {
-    if (!file) return;
+  const handleImageFiles = async (id, files) => {
+    const selectedFiles = Array.from(files || []);
+    if (!selectedFiles.length) return;
     setErrorMessage('');
     setUploadingId(id);
     try {
-      const imageDataUrl = await readFileAsDataUrl(file);
-      updateLocal(id, 'imageUrl', imageDataUrl);
-      const uploaded = await adminService.uploadLocationImage(imageDataUrl);
-      updateLocal(id, 'imageUrl', uploaded.imageUrl);
+      const uploadedImages = [];
+      for (const file of selectedFiles) {
+        const imageDataUrl = await readFileAsDataUrl(file);
+        const uploaded = await adminService.uploadLocationImage(imageDataUrl);
+        uploadedImages.push(uploaded.imageUrl);
+      }
+      setLocations((prev) => prev.map((loc) => {
+        if (String(loc.id) !== String(id)) return loc;
+        const currentSlides = normalizeGallerySlides(loc);
+        const knownImages = new Set(currentSlides.map((slide) => slide.image));
+        const gallerySlides = [
+          ...currentSlides,
+          ...[loc.imageUrl, ...uploadedImages]
+            .filter((image) => image && !knownImages.has(image))
+            .map((image) => {
+              knownImages.add(image);
+              return { image, name: loc.name || '' };
+            })
+        ];
+        return {
+          ...loc,
+          imageUrl: uploadedImages[0] || loc.imageUrl,
+          galleryImages: gallerySlides.map((slide) => slide.image),
+          gallerySlides
+        };
+      }));
     } catch (error) {
       setErrorMessage(error.response?.data?.message || 'Không thể tải ảnh lên.');
     } finally {
       setUploadingId(null);
     }
+  };
+
+  const setCoverImage = (id, imageUrl) => updateLocal(id, 'imageUrl', imageUrl);
+
+  const updateGallerySlide = (id, imageUrl, key, value) => {
+    setLocations((prev) => prev.map((loc) => {
+      if (String(loc.id) !== String(id)) return loc;
+      return {
+        ...loc,
+        gallerySlides: normalizeGallerySlides(loc).map((slide) => (
+          slide.image === imageUrl ? { ...slide, [key]: value } : slide
+        ))
+      };
+    }));
+  };
+
+  const removeGalleryImage = (id, imageUrl) => {
+    setLocations((prev) => prev.map((loc) => {
+      if (String(loc.id) !== String(id)) return loc;
+      const gallerySlides = normalizeGallerySlides(loc).filter((slide) => slide.image !== imageUrl);
+      const galleryImages = gallerySlides.map((slide) => slide.image);
+      return {
+        ...loc,
+        galleryImages,
+        gallerySlides,
+        imageUrl: loc.imageUrl === imageUrl ? (galleryImages[0] || '') : loc.imageUrl
+      };
+    }));
   };
 
   const toggleTag = (id, tag) => {
@@ -67,7 +135,9 @@ const AdminExplore = () => {
         estimatedCost: loc.estimatedCost,
         suggestedDuration: loc.suggestedDuration,
         bestSeason: loc.bestSeason,
-        tags: Array.isArray(loc.tags) ? loc.tags : []
+        tags: Array.isArray(loc.tags) ? loc.tags : [],
+        galleryImages: normalizeGallerySlides(loc).map((slide) => slide.image),
+        gallerySlides: normalizeGallerySlides(loc)
       });
       setLocations((prev) => prev.map((item) => String(item.id) === String(loc.id) ? { ...item, ...updated } : item));
     } catch (error) {
@@ -103,11 +173,30 @@ const AdminExplore = () => {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handleImageFile(loc.id, e.target.files?.[0])}
+                  multiple
+                  onChange={(e) => handleImageFiles(loc.id, e.target.files)}
                   disabled={uploadingId === loc.id}
                 />
               </label>
               {uploadingId === loc.id && <div className="admin-inline-status">Đang tải ảnh...</div>}
+              {normalizeGallerySlides(loc).length > 0 && (
+                <div className="admin-location-gallery">
+                  {normalizeGallerySlides(loc).map((slide, index) => (
+                    <div className={`admin-gallery-item ${loc.imageUrl === slide.image ? 'active' : ''}`} key={`${loc.id}-${slide.image}-${index}`}>
+                      <button type="button" onClick={() => setCoverImage(loc.id, slide.image)} title="Dùng làm ảnh bìa">
+                        <img src={slide.image} alt="" />
+                      </button>
+                      <input
+                        className="admin-gallery-name"
+                        value={slide.name || ''}
+                        onChange={(event) => updateGallerySlide(loc.id, slide.image, 'name', event.target.value)}
+                        placeholder="Tên địa danh"
+                      />
+                      <button type="button" className="admin-gallery-remove" onClick={() => removeGalleryImage(loc.id, slide.image)} title="Xóa ảnh">×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <input className="admin-input" value={loc.category || ''} onChange={(e) => updateLocal(loc.id, 'category', e.target.value)} placeholder="Loại" />
                 <input className="admin-input" value={loc.suggestedDuration || ''} onChange={(e) => updateLocal(loc.id, 'suggestedDuration', e.target.value)} placeholder="Thời lượng" />
