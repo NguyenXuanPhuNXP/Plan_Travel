@@ -1,4 +1,5 @@
 import json
+import re
 from google import genai
 from google.genai import types
 from pydantic import ValidationError
@@ -17,6 +18,112 @@ from ai.services.retrieval_service import (
     retrieve_locations,
     build_context_from_locations,
 )
+
+
+def _strip_code_fence(raw_text: str) -> str:
+    text = (raw_text or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text)
+    return text.strip()
+
+
+def _normalize_hhmm(value: str, fallback: str) -> str:
+    if value is None:
+        return fallback
+    s = str(value).strip()
+    if not s:
+        return fallback
+
+    m = re.match(r"^(\d{1,2}):(\d{1,2})$", s)
+    if not m:
+        m = re.match(r"^(\d{1,2})h(\d{1,2})?$", s, flags=re.IGNORECASE)
+
+    if m:
+        hh = int(m.group(1))
+        mm = int(m.group(2) or 0)
+        hh = min(max(hh, 0), 23)
+        mm = min(max(mm, 0), 59)
+        return f"{hh:02d}:{mm:02d}"
+
+    return fallback
+
+
+def _normalize_organized_plan_payload(parsed: dict) -> dict:
+    if not isinstance(parsed, dict):
+        return {"planName": "Kế hoạch chuyến đi", "description": "", "days": []}
+
+    plan_name = str(parsed.get("planName") or "Kế hoạch chuyến đi")
+    description = str(parsed.get("description") or "")
+    days_raw = parsed.get("days")
+    if not isinstance(days_raw, list):
+        days_raw = []
+
+    days = []
+    for day_idx, day in enumerate(days_raw, start=1):
+        if not isinstance(day, dict):
+            day = {}
+
+        day_number = day.get("dayNumber")
+        try:
+            day_number = int(day_number)
+        except Exception:
+            day_number = day_idx
+
+        title = str(day.get("title") or f"Ngày {day_number}")
+
+        items_raw = day.get("items")
+        if not isinstance(items_raw, list):
+            items_raw = []
+
+        items = []
+        for item_idx, item in enumerate(items_raw):
+            if not isinstance(item, dict):
+                item = {}
+
+            default_start_hour = min(7 + item_idx * 2, 21)
+            default_end_hour = min(default_start_hour + 1, 22)
+
+            location_id = item.get("locationId")
+            location_id = str(location_id) if location_id not in (None, "") else None
+
+            location_name = str(
+                item.get("locationName")
+                or item.get("name")
+                or "Điểm dừng"
+            )
+
+            start_time = _normalize_hhmm(item.get("startTime"), f"{default_start_hour:02d}:00")
+            end_time = _normalize_hhmm(item.get("endTime"), f"{default_end_hour:02d}:00")
+            note = str(item.get("note") or "")
+
+            travel_minutes = item.get("travelMinutesToNext", 15)
+            try:
+                travel_minutes = int(travel_minutes)
+            except Exception:
+                travel_minutes = 15
+            travel_minutes = max(0, travel_minutes)
+
+            items.append({
+                "locationId": location_id,
+                "locationName": location_name,
+                "startTime": start_time,
+                "endTime": end_time,
+                "note": note,
+                "travelMinutesToNext": travel_minutes
+            })
+
+        days.append({
+            "dayNumber": day_number,
+            "title": title,
+            "items": items
+        })
+
+    return {
+        "planName": plan_name,
+        "description": description,
+        "days": days
+    }
 
 
 class PlannerService:
@@ -67,10 +174,7 @@ class PlannerService:
             ),
         )
 
-        raw_text = (response.text or "").strip()
-
-        if raw_text.startswith("```"):
-            raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+        raw_text = _strip_code_fence(response.text)
 
         try:
             parsed = json.loads(raw_text)
@@ -104,7 +208,7 @@ class PlannerService:
         )
 
         try:
-            parsed = json.loads(response.text)
+            parsed = json.loads(_strip_code_fence(response.text))
             return LocationRankingResponse.model_validate(parsed)
         except (json.JSONDecodeError, ValidationError) as exc:
             raise ValueError(f"Lỗi xếp hạng địa điểm: {str(exc)}")
@@ -116,7 +220,7 @@ class PlannerService:
         ])
 
         budget_str = f"{request.budget:,}" if request.budget else "Không giới hạn"
-        
+
         focus_info = ""
         if request.focusLocationId:
             focus_loc = next((l for l in request.locations if str(l.id) == str(request.focusLocationId)), None)
@@ -140,7 +244,6 @@ class PlannerService:
             "Lưu ý: Nếu budget nhỏ, ưu tiên các địa điểm miễn phí, quán ăn bình dân. Nếu budget lớn, ưu tiên nhà hàng và khách sạn cao cấp."
         )
 
-
         response = self.client.models.generate_content(
             model=GEMINI_MODEL,
             contents=prompt,
@@ -151,11 +254,18 @@ class PlannerService:
             ),
         )
 
+        raw_text = _strip_code_fence(response.text)
         try:
-            parsed = json.loads(response.text)
-            return OrganizedTripPlan.model_validate(parsed)
-        except (json.JSONDecodeError, ValidationError) as exc:
-            raise ValueError(f"Lỗi tổ chức lịch trình: {str(exc)}")
+            parsed = json.loads(raw_text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Lỗi tổ chức lịch trình (JSON decode): {str(exc)} | raw={raw_text[:500]}")
+
+        normalized = _normalize_organized_plan_payload(parsed)
+
+        try:
+            return OrganizedTripPlan.model_validate(normalized)
+        except ValidationError as exc:
+            raise ValueError(f"Lỗi tổ chức lịch trình (schema validate): {str(exc)} | normalized={json.dumps(normalized, ensure_ascii=False)[:800]}")
 
 
 # python m uvicorn src.Recommendation:app --reload --port 8000

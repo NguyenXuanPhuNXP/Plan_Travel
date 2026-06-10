@@ -4,6 +4,7 @@ import { authenticate } from "../middleware/authMiddleware.js";
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import path from "path";
+import { generateLocationEmbedding, refreshSearchCache } from "../services/embeddingService.js";
 
 const router = express.Router();
 
@@ -242,6 +243,280 @@ router.get("/users/:id/activity", async (req, res) => {
     }
 });
 
+router.get("/locations", async (req, res) => {
+    try {
+        const { keyword = "", region = "", category = "", limit = 100, offset = 0 } = req.query;
+        const where = [];
+
+        if (keyword) {
+            const escaped = String(keyword).replace(/'/g, "''");
+            where.push(`(
+                name LIKE '%${escaped}%'
+                OR address LIKE '%${escaped}%'
+                OR region LIKE '%${escaped}%'
+                OR city LIKE '%${escaped}%'
+                OR province LIKE '%${escaped}%'
+                OR category LIKE '%${escaped}%'
+                OR subcategory LIKE '%${escaped}%'
+            )`);
+        }
+
+        if (region) {
+            const escaped = String(region).replace(/'/g, "''");
+            where.push(`(region LIKE '%${escaped}%' OR city LIKE '%${escaped}%' OR province LIKE '%${escaped}%')`);
+        }
+
+        if (category) {
+            const escaped = String(category).replace(/'/g, "''");
+            where.push(`(category LIKE '%${escaped}%' OR subcategory LIKE '%${escaped}%')`);
+        }
+
+        const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+        const rows = await prisma.$queryRawUnsafe(`
+            SELECT l.*
+            FROM locations l
+            ${whereClause}
+            ORDER BY l.updated_at DESC
+            LIMIT ${Number(limit)} OFFSET ${Number(offset)}
+        `);
+
+        const countRows = await prisma.$queryRawUnsafe(`
+            SELECT COUNT(*) AS total
+            FROM locations l
+            ${whereClause}
+        `);
+
+        res.json({
+            items: rows.map((row) => ({
+                id: row.id?.toString(),
+                name: row.name,
+                address: row.address,
+                description: row.description,
+                category: row.category,
+                subcategory: row.subcategory,
+                region: row.region,
+                city: row.city,
+                province: row.province,
+                latitude: Number(row.latitude),
+                longitude: Number(row.longitude),
+                imageUrl: row.image_url,
+                estimatedCost: row.estimated_cost,
+                suggestedDuration: row.suggested_duration,
+                tags: toJsonArray(row.tags)
+            })),
+            total: Number(countRows?.[0]?.total || 0),
+            limit: Number(limit),
+            offset: Number(offset)
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Không thể tải danh sách location." });
+    }
+});
+
+router.get("/locations/:id", async (req, res) => {
+    try {
+        const locationId = BigInt(req.params.id);
+        const row = await prisma.locations.findUnique({
+            where: { id: locationId }
+        });
+
+        if (!row) {
+            return res.status(404).json({ message: "Không tìm thấy location." });
+        }
+
+        res.json({
+            id: row.id?.toString(),
+            externalId: row.external_id,
+            source: row.source,
+            name: row.name,
+            address: row.address,
+            description: row.description,
+            country: row.country,
+            province: row.province,
+            city: row.city,
+            district: row.district,
+            region: row.region,
+            category: row.category,
+            subcategory: row.subcategory,
+            latitude: Number(row.latitude),
+            longitude: Number(row.longitude),
+            imageUrl: row.image_url,
+            estimatedCost: row.estimated_cost,
+            suggestedDuration: row.suggested_duration,
+            rating: row.rating ? Number(row.rating) : null,
+            tags: toJsonArray(row.tags),
+            embedding: row.embedding
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Không thể tải chi tiết location." });
+    }
+});
+
+router.post("/locations", async (req, res) => {
+    try {
+        const {
+            name,
+            address,
+            description,
+            category,
+            subcategory,
+            country = "Vietnam",
+            province,
+            city,
+            district,
+            region,
+            latitude,
+            longitude,
+            imageUrl,
+            estimatedCost = 0,
+            suggestedDuration,
+            tags = []
+        } = req.body || {};
+
+        if (!name || latitude === undefined || longitude === undefined) {
+            return res.status(400).json({ message: "name, latitude, longitude là bắt buộc." });
+        }
+
+        const lat = Number(latitude);
+        const lng = Number(longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return res.status(400).json({ message: "latitude/longitude không hợp lệ." });
+        }
+
+        const externalId = `admin_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const embedding = await generateLocationEmbedding({
+            name,
+            address,
+            description,
+            category,
+            subcategory,
+            region,
+            city,
+            province,
+            tags
+        });
+
+        await prisma.$executeRaw`
+            INSERT INTO locations
+            (
+                external_id, source, name, address, description, country, province, city, district, region,
+                category, subcategory, latitude, longitude, geo_point, image_url, estimated_cost, suggested_duration,
+                tags, raw_json, embedding
+            )
+            VALUES
+            (
+                ${externalId}, 'admin_manual', ${name}, ${address || null}, ${description || null}, ${country}, ${province || null}, ${city || null}, ${district || null}, ${region || null},
+                ${category || null}, ${subcategory || null}, ${lat}, ${lng}, ST_SRID(POINT(${lng}, ${lat}), 4326), ${imageUrl || null}, ${Number(estimatedCost) || 0}, ${suggestedDuration || null},
+                CAST(${JSON.stringify(toJsonArray(tags))} AS JSON), JSON_OBJECT(), CAST(${JSON.stringify(embedding ?? [])} AS JSON)
+            )
+        `;
+        await refreshSearchCache();
+
+        const created = await prisma.locations.findFirst({
+            where: { external_id: externalId }
+        });
+
+        res.status(201).json({
+            id: created.id?.toString(),
+            name: created.name
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Không thể tạo location." });
+    }
+});
+
+router.patch("/locations/:id", async (req, res) => {
+    try {
+        const locationId = BigInt(req.params.id);
+        const existing = await prisma.locations.findUnique({
+            where: { id: locationId }
+        });
+
+        if (!existing) {
+            return res.status(404).json({ message: "Không tìm thấy location." });
+        }
+
+        const data = {};
+        const fields = [
+            "name", "address", "description", "country", "province", "city", "district",
+            "region", "category", "subcategory", "suggestedDuration", "imageUrl"
+        ];
+        fields.forEach((field) => {
+            if (req.body[field] !== undefined) {
+                if (field === "suggestedDuration") data.suggested_duration = req.body[field];
+                else if (field === "imageUrl") data.image_url = req.body[field];
+                else data[field] = req.body[field];
+            }
+        });
+
+        if (req.body.latitude !== undefined) {
+            const lat = Number(req.body.latitude);
+            if (!Number.isFinite(lat)) return res.status(400).json({ message: "latitude không hợp lệ." });
+            data.latitude = lat;
+        }
+        if (req.body.longitude !== undefined) {
+            const lng = Number(req.body.longitude);
+            if (!Number.isFinite(lng)) return res.status(400).json({ message: "longitude không hợp lệ." });
+            data.longitude = lng;
+        }
+        if (data.latitude !== undefined || data.longitude !== undefined) {
+            const finalLat = data.latitude ?? Number(existing.latitude);
+            const finalLng = data.longitude ?? Number(existing.longitude);
+            await prisma.$executeRaw`UPDATE locations SET geo_point = ST_SRID(POINT(${finalLng}, ${finalLat}), 4326) WHERE id = ${locationId}`;
+        }
+
+        if (req.body.estimatedCost !== undefined) data.estimated_cost = Number(req.body.estimatedCost) || 0;
+        if (req.body.tags !== undefined) data.tags = toJsonArray(req.body.tags);
+
+        const mergedForEmbedding = {
+            name: data.name ?? existing.name,
+            address: data.address ?? existing.address,
+            description: data.description ?? existing.description,
+            category: data.category ?? existing.category,
+            subcategory: data.subcategory ?? existing.subcategory,
+            region: data.region ?? existing.region,
+            city: data.city ?? existing.city,
+            province: data.province ?? existing.province,
+            tags: data.tags ?? toJsonArray(existing.tags)
+        };
+        const embedding = await generateLocationEmbedding(mergedForEmbedding);
+        data.embedding = embedding ?? [];
+
+        data.updated_at = new Date();
+
+        await prisma.locations.update({
+            where: { id: locationId },
+            data
+        });
+
+        await refreshSearchCache();
+
+        const updated = await prisma.locations.findUnique({ where: { id: locationId } });
+        res.json({
+            id: updated.id?.toString(),
+            name: updated.name
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Không thể cập nhật location." });
+    }
+});
+
+router.delete("/locations/:id", async (req, res) => {
+    try {
+        const locationId = BigInt(req.params.id);
+
+        await prisma.locations.delete({
+            where: { id: locationId }
+        });
+
+        await refreshSearchCache();
+
+        res.json({ message: "Đã xóa location." });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Không thể xóa location." });
+    }
+});
+
 router.get("/hot-locations", async (_req, res) => {
     try {
         res.json(await getHotLocations(50));
@@ -257,6 +532,74 @@ router.post("/uploads/location-image", async (req, res) => {
         res.status(201).json({ imageUrl: `${origin}${publicPath}` });
     } catch (error) {
         res.status(error.status || 500).json({ message: error.message || "Khong the tai anh len." });
+    }
+});
+
+router.post("/hot-locations/:id", async (req, res) => {
+    try {
+        const locationId = BigInt(req.params.id);
+
+        const existing = await prisma.locations.findUnique({
+            where: { id: locationId },
+            select: { id: true, source: true }
+        });
+
+        if (!existing) {
+            return res.status(404).json({ message: "Khong tim thay dia diem." });
+        }
+
+        await prisma.locations.update({
+            where: { id: locationId },
+            data: {
+                source: "explore_sample",
+                updated_at: new Date()
+            }
+        });
+
+        const rows = await prisma.$queryRaw`
+            SELECT l.*,
+                   COALESCE(pc.plan_count, 0) AS plan_count
+            FROM locations l
+            LEFT JOIN (
+                SELECT location_id, COUNT(*) AS plan_count
+                FROM itinerary_items
+                WHERE location_id IS NOT NULL
+                GROUP BY location_id
+            ) pc ON pc.location_id = l.id
+            WHERE l.id = ${locationId}
+            LIMIT 1
+        `;
+
+        res.json(serializeLocation(rows[0]));
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Không thể thêm địa điểm hot." });
+    }
+});
+
+router.delete("/hot-locations/:id", async (req, res) => {
+    try {
+        const locationId = BigInt(req.params.id);
+
+        const existing = await prisma.locations.findUnique({
+            where: { id: locationId },
+            select: { id: true, source: true }
+        });
+
+        if (!existing) {
+            return res.status(404).json({ message: "Khong tim thay dia diem." });
+        }
+
+        await prisma.locations.update({
+            where: { id: locationId },
+            data: {
+                source: "admin_manual",
+                updated_at: new Date()
+            }
+        });
+
+        res.json({ message: "Đã xóa khỏi danh sách hot." });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Không thể xóa địa điểm hot." });
     }
 });
 

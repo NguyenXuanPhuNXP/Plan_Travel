@@ -16,6 +16,16 @@ const toBackendStatus = (status) => {
   return status;
 };
 
+const parseDayNumberFromNote = (note) => {
+  const text = String(note || '');
+  const match = text.match(/\[DAY:(\d+)\]/i);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) && value > 0 ? value : null;
+};
+
+const stripDayMarker = (note) => String(note || '').replace(/\[DAY:\d+\]\s*/gi, '').trim();
+
 const normalizeLocation = (loc) => {
   if (!loc) return null;
   return {
@@ -33,7 +43,15 @@ const normalizeLocation = (loc) => {
 
 const normalizeTrip = (trip) => {
   const items = Array.isArray(trip?.items) ? trip.items : [];
-  const itemLocations = items
+  const normalizedItems = items.map((item, index) => ({
+    ...item,
+    id: String(item?.id || `item_${index}`),
+    dayNumber: parseDayNumberFromNote(item?.note) || 1,
+    note: stripDayMarker(item?.note),
+    location: normalizeLocation(item?.location)
+  }));
+
+  const itemLocations = normalizedItems
     .map((item) => normalizeLocation(item?.location))
     .filter(Boolean);
 
@@ -51,7 +69,8 @@ const normalizeTrip = (trip) => {
     startLocation: trip?.startLocation || '',
     endLocation: trip?.endLocation || '',
     budget: trip?.budget ? Number(trip.budget) : 0,
-    locations
+    locations,
+    items: normalizedItems
   };
 };
 

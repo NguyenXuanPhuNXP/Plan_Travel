@@ -17,7 +17,15 @@ import Notifications from './pages/Notifications';
 import Explore from './pages/Explore';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminUsers from './pages/AdminUsers';
+import AdminUserActivity from './pages/AdminUserActivity';
 import AdminExplore from './pages/AdminExplore';
+import AdminLocations from './pages/AdminLocations';
+import AdminPlaces from './pages/AdminPlaces';
+import AdminPlacesList from './pages/AdminPlacesList';
+import AdminPlaceCreate from './pages/AdminPlaceCreate';
+import AdminPlaceDetail from './pages/AdminPlaceDetail';
+import AdminPlaceEdit from './pages/AdminPlaceEdit';
+import AdminHotPlaceEdit from './pages/AdminHotPlaceEdit';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -113,9 +121,51 @@ function App() {
         </ProtectedRoute>
       } />
 
+      <Route path="/admin/users/:id/activity" element={
+        <ProtectedRoute adminOnly>
+          <AdminUserActivity />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/places" element={
+        <ProtectedRoute adminOnly>
+          <AdminPlacesList />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/places/new" element={
+        <ProtectedRoute adminOnly>
+          <AdminPlaceCreate />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/places/:id" element={
+        <ProtectedRoute adminOnly>
+          <AdminPlaceDetail />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/places/:id/edit" element={
+        <ProtectedRoute adminOnly>
+          <AdminPlaceEdit />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/places/hot/:id/edit" element={
+        <ProtectedRoute adminOnly>
+          <AdminHotPlaceEdit />
+        </ProtectedRoute>
+      } />
+
       <Route path="/admin/explore" element={
         <ProtectedRoute adminOnly>
-          <AdminExplore />
+          <Navigate to="/admin/places" replace />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/locations" element={
+        <ProtectedRoute adminOnly>
+          <Navigate to="/admin/places" replace />
         </ProtectedRoute>
       } />
       

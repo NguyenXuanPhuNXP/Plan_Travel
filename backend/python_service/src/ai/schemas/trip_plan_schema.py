@@ -101,6 +101,8 @@ class OrganizedTripPlan(BaseModel):
 class HybridSearchRequest(BaseModel):
     query: str
     limit: Optional[int] = 10
+    region: Optional[str] = None
+    category: Optional[str] = None
 
 
 class SearchResult(BaseModel):
@@ -113,8 +115,10 @@ class SearchResult(BaseModel):
     latitude: float
     longitude: float
     score: float
+    semanticScore: Optional[float] = None
+    keywordScore: Optional[float] = None
 
 
 class HybridSearchResponse(BaseModel):
     results: List[SearchResult]
-
+

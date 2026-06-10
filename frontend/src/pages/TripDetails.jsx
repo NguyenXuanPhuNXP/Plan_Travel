@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/Layout/Layout';
+import Layout from '../Components/Layout/Layout';
 import { useParams, Link } from 'react-router-dom';
 import { useTrips } from '../context/TripContext';
 import { itineraryService } from '../services/itineraryService';
@@ -58,6 +58,54 @@ const TripDetails = () => {
     notes: ''
   });
   const locations = Array.isArray(trip?.locations) ? trip.locations : [];
+
+  // --- Helpers: declared before any usage to avoid TDZ (const is not hoisted) ---
+  const normalizeMapLoc = (loc) => ({
+    id: String(loc.id || loc.locationId || `tmp_${Date.now()}`),
+    name: loc.name || 'Địa điểm',
+    address: loc.address || '',
+    lat: loc.lat ?? loc.latitude,
+    lng: loc.lng ?? loc.longitude,
+    image: loc.image || loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
+    suggestedDuration: loc.suggestedDuration || null,
+    estimatedCost: loc.estimatedCost || 0
+  });
+
+  const parseDayFromNote = (note) => {
+    const match = String(note || '').match(/\[DAY:(\d+)\]/i);
+    if (!match) return 1;
+    const day = Number(match[1]);
+    return Number.isFinite(day) && day > 0 ? day : 1;
+  };
+  const stripDayMarker = (note) => String(note || '').replace(/\[DAY:\d+\]\s*/gi, '').trim();
+
+  // --- Group locations by day ---
+  const groupedLocationsByDay = (() => {
+    if (isEditingInfo) {
+      return [{ day: 1, items: editingLocations.map((loc, idx) => ({ loc, idx, note: '' })) }];
+    }
+
+    const tripItems = Array.isArray(trip?.items) ? trip.items : [];
+    if (tripItems.length > 0) {
+      const map = new Map();
+      tripItems.forEach((item, idx) => {
+        const loc = item?.location;
+        if (!loc) return;
+        const normalized = normalizeMapLoc(loc);
+        const day = parseDayFromNote(item?.note);
+        const cleanNote = stripDayMarker(item?.note);
+        if (!map.has(day)) map.set(day, []);
+        map.get(day).push({ loc: normalized, idx, note: cleanNote });
+      });
+      return [...map.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([day, items]) => ({ day, items }));
+    }
+
+    // Fallback: show all locations as Day 1 when trip.items is empty
+    return [{ day: 1, items: locations.map((loc, idx) => ({ loc: normalizeMapLoc(loc), idx, note: '' })) }];
+  })();
+
   const lastLocation = locations[locations.length - 1];
   const displayEndLocation = trip?.endLocation || lastLocation?.name || trip?.destination || 'Chưa có điểm đến';
   const safeFormatDate = (value) => {
@@ -219,16 +267,7 @@ const TripDetails = () => {
     }
   };
 
-  const normalizeMapLoc = (loc) => ({
-    id: String(loc.id || loc.locationId || `tmp_${Date.now()}`),
-    name: loc.name || 'Địa điểm',
-    address: loc.address || '',
-    lat: loc.lat ?? loc.latitude,
-    lng: loc.lng ?? loc.longitude,
-    image: loc.image || loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
-    suggestedDuration: loc.suggestedDuration || null,
-    estimatedCost: loc.estimatedCost || 0
-  });
+  // normalizeMapLoc is now declared near the top of the component (before groupedLocationsByDay)
 
   const handleAddEditLocation = (loc) => {
     const normalized = normalizeMapLoc(loc);
@@ -413,41 +452,53 @@ const TripDetails = () => {
             <div className="trip-details-timeline">
               {/* Vertical line */}
               <div className="trip-details-timeline-line"></div>
-              
-              {(isEditingInfo ? editingLocations : locations).map((loc, idx) => (
-                <div 
-                  key={loc.tripLocId || loc.id} 
-                  className={`trip-details-timeline-item ${activeWeatherLoc === loc.id ? 'active' : ''}`}
-                  onClick={() => fetchWeather(loc.id, loc.lat, loc.lng)}
-                >
-                  <div className="trip-details-timeline-number">
-                    {idx + 1}
+
+              {groupedLocationsByDay.map((dayGroup, dayGroupIndex) => (
+                <div key={`day_${dayGroup.day}`}>
+                  <div style={{ fontWeight: 700, margin: '0.5rem 0 0.75rem', color: 'var(--primary)' }}>
+                    Ngày {dayGroup.day}
                   </div>
-                  
-                  <div className="trip-details-timeline-content">
-                    <img src={loc.image} alt={loc.name} className="trip-details-timeline-img" />
-                    <div className="trip-details-timeline-info">
-                      <h4 className="trip-details-timeline-name">{loc.name}</h4>
-                      <p className="trip-details-timeline-address">{loc.address}</p>
-                      <div className="trip-details-timeline-tags">
-                        <span className="trip-details-tag-duration">⏰ Gợi ý: {loc.suggestedDuration || '2 giờ'}</span>
-                        <span className="trip-details-tag-cost">💰 Phí: {loc.estimatedCost?.toLocaleString() || 'Miễn phí'}</span>
+                  {dayGroup.items.map(({ loc, idx, note }, itemIndex) => (
+                    <div
+                      key={`${dayGroup.day}_${loc.tripLocId || loc.id}_${idx}`}
+                      className={`trip-details-timeline-item ${activeWeatherLoc === loc.id ? 'active' : ''}`}
+                      onClick={() => fetchWeather(loc.id, loc.lat, loc.lng)}
+                    >
+                      <div className="trip-details-timeline-number">
+                        {itemIndex + 1}
                       </div>
-                      {isEditingInfo && (
-                        <div className="trip-details-actions" style={{ marginTop: '0.5rem', gap: '0.5rem' }}>
-                          <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx - 1); }}>Lên</button>
-                          <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx + 1); }}>Xuống</button>
-                          <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); handleRemoveEditLocation(loc.id); }}>Xóa điểm</button>
+
+                      <div className="trip-details-timeline-content">
+                        <img src={loc.image} alt={loc.name} className="trip-details-timeline-img" />
+                        <div className="trip-details-timeline-info">
+                          <h4 className="trip-details-timeline-name">{loc.name}</h4>
+                          <p className="trip-details-timeline-address">{loc.address}</p>
+                          {note ? (
+                            <p className="trip-details-timeline-address" style={{ marginTop: 4 }}>
+                              📝 {note}
+                            </p>
+                          ) : null}
+                          <div className="trip-details-timeline-tags">
+                            <span className="trip-details-tag-duration">⏰ Gợi ý: {loc.suggestedDuration || '2 giờ'}</span>
+                            <span className="trip-details-tag-cost">💰 Phí: {loc.estimatedCost?.toLocaleString() || 'Miễn phí'}</span>
+                          </div>
+                          {isEditingInfo && (
+                            <div className="trip-details-actions" style={{ marginTop: '0.5rem', gap: '0.5rem' }}>
+                              <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx - 1); }}>Lên</button>
+                              <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx + 1); }}>Xuống</button>
+                              <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); handleRemoveEditLocation(loc.id); }}>Xóa điểm</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {dayGroupIndex === groupedLocationsByDay.length - 1 && itemIndex === dayGroup.items.length - 1 && (
+                        <div className="trip-details-timeline-end">
+                          <MapPin size={16} /> Đểm cuối
                         </div>
                       )}
                     </div>
-                  </div>
-                  
-                  {idx === ((isEditingInfo ? editingLocations : locations).length - 1) && (
-                    <div className="trip-details-timeline-end">
-                      <MapPin size={16} /> Đểm cuối
-                    </div>
-                  )}
+                  ))}
                 </div>
               ))}
             </div>
@@ -480,7 +531,17 @@ const TripDetails = () => {
                       </div>
                       <div className="trip-details-weather-stat">
                         <div className="trip-details-weather-label">Điểm dừng</div>
-                        <div className="trip-details-weather-val">#{locations.findIndex(l => l.id === activeWeatherLoc) + 1}</div>
+                        <div className="trip-details-weather-val">
+                          {(() => {
+                            // Find the stop name from grouped data for accurate display
+                            for (const dg of groupedLocationsByDay) {
+                              const found = dg.items.find(({ loc }) => String(loc.id) === String(activeWeatherLoc));
+                              if (found) return `Ngày ${dg.day} #${dg.items.indexOf(found) + 1}`;
+                            }
+                            const flatIdx = locations.findIndex(l => String(l.id) === String(activeWeatherLoc));
+                            return flatIdx >= 0 ? `#${flatIdx + 1}` : '--';
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </motion.div>

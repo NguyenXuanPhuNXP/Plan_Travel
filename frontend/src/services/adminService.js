@@ -34,5 +34,40 @@ export const adminService = {
   updateHotLocation: async (id, data) => {
     const response = await apiClient.patch(`/admin/hot-locations/${id}`, data);
     return response.data;
+  },
+
+  addHotLocation: async (id) => {
+    const response = await apiClient.post(`/admin/hot-locations/${id}`);
+    return response.data;
+  },
+
+  removeHotLocation: async (id) => {
+    const response = await apiClient.delete(`/admin/hot-locations/${id}`);
+    return response.data;
+  },
+
+  getLocations: async (params = {}) => {
+    const response = await apiClient.get('/admin/locations', { params });
+    return response.data;
+  },
+
+  getLocationById: async (id) => {
+    const response = await apiClient.get(`/admin/locations/${id}`);
+    return response.data;
+  },
+
+  createLocation: async (data) => {
+    const response = await apiClient.post('/admin/locations', data);
+    return response.data;
+  },
+
+  updateLocation: async (id, data) => {
+    const response = await apiClient.patch(`/admin/locations/${id}`, data);
+    return response.data;
+  },
+
+  deleteLocation: async (id) => {
+    const response = await apiClient.delete(`/admin/locations/${id}`);
+    return response.data;
   }
 };

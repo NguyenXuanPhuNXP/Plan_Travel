@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8002/api';
+const BASE_URL = 'http://localhost:8001/api';
 
 export const WeatherService = {
   getWeather: async (lat, lon) => {
@@ -12,9 +12,10 @@ export const WeatherService = {
       console.error('Weather Service Error:', error);
       // Fallback data if API is not running
       return {
-        temp: 25,
-        condition: 'Clear',
+        temp: '25°C',
+        condition: 'Không có dữ liệu',
         rain_mm: 0,
+        city: 'Không rõ',
         isFallback: true
       };
     }

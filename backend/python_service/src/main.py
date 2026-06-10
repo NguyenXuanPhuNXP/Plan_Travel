@@ -16,6 +16,9 @@ from ai.schemas.trip_plan_schema import (
     HybridSearchResponse
 )
 
+class EmbedTextRequest(BaseModel):
+    text: str
+
 from pathlib import Path
 load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
@@ -116,8 +119,23 @@ async def hybrid_search(request: HybridSearchRequest):
     if not search_service:
         raise HTTPException(status_code=503, detail="Search Service is not configured")
     try:
-        results = search_service.search(request.query, request.limit)
+        results = search_service.search(
+            request.query,
+            request.limit or 10,
+            request.region,
+            request.category
+        )
         return {"results": results}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@app.post("/ai/embed-text")
+async def embed_text(request: EmbedTextRequest):
+    if not search_service:
+        raise HTTPException(status_code=503, detail="Search Service is not configured")
+    try:
+        embedding = search_service.embed_text(request.text)
+        return {"embedding": embedding or []}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
