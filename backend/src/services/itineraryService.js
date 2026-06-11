@@ -36,18 +36,35 @@ export async function createItinerary(userId, data) {
  * Lấy tất cả itineraries của user (bao gồm cả shared)
  */
 export async function getUserItineraries(userId) {
-    const owned = await prisma.itineraries.findMany({
-        where: { user_id: BigInt(userId) },
+    const userIdBigInt = BigInt(userId);
+    const itineraries = await prisma.itineraries.findMany({
+        where: {
+            OR: [
+                { user_id: userIdBigInt },
+                { collaborators: { some: { user_id: userIdBigInt } } }
+            ]
+        },
         include: {
             itinerary_items: {
-                include: { locations: true },
+                include: { locations: true, businesses: true },
                 orderBy: { sort_order: "asc" }
+            },
+            users: {
+                select: { id: true, full_name: true, email: true, avatar_url: true }
+            },
+            collaborators: {
+                include: {
+                    users: {
+                        select: { id: true, full_name: true, email: true, avatar_url: true }
+                    }
+                },
+                orderBy: { invited_at: "asc" }
             }
         },
         orderBy: { created_at: "desc" }
     });
 
-    return owned.map(serializeItinerary);
+    return itineraries.map(serializeItinerary);
 }
 
 /**

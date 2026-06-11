@@ -1,6 +1,6 @@
 import React from 'react';
 import Layout from '../components/Layout/Layout';
-import { Bell, CalendarClock, RefreshCw, Trash2 } from 'lucide-react';
+import { Bell, CalendarClock, RefreshCw, Trash2, Users } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import './Notifications.css';
 
@@ -9,9 +9,16 @@ const Notifications = () => {
     notifications,
     enabled,
     setEnabled,
+    markRead,
     markAllRead,
     clearNotifications
   } = useNotifications();
+
+  const getIcon = (type) => {
+    if (type === 'plan_update') return <RefreshCw size={18} />;
+    if (type === 'group') return <Users size={18} />;
+    return <CalendarClock size={18} />;
+  };
 
   return (
     <Layout>
@@ -35,16 +42,24 @@ const Notifications = () => {
 
         <div className="notification-list">
           {notifications.map((item) => (
-            <div className={`notification-item ${item.read ? '' : 'unread'}`} key={item.id}>
+            <button
+              type="button"
+              className={`notification-item ${item.read ? '' : 'unread'}`}
+              key={item.id}
+              onClick={() => markRead(item.id)}
+            >
               <div className="notification-icon">
-                {item.type === 'plan_update' ? <RefreshCw size={18} /> : <CalendarClock size={18} />}
+                {getIcon(item.type)}
               </div>
-              <div>
-                <h3 className="notification-title">{item.title}</h3>
+              <div className="notification-content">
+                <div className="notification-title-row">
+                  <h3 className="notification-title">{item.title}</h3>
+                  {!item.read && <span className="notification-unread-pill">Mới</span>}
+                </div>
                 <p className="notification-message">{item.message}</p>
                 <div className="notification-time">{new Date(item.createdAt).toLocaleString('vi-VN')}</div>
               </div>
-            </div>
+            </button>
           ))}
           {notifications.length === 0 && (
             <div className="card">

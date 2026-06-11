@@ -1,12 +1,14 @@
 import React from 'react';
 import { LogOut, User, Bell, Search, MapPin, Sparkles, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { locationService } from '../../services/locationService';
 import './Navbar.css';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
@@ -109,7 +111,9 @@ const Navbar = () => {
       <div className="navbar-right">
         <Link to="/notifications" className="navbar-bell" title="Thông báo">
           <Bell size={20} />
-          <span className="navbar-bell-badge"></span>
+          {unreadCount > 0 && (
+            <span className="navbar-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+          )}
         </Link>
 
         {user ? (

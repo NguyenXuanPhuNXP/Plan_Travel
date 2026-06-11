@@ -22,17 +22,21 @@ import {
   Loader2,
   AlertTriangle,
   X,
-  Share2,
-  Copy,
-  Check
+  Users,
+  UserPlus,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { sharingService } from '../services/sharingService';
+import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 import './TripDetails.css';
 
 const TripDetails = () => {
   const { id } = useParams();
   const { getTripById, updateTrip, fetchTrips } = useTrips();
+  const { user } = useAuth();
+  const { pushNotification } = useNotifications();
   const { location: currentPos, error: geoError, loading: geoLoading, getLocation } = useGeolocation();
   
   const trip = getTripById(id);
@@ -40,11 +44,10 @@ const TripDetails = () => {
   const [activeWeatherLoc, setActiveWeatherLoc] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [completionResult, setCompletionResult] = useState(null);
-  const [shareLink, setShareLink] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [sharePermission, setSharePermission] = useState('view');
-  const [shareVisibility, setShareVisibility] = useState('public');
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
+  const [groupMembers, setGroupMembers] = useState(null);
+  const [groupLoading, setGroupLoading] = useState(false);
   const [toast, setToast] = useState('');
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editingLocations, setEditingLocations] = useState([]);
@@ -58,6 +61,13 @@ const TripDetails = () => {
     notes: ''
   });
   const locations = Array.isArray(trip?.locations) ? trip.locations : [];
+  const isTripOwner = String(trip?.userId || trip?.owner?.id || '') === String(user?.id || '');
+  const collaborators = groupMembers?.members || trip?.collaborators || [];
+  const groupOwner = groupMembers?.owner || trip?.owner || {
+    id: trip?.userId,
+    name: 'Trưởng nhóm',
+    email: ''
+  };
 
   // --- Helpers: declared before any usage to avoid TDZ (const is not hoisted) ---
   const normalizeMapLoc = (loc) => ({
@@ -223,24 +233,83 @@ const TripDetails = () => {
     setIsConfirming(false);
   };
 
-  const handleShareTrip = async () => {
+  const loadGroupMembers = async () => {
+    if (!trip?.id) return;
+    setGroupLoading(true);
     try {
-      const data = await sharingService.share(trip.id, {
-        visibility: shareVisibility,
-        permission: sharePermission
-      });
-      const token = data.shareToken || data.token;
-      const link = `${window.location.origin}/shared/${token}`;
-      setShareLink(link);
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      setShowShareModal(false);
-      setToast('Đã tạo link chia sẻ và sao chép vào clipboard.');
-      setTimeout(() => setToast(''), 2500);
-      setTimeout(() => setCopied(false), 2000);
+      const data = await sharingService.getGroupMembers(trip.id);
+      setGroupMembers(data);
     } catch (error) {
-      console.error('Share trip failed:', error);
-      setToast('Không thể chia sẻ kế hoạch lúc này. Vui lòng thử lại.');
+      console.error('Load group failed:', error);
+      setToast('Không thể tải nhóm kế hoạch lúc này.');
+      setTimeout(() => setToast(''), 2500);
+    } finally {
+      setGroupLoading(false);
+    }
+  };
+
+  const openGroupModal = async () => {
+    setShowGroupModal(true);
+    await loadGroupMembers();
+  };
+
+  const handleCreateInviteLink = async () => {
+    try {
+      const data = await sharingService.createInviteLink(trip.id);
+      const link = `${window.location.origin}${data.inviteUrl}`;
+      setInviteLink(link);
+      await navigator.clipboard.writeText(link);
+      pushNotification({
+        id: `group_invite_link_${trip.id}_${Date.now()}`,
+        type: 'group',
+        title: 'Đã tạo link mời nhóm',
+        message: `Link mời cho kế hoạch "${trip.title || trip.name}" đã được sao chép.`
+      });
+      setToast('Đã tạo link mời và sao chép vào clipboard.');
+      setTimeout(() => setToast(''), 2500);
+    } catch (error) {
+      console.error('Create invite link failed:', error);
+      setToast(error.response?.data?.message || 'Không thể tạo link mời.');
+      setTimeout(() => setToast(''), 2500);
+    }
+  };
+
+  const handleUpdateMemberPermission = async (targetUserId, permission) => {
+    try {
+      const data = await sharingService.updateCollaboratorPermission(trip.id, targetUserId, permission);
+      setGroupMembers(data);
+      await fetchTrips();
+      pushNotification({
+        id: `group_permission_${trip.id}_${targetUserId}_${Date.now()}`,
+        type: 'group',
+        title: 'Đã cập nhật quyền thành viên',
+        message: `Một thành viên trong "${trip.title || trip.name}" đã được chuyển sang quyền ${permission === 'edit' ? 'chỉnh sửa' : 'chỉ xem'}.`
+      });
+      setToast('Đã cập nhật quyền thành viên.');
+      setTimeout(() => setToast(''), 2200);
+    } catch (error) {
+      console.error('Update permission failed:', error);
+      setToast(error.response?.data?.message || 'Không thể đổi quyền thành viên.');
+      setTimeout(() => setToast(''), 2500);
+    }
+  };
+
+  const handleRemoveMember = async (targetUserId) => {
+    try {
+      const data = await sharingService.removeCollaborator(trip.id, targetUserId);
+      setGroupMembers(data);
+      await fetchTrips();
+      pushNotification({
+        id: `group_removed_${trip.id}_${targetUserId}_${Date.now()}`,
+        type: 'group',
+        title: 'Đã xóa thành viên khỏi nhóm',
+        message: `Danh sách nhóm của "${trip.title || trip.name}" vừa được cập nhật.`
+      });
+      setToast('Đã xóa thành viên khỏi nhóm kế hoạch.');
+      setTimeout(() => setToast(''), 2200);
+    } catch (error) {
+      console.error('Remove member failed:', error);
+      setToast(error.response?.data?.message || 'Không thể xóa thành viên.');
       setTimeout(() => setToast(''), 2500);
     }
   };
@@ -409,18 +478,9 @@ const TripDetails = () => {
               <button onClick={() => setIsEditingInfo((v) => !v)} className="btn btn-outline">
                 {isEditingInfo ? 'Đóng chỉnh sửa' : 'Chỉnh sửa kế hoạch'}
               </button>
-              <button onClick={() => setShowShareModal(true)} className="btn btn-outline">
-                <Share2 size={18} /> Chia sẻ kế hoạch
+              <button onClick={openGroupModal} className="btn btn-outline">
+                <Users size={18} /> Nhóm kế hoạch
               </button>
-              {shareLink && (
-                <button
-                  onClick={() => navigator.clipboard.writeText(shareLink)}
-                  className="btn btn-outline"
-                  title={shareLink}
-                >
-                  {copied ? <Check size={16} /> : <Copy size={16} />} Sao chép link
-                </button>
-              )}
             </div>
             </div>
           </div>
@@ -620,34 +680,93 @@ const TripDetails = () => {
         </AnimatePresence>
 
         <AnimatePresence>
-          {showShareModal && (
+          {showGroupModal && (
             <div className="trip-details-modal-overlay">
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="card trip-details-modal-card"
+                className="card trip-details-modal-card trip-details-group-modal"
               >
                 <div className="trip-details-modal-header">
-                  <h2 className="trip-details-modal-title">Chia sẻ kế hoạch</h2>
-                  <button onClick={() => setShowShareModal(false)} className="trip-details-modal-close"><X size={24} /></button>
+                  <h2 className="trip-details-modal-title">Nhóm kế hoạch</h2>
+                  <button onClick={() => setShowGroupModal(false)} className="trip-details-modal-close"><X size={24} /></button>
                 </div>
-                <div className="trip-details-modal-body">
-                  <label className="trip-planner-label">Quyền truy cập</label>
-                  <select className="btn-outline trip-planner-input" value={sharePermission} onChange={(e) => setSharePermission(e.target.value)}>
-                    <option value="view">Chỉ xem</option>
-                    <option value="edit">Cho phép chỉnh sửa</option>
-                  </select>
-                  <label className="trip-planner-label" style={{ marginTop: '0.75rem' }}>Hiển thị</label>
-                  <select className="btn-outline trip-planner-input" value={shareVisibility} onChange={(e) => setShareVisibility(e.target.value)}>
-                    <option value="public">Công khai qua link</option>
-                    <option value="private">Riêng tư</option>
-                  </select>
+                <div className="trip-details-modal-body trip-details-group-body">
+                  <div className="trip-details-group-owner">
+                    <div className="trip-details-member-avatar">
+                      {groupOwner?.avatar ? <img src={groupOwner.avatar} alt={groupOwner.name} /> : <Users size={18} />}
+                    </div>
+                    <div>
+                      <div className="trip-details-member-name">{groupOwner?.name || 'Trưởng nhóm'}</div>
+                      <div className="trip-details-member-email">{groupOwner?.email || 'Chủ kế hoạch'}</div>
+                    </div>
+                    <span className="trip-details-member-role">Trưởng nhóm</span>
+                  </div>
+
+                  {isTripOwner && (
+                    <div className="trip-details-group-invite-link">
+                      <button className="btn btn-primary" onClick={handleCreateInviteLink}>
+                        <UserPlus size={18} /> Tạo link mời
+                      </button>
+                      {inviteLink && (
+                        <input
+                          className="btn-outline trip-planner-input"
+                          value={inviteLink}
+                          readOnly
+                          onFocus={(e) => e.target.select()}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  <div className="trip-details-group-list">
+                    <div className="trip-details-group-list-title">
+                      Thành viên ({collaborators.length})
+                    </div>
+                    {groupLoading ? (
+                      <div className="trip-details-group-empty">
+                        <Loader2 className="animate-spin" size={20} /> Đang tải nhóm...
+                      </div>
+                    ) : collaborators.length === 0 ? (
+                      <div className="trip-details-group-empty">Chưa có thành viên nào tham gia kế hoạch này.</div>
+                    ) : (
+                      collaborators.map((member) => (
+                        <div className="trip-details-group-member" key={member.userId}>
+                          <div className="trip-details-member-avatar">
+                            {member.user?.avatar ? <img src={member.user.avatar} alt={member.user.name} /> : <Users size={18} />}
+                          </div>
+                          <div className="trip-details-member-main">
+                            <div className="trip-details-member-name">{member.user?.name || 'Thành viên'}</div>
+                            <div className="trip-details-member-email">{member.user?.email}</div>
+                          </div>
+                          {isTripOwner ? (
+                            <>
+                              <select
+                                className="btn-outline trip-details-member-permission"
+                                value={member.permission || 'view'}
+                                onChange={(e) => handleUpdateMemberPermission(member.userId, e.target.value)}
+                              >
+                                <option value="view">Chỉ xem</option>
+                                <option value="edit">Chỉnh sửa</option>
+                              </select>
+                              <button className="btn btn-outline trip-details-member-remove" onClick={() => handleRemoveMember(member.userId)}>
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          ) : (
+                            <span className="trip-details-member-role">
+                              {member.permission === 'edit' ? 'Chỉnh sửa' : 'Chỉ xem'}
+                            </span>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
                 <div className="trip-details-modal-footer">
-                  <button onClick={() => setShowShareModal(false)} className="btn btn-outline trip-details-modal-btn">Hủy</button>
-                  <button onClick={handleShareTrip} className="btn btn-primary trip-details-modal-btn trip-details-modal-btn-confirm">
-                    Tạo link chia sẻ
+                  <button onClick={() => setShowGroupModal(false)} className="btn btn-outline trip-details-modal-btn">
+                    Đóng
                   </button>
                 </div>
               </motion.div>

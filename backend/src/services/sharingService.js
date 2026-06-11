@@ -43,6 +43,130 @@ export async function shareItinerary(itineraryId, userId, { visibility, permissi
     };
 }
 
+export async function createGroupInviteLink(itineraryId, ownerId) {
+    const itinerary = await prisma.itineraries.findUnique({
+        where: { id: BigInt(itineraryId) }
+    });
+
+    if (!itinerary) throw { status: 404, message: "Không tìm thấy lịch trình." };
+    if (itinerary.user_id !== BigInt(ownerId)) {
+        throw { status: 403, message: "Chỉ trưởng nhóm mới có thể tạo link mời." };
+    }
+
+    let shareToken = itinerary.share_token;
+    if (!shareToken) {
+        shareToken = crypto.randomBytes(16).toString("hex");
+    }
+
+    await prisma.itineraries.update({
+        where: { id: BigInt(itineraryId) },
+        data: {
+            visibility: "shared",
+            share_token: shareToken,
+            updated_at: new Date()
+        }
+    });
+
+    return {
+        inviteToken: shareToken,
+        inviteUrl: `/group-invite/${shareToken}`
+    };
+}
+
+export async function getGroupInviteInfo(inviteToken) {
+    const itinerary = await prisma.itineraries.findFirst({
+        where: { share_token: inviteToken },
+        include: {
+            users: {
+                select: { id: true, full_name: true, email: true, avatar_url: true }
+            },
+            collaborators: true
+        }
+    });
+
+    if (!itinerary || itinerary.visibility === "private") return null;
+
+    return {
+        id: itinerary.id?.toString(),
+        name: itinerary.name,
+        destination: itinerary.destination,
+        owner: itinerary.users ? {
+            id: itinerary.users.id?.toString(),
+            name: itinerary.users.full_name,
+            email: itinerary.users.email,
+            avatar: itinerary.users.avatar_url
+        } : null,
+        memberCount: itinerary.collaborators.length
+    };
+}
+
+export async function joinGroupByInvite(inviteToken, userId) {
+    const itinerary = await prisma.itineraries.findFirst({
+        where: { share_token: inviteToken },
+        include: {
+            users: {
+                select: { id: true, full_name: true, email: true, avatar_url: true }
+            },
+            collaborators: {
+                include: {
+                    users: {
+                        select: { id: true, full_name: true, email: true, avatar_url: true }
+                    }
+                }
+            }
+        }
+    });
+
+    if (!itinerary || itinerary.visibility === "private") {
+        throw { status: 404, message: "Link mời không tồn tại hoặc đã bị khóa." };
+    }
+
+    if (itinerary.user_id === BigInt(userId)) {
+        return {
+            alreadyJoined: true,
+            itinerary: serializeSharedItinerary(itinerary),
+            group: await getGroupMembers(itinerary.id, userId)
+        };
+    }
+
+    const existing = itinerary.collaborators.find((c) => c.user_id === BigInt(userId));
+    if (!existing) {
+        await prisma.itinerary_collaborators.create({
+            data: {
+                itinerary_id: itinerary.id,
+                user_id: BigInt(userId),
+                permission: "view"
+            }
+        });
+    }
+
+    const updated = await prisma.itineraries.findUnique({
+        where: { id: itinerary.id },
+        include: {
+            itinerary_items: {
+                include: { locations: true },
+                orderBy: { sort_order: "asc" }
+            },
+            users: {
+                select: { id: true, full_name: true, avatar_url: true }
+            },
+            collaborators: {
+                include: {
+                    users: {
+                        select: { id: true, full_name: true, email: true, avatar_url: true }
+                    }
+                }
+            }
+        }
+    });
+
+    return {
+        alreadyJoined: Boolean(existing),
+        itinerary: serializeSharedItinerary(updated),
+        group: await getGroupMembers(itinerary.id, userId)
+    };
+}
+
 /**
  * Xem plan qua share token (public access)
  */
@@ -68,7 +192,7 @@ export async function getSharedItinerary(shareToken) {
     });
 
     if (!itinerary) return null;
-    if (itinerary.visibility === "private") return null;
+    if (!["public", "public_edit"].includes(itinerary.visibility)) return null;
 
     const serialized = serializeSharedItinerary(itinerary);
     // Public link can optionally carry edit permission.
@@ -126,7 +250,7 @@ export async function addCollaborator(itineraryId, ownerId, { email, permission 
         });
     }
 
-    return { message: "Đã mời thành công.", email, permission: permission || "view" };
+    return getGroupMembers(itineraryId, ownerId);
 }
 
 /**
@@ -148,6 +272,85 @@ export async function removeCollaborator(itineraryId, ownerId, targetUserId) {
             user_id: BigInt(targetUserId)
         }
     });
+
+    return getGroupMembers(itineraryId, ownerId);
+}
+
+export async function updateCollaboratorPermission(itineraryId, ownerId, targetUserId, { permission }) {
+    const normalizedPermission = permission === "edit" ? "edit" : "view";
+    const itinerary = await prisma.itineraries.findUnique({
+        where: { id: BigInt(itineraryId) }
+    });
+
+    if (!itinerary) throw { status: 404, message: "Không tìm thấy lịch trình." };
+    if (itinerary.user_id !== BigInt(ownerId)) {
+        throw { status: 403, message: "Chỉ trưởng nhóm mới có thể đổi quyền thành viên." };
+    }
+    if (itinerary.user_id === BigInt(targetUserId)) {
+        throw { status: 400, message: "Không thể đổi quyền của trưởng nhóm." };
+    }
+
+    const updated = await prisma.itinerary_collaborators.updateMany({
+        where: {
+            itinerary_id: BigInt(itineraryId),
+            user_id: BigInt(targetUserId)
+        },
+        data: { permission: normalizedPermission }
+    });
+
+    if (updated.count === 0) {
+        throw { status: 404, message: "Thành viên không thuộc kế hoạch này." };
+    }
+
+    return getGroupMembers(itineraryId, ownerId);
+}
+
+export async function getGroupMembers(itineraryId, userId) {
+    const itinerary = await prisma.itineraries.findUnique({
+        where: { id: BigInt(itineraryId) },
+        include: {
+            users: {
+                select: { id: true, full_name: true, email: true, avatar_url: true }
+            },
+            collaborators: {
+                include: {
+                    users: {
+                        select: { id: true, full_name: true, email: true, avatar_url: true }
+                    }
+                },
+                orderBy: { invited_at: "asc" }
+            }
+        }
+    });
+
+    if (!itinerary) throw { status: 404, message: "Không tìm thấy lịch trình." };
+
+    const isOwner = itinerary.user_id === BigInt(userId);
+    const isCollaborator = itinerary.collaborators.some((c) => c.user_id === BigInt(userId));
+    if (!isOwner && !isCollaborator) {
+        throw { status: 403, message: "Bạn không thuộc nhóm kế hoạch này." };
+    }
+
+    return {
+        owner: itinerary.users ? {
+            id: itinerary.users.id?.toString(),
+            name: itinerary.users.full_name,
+            email: itinerary.users.email,
+            avatar: itinerary.users.avatar_url
+        } : null,
+        members: itinerary.collaborators.map((c) => ({
+            userId: c.user_id?.toString(),
+            permission: c.permission,
+            invitedAt: c.invited_at,
+            acceptedAt: c.accepted_at,
+            user: c.users ? {
+                id: c.users.id?.toString(),
+                name: c.users.full_name,
+                email: c.users.email,
+                avatar: c.users.avatar_url
+            } : undefined
+        }))
+    };
 }
 
 /**
@@ -260,6 +463,13 @@ export async function getSharedItineraryWithPermission(shareToken, userId) {
 
     if (!itinerary) return null;
     if (itinerary.visibility === "private") return null;
+    if (itinerary.visibility === "shared") {
+        const canAccess = userId && (
+            itinerary.user_id === BigInt(userId) ||
+            itinerary.collaborators.some((c) => c.user_id === BigInt(userId))
+        );
+        if (!canAccess) return null;
+    }
 
     const serialized = serializeSharedItinerary(itinerary);
 

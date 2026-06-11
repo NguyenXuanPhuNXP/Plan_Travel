@@ -50,7 +50,6 @@ const AdminLayout = ({ children }) => {
         <header className="admin-shell-topbar">
           <div>
             <div className="admin-shell-topbar-title">Admin Console</div>
-            <div style={{ color: '#667085', fontSize: '0.85rem' }}>Không gian quản trị tách biệt khỏi giao diện người dùng</div>
           </div>
           <div className="admin-shell-user">
             <div style={{ textAlign: 'right' }}>

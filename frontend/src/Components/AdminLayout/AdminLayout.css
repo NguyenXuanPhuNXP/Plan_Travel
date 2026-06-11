@@ -3,16 +3,30 @@
   display: grid;
   grid-template-columns: 260px 1fr;
   background: #f6f8fb;
+  font-family: 'Be Vietnam Pro', sans-serif;
 }
 
 .admin-shell-sidebar {
-  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
   background: #101828;
   color: #d0d5dd;
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+/* Hide scrollbar on sidebar but keep scroll functional */
+.admin-shell-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.admin-shell-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
 }
 
 .admin-shell-brand {
@@ -23,6 +37,7 @@
   font-size: 1.15rem;
   font-weight: 800;
   text-decoration: none;
+  font-family: 'Be Vietnam Pro', sans-serif;
 }
 
 .admin-shell-brand-mark {
@@ -40,6 +55,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  font-family: 'Be Vietnam Pro', sans-serif;
 }
 
 .admin-shell-nav {
@@ -57,6 +73,8 @@
   color: #d0d5dd;
   text-decoration: none;
   font-weight: 700;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  transition: all 0.2s ease;
 }
 
 .admin-shell-link:hover,
@@ -73,6 +91,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .admin-shell-topbar {
@@ -83,11 +102,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .admin-shell-topbar-title {
   font-weight: 800;
   color: #101828;
+  font-family: 'Be Vietnam Pro', sans-serif;
 }
 
 .admin-shell-user {
@@ -105,6 +128,7 @@
   display: grid;
   place-items: center;
   font-weight: 800;
+  font-family: 'Be Vietnam Pro', sans-serif;
 }
 
 .admin-shell-content {
@@ -114,6 +138,7 @@
 .admin-shell-back {
   width: 100%;
   justify-content: center;
+  font-family: 'Be Vietnam Pro', sans-serif;
 }
 
 @media (max-width: 900px) {
@@ -122,6 +147,8 @@
   }
 
   .admin-shell-sidebar {
+    position: relative;
+    height: auto;
     min-height: auto;
   }
 

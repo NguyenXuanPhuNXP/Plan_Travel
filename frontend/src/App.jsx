@@ -13,6 +13,7 @@ import TripHistory from './pages/TripHistory';
 import TripDetails from './pages/TripDetails';
 import Profile from './pages/Profile';
 import SharedTripView from './pages/SharedTripView';
+import GroupInvite from './pages/GroupInvite';
 import Notifications from './pages/Notifications';
 import Explore from './pages/Explore';
 import AdminDashboard from './pages/AdminDashboard';
@@ -58,6 +59,7 @@ function App() {
       
       {/* Public shared trip view - no auth required */}
       <Route path="/shared/:token" element={<SharedTripView />} />
+      <Route path="/group-invite/:token" element={<GroupInvite />} />
       
       <Route path="/" element={
         <ProtectedRoute>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import './Auth.css';
@@ -13,6 +13,7 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,7 +23,8 @@ const Login = () => {
     try {
       const user = await login(email, password);
       const isAdmin = user?.role === 1 || user?.role === 'admin';
-      navigate(isAdmin ? '/admin' : '/');
+      const redirect = searchParams.get('redirect');
+      navigate(redirect || (isAdmin ? '/admin' : '/'));
     } catch (err) {
       setError(err.message);
     } finally {

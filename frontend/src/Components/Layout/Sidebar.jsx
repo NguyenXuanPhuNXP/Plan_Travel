@@ -10,10 +10,12 @@ import {
   Sparkles,
   Bell
 } from 'lucide-react';
+import { useNotifications } from '../../context/NotificationContext';
 import './Sidebar.css';
 
 const Sidebar = () => {
   const location = useLocation();
+  const { unreadCount } = useNotifications();
 
   const menuItems = [
     { key: 'dashboard', icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/', matchStartsWith: ['/'] },
@@ -67,7 +69,10 @@ const Sidebar = () => {
               className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
             >
               <item.icon size={20} />
-              {item.label}
+              <span className="sidebar-link-label">{item.label}</span>
+              {item.path === '/notifications' && unreadCount > 0 && (
+                <span className="sidebar-notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              )}
             </NavLink>
           ))}
         </nav>
