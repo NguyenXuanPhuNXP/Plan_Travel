@@ -1,5 +1,5 @@
 import React from 'react';
-import Layout from '../components/Layout/Layout';
+import Layout from '../Components/Layout/Layout';
 import { Bell, CalendarClock, RefreshCw, Trash2, Users } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import './Notifications.css';

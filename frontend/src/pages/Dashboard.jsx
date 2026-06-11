@@ -1,5 +1,5 @@
 import React from 'react';
-import Layout from '../components/Layout/Layout';
+import Layout from '../Components/Layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import { useTrips } from '../context/TripContext';
 import { TRENDING_DESTINATIONS } from '../utils/mockData';

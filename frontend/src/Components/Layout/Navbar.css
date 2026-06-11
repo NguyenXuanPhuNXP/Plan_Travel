@@ -4,7 +4,7 @@
   top: 0;
   right: 0;
   left: 0;
-  z-index: 100;
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -81,12 +81,21 @@
   place-items: center;
 }
 
+/* ========== User area ========== */
 .navbar-user {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  position: relative;
   padding-left: 1.5rem;
   border-left: 1px solid var(--border-color);
+}
+
+.navbar-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
 }
 
 .navbar-user-info {
@@ -111,6 +120,63 @@
   border: 2px solid var(--primary);
 }
 
+.navbar-chevron {
+  color: var(--text-muted);
+  transition: transform 0.25s ease;
+}
+.navbar-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* ========== User dropdown ========== */
+.navbar-user-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 220px;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  padding: 0.5rem;
+  z-index: 10000;
+  animation: dropdownFadeIn 0.18s ease;
+}
+
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.navbar-user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  transition: background 0.15s;
+}
+
+.navbar-user-dropdown-item:hover {
+  background: var(--bg-hover, #f1f5f9);
+}
+
+.navbar-user-dropdown-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 0.35rem 0;
+}
+
+.navbar-user-dropdown-logout {
+  color: var(--danger, #ef4444);
+}
+.navbar-user-dropdown-logout:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
 .navbar-logout {
   padding: 0.5rem;
   border-radius: 50%;
@@ -133,7 +199,7 @@
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   max-height: 400px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 10000;
   padding: 0.5rem;
 }
 
@@ -201,4 +267,3 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-

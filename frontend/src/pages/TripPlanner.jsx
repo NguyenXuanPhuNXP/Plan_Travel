@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Layout from '../components/Layout/Layout';
+import Layout from '../Components/Layout/Layout';
 import MapComponent from '../components/Map/MapComponent';
 import { useTrips } from '../context/TripContext';
 import { useNavigate, Link } from 'react-router-dom';

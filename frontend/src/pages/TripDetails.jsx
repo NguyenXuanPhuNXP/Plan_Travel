@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { sharingService } from '../services/sharingService';
+import { friendService } from '../services/friendService';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import './TripDetails.css';
@@ -48,6 +49,8 @@ const TripDetails = () => {
   const [inviteLink, setInviteLink] = useState('');
   const [groupMembers, setGroupMembers] = useState(null);
   const [groupLoading, setGroupLoading] = useState(false);
+  const [friendsList, setFriendsList] = useState([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
   const [toast, setToast] = useState('');
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editingLocations, setEditingLocations] = useState([]);
@@ -251,6 +254,35 @@ const TripDetails = () => {
   const openGroupModal = async () => {
     setShowGroupModal(true);
     await loadGroupMembers();
+    if (isTripOwner) {
+      setLoadingFriends(true);
+      try {
+        const friends = await friendService.getFriends();
+        setFriendsList(friends || []);
+      } catch (err) {
+        console.error("Failed to load friends", err);
+      } finally {
+        setLoadingFriends(false);
+      }
+    }
+  };
+
+  const handleInviteFriend = async (friend) => {
+    try {
+      const data = await sharingService.addCollaborator(trip.id, { email: friend.email, permission: 'view' });
+      setGroupMembers(data);
+      pushNotification({
+        id: `invite_friend_${trip.id}_${friend.id}`,
+        type: 'group',
+        title: 'Đã thêm thành viên',
+        message: `Đã thêm ${friend.name} vào nhóm kế hoạch.`
+      });
+      setToast(`Đã thêm ${friend.name} vào nhóm.`);
+      setTimeout(() => setToast(''), 2200);
+    } catch (err) {
+      setToast(err.response?.data?.message || 'Không thể thêm bạn vào nhóm.');
+      setTimeout(() => setToast(''), 2500);
+    }
   };
 
   const handleCreateInviteLink = async () => {
@@ -763,6 +795,39 @@ const TripDetails = () => {
                       ))
                     )}
                   </div>
+
+                  {isTripOwner && (
+                    <div className="trip-details-group-list" style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                      <div className="trip-details-group-list-title">Mời bạn bè</div>
+                      {loadingFriends ? (
+                        <div className="trip-details-group-empty"><Loader2 className="animate-spin" size={16} /> Đang tải bạn bè...</div>
+                      ) : friendsList.length === 0 ? (
+                        <div className="trip-details-group-empty">Bạn chưa có bạn bè nào.</div>
+                      ) : (
+                        friendsList.map(friend => {
+                          const isAlreadyMember = collaborators.some(c => String(c.userId) === String(friend.id));
+                          return (
+                            <div className="trip-details-group-member" key={friend.id}>
+                              <div className="trip-details-member-avatar">
+                                <img src={friend.avatar || '/avatars/traveler.svg'} alt={friend.name} />
+                              </div>
+                              <div className="trip-details-member-main">
+                                <div className="trip-details-member-name">{friend.name}</div>
+                                <div className="trip-details-member-email">{friend.email}</div>
+                              </div>
+                              {isAlreadyMember ? (
+                                <span className="trip-details-member-role">Đã tham gia</span>
+                              ) : (
+                                <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => handleInviteFriend(friend)}>
+                                  <UserPlus size={14} style={{ marginRight: 4 }} /> Thêm
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="trip-details-modal-footer">
                   <button onClick={() => setShowGroupModal(false)} className="btn btn-outline trip-details-modal-btn">

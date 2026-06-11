@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { Bell, X } from 'lucide-react';
 import { useTrips } from './TripContext';
 import { useAuth } from './AuthContext';
+import { friendService } from '../services/friendService';
 import '../pages/Notifications.css';
 
 const NotificationContext = createContext();
@@ -42,16 +43,32 @@ export const NotificationProvider = ({ children }) => {
 
   const pushNotification = (item, showPopup = true) => {
     setNotifications((prev) => {
-      if (prev.some((n) => n.id === item.id)) return prev;
-      const next = [{
-        type: 'general',
-        ...item,
-        createdAt: new Date().toISOString(),
-        read: false
-      }, ...prev].slice(0, 80);
+      const existingIndex = prev.findIndex((n) => n.id === item.id);
+      let next;
+      
+      if (existingIndex >= 0) {
+        // Update existing item, but never revert a 'read' status from true to false
+        next = [...prev];
+        const existingItem = next[existingIndex];
+        next[existingIndex] = { 
+          ...existingItem, 
+          ...item,
+          read: existingItem.read || item.read 
+        };
+      } else {
+        // Add new item
+        next = [{
+          type: 'general',
+          ...item,
+          createdAt: item.createdAt || new Date().toISOString(),
+          read: item.read ?? false
+        }, ...prev].slice(0, 80);
+      }
+      
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       return next;
     });
+    
     if (enabled && showPopup) {
       setToast(item);
       setTimeout(() => setToast(null), 4200);
@@ -61,6 +78,39 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem(ENABLED_KEY, String(enabled));
   }, [enabled]);
+
+  useEffect(() => {
+    if (user?.id) {
+      friendService.getNotifications().then(data => {
+        if (data && data.notifications) {
+          data.notifications.forEach(n => {
+            pushNotification({
+              id: n.id,
+              type: n.type,
+              title: n.title,
+              message: n.message,
+              read: n.isRead,
+              createdAt: n.createdAt
+            }, false);
+          });
+        }
+        if (data && data.friendRequests) {
+          data.friendRequests.forEach(req => {
+            pushNotification({
+              id: `req_${req.id}`,
+              type: 'friend_request',
+              title: 'Lời mời kết bạn mới',
+              message: `${req.user.name} đã gửi lời mời kết bạn.`,
+              read: false,
+              createdAt: req.createdAt
+            }, false);
+          });
+        }
+      }).catch(err => {
+        console.error("Failed to fetch notifications:", err);
+      });
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     trips.forEach((trip) => {
@@ -146,6 +196,9 @@ export const NotificationProvider = ({ children }) => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         return next;
       });
+      if (user?.id) {
+        friendService.markNotificationsRead().catch(console.error);
+      }
     },
     clearNotifications: () => {
       localStorage.removeItem(STORAGE_KEY);

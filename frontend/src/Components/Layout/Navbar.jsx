@@ -1,9 +1,10 @@
-import React from 'react';
-import { LogOut, User, Bell, Search, MapPin, Sparkles, Loader2 } from 'lucide-react';
+import React, { useRef, useEffect, useCallback } from 'react';
+import { LogOut, User, Bell, Search, MapPin, Sparkles, Loader2, Users, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { locationService } from '../../services/locationService';
+import FriendModal from './FriendModal';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -14,13 +15,33 @@ const Navbar = () => {
   const [searchResults, setSearchResults] = React.useState([]);
   const [isSearching, setIsSearching] = React.useState(false);
   const [showDropdown, setShowDropdown] = React.useState(false);
+  const [showUserDropdown, setShowUserDropdown] = React.useState(false);
+  const [showFriendModal, setShowFriendModal] = React.useState(false);
   const userName = user?.fullName || user?.name || 'Người dùng';
   const userAvatar = user?.avatarUrl || user?.avatar || '/avatars/traveler.svg';
   const [avatarSrc, setAvatarSrc] = React.useState(userAvatar);
 
+  const userDropdownRef = useRef(null);
+  const searchDropdownRef = useRef(null);
+
   React.useEffect(() => {
     setAvatarSrc(userAvatar);
   }, [userAvatar]);
+
+  // Close dropdowns when clicking outside
+  const handleClickOutside = useCallback((e) => {
+    if (userDropdownRef.current && !userDropdownRef.current.contains(e.target)) {
+      setShowUserDropdown(false);
+    }
+    if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target)) {
+      setShowDropdown(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [handleClickOutside]);
 
   // Debounced search
   React.useEffect(() => {
@@ -52,96 +73,132 @@ const Navbar = () => {
     navigate(`/planner?destination=${encodeURIComponent(loc.name)}&locationId=${loc.id}&region=${encodeURIComponent(loc.region || '')}`);
   };
 
+  const handleOpenFriendModal = () => {
+    setShowUserDropdown(false);
+    setShowFriendModal(true);
+  };
+
+  const handleGoToProfile = () => {
+    setShowUserDropdown(false);
+    navigate('/profile');
+  };
+
+  const handleLogout = () => {
+    setShowUserDropdown(false);
+    logout();
+  };
+
   return (
-    <header className="glass navbar-header">
-      <div className="navbar-left">
-        <Link to="/" className="navbar-brand">
-          Travel<span className="navbar-brand-text">Plan</span>
-        </Link>
+    <>
+      <header className="glass navbar-header">
+        <div className="navbar-left">
+          <Link to="/" className="navbar-brand">
+            Travel<span className="navbar-brand-text">Plan</span>
+          </Link>
 
-        <div className="navbar-search-container">
-          <Search size={18} className="navbar-search-icon" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm địa điểm..."
-            className="navbar-search-input"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => searchQuery.length > 2 && setShowDropdown(true)}
-          />
+          <div className="navbar-search-container" ref={searchDropdownRef}>
+            <Search size={18} className="navbar-search-icon" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm địa điểm..."
+              className="navbar-search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => searchQuery.length > 2 && setShowDropdown(true)}
+            />
 
-          {/* Dropdown Results */}
-          {showDropdown && (
-            <div className="navbar-search-dropdown glass">
-              {isSearching ? (
-                <div className="navbar-search-loading">
-                  <Loader2 size={16} className="animate-spin" />
-                  <span>AI đang tìm kiếm...</span>
-                </div>
-              ) : searchResults.length > 0 ? (
-                <div className="navbar-search-results">
-                  <div className="navbar-search-header">
-                    <Sparkles size={12} />
-                    Gợi ý thông minh
+            {/* Dropdown Results */}
+            {showDropdown && (
+              <div className="navbar-search-dropdown glass">
+                {isSearching ? (
+                  <div className="navbar-search-loading">
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>AI đang tìm kiếm...</span>
                   </div>
-                  {searchResults.map(loc => (
-                    <div
-                      key={loc.id}
-                      className="navbar-search-item"
-                      onClick={() => handleResultClick(loc)}
-                    >
-                      <MapPin size={14} className="navbar-search-item-icon" />
-                      <div className="navbar-search-item-info">
-                        <div className="navbar-search-item-name">{loc.name}</div>
-                        <div className="navbar-search-item-region">{loc.region || loc.city || loc.province}</div>
-                      </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="navbar-search-results">
+                    <div className="navbar-search-header">
+                      <Sparkles size={12} />
+                      Gợi ý thông minh
                     </div>
-                  ))}
+                    {searchResults.map(loc => (
+                      <div
+                        key={loc.id}
+                        className="navbar-search-item"
+                        onClick={() => handleResultClick(loc)}
+                      >
+                        <MapPin size={14} className="navbar-search-item-icon" />
+                        <div className="navbar-search-item-info">
+                          <div className="navbar-search-item-name">{loc.name}</div>
+                          <div className="navbar-search-item-region">{loc.region || loc.city || loc.province}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="navbar-search-no-results">
+                    Không tìm thấy địa điểm phù hợp
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="navbar-right">
+          <Link to="/notifications" className="navbar-bell" title="Thông báo">
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span className="navbar-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+            )}
+          </Link>
+
+          {user ? (
+            <div className="navbar-user" ref={userDropdownRef}>
+              <div
+                className="navbar-user-trigger"
+                onClick={() => setShowUserDropdown(prev => !prev)}
+              >
+                <div className="navbar-user-info">
+                  <div className="navbar-user-name">{userName}</div>
+                  <div className="navbar-user-role">Pro Traveler</div>
                 </div>
-              ) : (
-                <div className="navbar-search-no-results">
-                  Không tìm thấy địa điểm phù hợp
+                <img
+                  src={avatarSrc}
+                  alt={userName}
+                  className="navbar-user-avatar"
+                  onError={() => setAvatarSrc('/avatars/traveler.svg')}
+                />
+                <ChevronDown size={16} className={`navbar-chevron ${showUserDropdown ? 'open' : ''}`} />
+              </div>
+
+              {showUserDropdown && (
+                <div className="navbar-user-dropdown glass">
+                  <div className="navbar-user-dropdown-item" onClick={handleGoToProfile}>
+                    <User size={16} /> <span>Trang cá nhân</span>
+                  </div>
+                  <div className="navbar-user-dropdown-item" onClick={handleOpenFriendModal}>
+                    <Users size={16} /> <span>Bạn bè & Lời mời</span>
+                  </div>
+                  <div className="navbar-user-dropdown-divider" />
+                  <div className="navbar-user-dropdown-item navbar-user-dropdown-logout" onClick={handleLogout}>
+                    <LogOut size={16} /> <span>Đăng xuất</span>
+                  </div>
                 </div>
               )}
             </div>
+          ) : (
+            <div className="navbar-auth">
+              <Link to="/login" className="btn btn-outline">Đăng nhập</Link>
+              <Link to="/register" className="btn btn-primary">Đăng ký</Link>
+            </div>
           )}
         </div>
-      </div>
+      </header>
 
-      <div className="navbar-right">
-        <Link to="/notifications" className="navbar-bell" title="Thông báo">
-          <Bell size={20} />
-          {unreadCount > 0 && (
-            <span className="navbar-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-          )}
-        </Link>
-
-        {user ? (
-          <div className="navbar-user">
-            <Link to="/profile" className="navbar-user-info">
-              <div className="navbar-user-name">{userName}</div>
-              <div className="navbar-user-role">Pro Traveler</div>
-            </Link>
-            <Link to="/profile">
-              <img
-                src={avatarSrc}
-                alt={userName}
-                className="navbar-user-avatar"
-                onError={() => setAvatarSrc('/avatars/traveler.svg')}
-              />
-            </Link>
-            <button onClick={logout} className="btn-outline navbar-logout" title="Đăng xuất">
-              <LogOut size={18} />
-            </button>
-          </div>
-        ) : (
-          <div className="navbar-auth">
-            <Link to="/login" className="btn btn-outline">Đăng nhập</Link>
-            <Link to="/register" className="btn btn-primary">Đăng ký</Link>
-          </div>
-        )}
-      </div>
-    </header>
+      {/* FriendModal rendered OUTSIDE header to avoid z-index conflicts */}
+      <FriendModal isOpen={showFriendModal} onClose={() => setShowFriendModal(false)} />
+    </>
   );
 };
 

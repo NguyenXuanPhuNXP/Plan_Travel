@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import Layout from '../components/Layout/Layout';
+import Layout from '../Components/Layout/Layout';
 import { useTrips } from '../context/TripContext';
+import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -24,6 +25,7 @@ const TripHistory = () => {
     return Number.isNaN(date.getTime()) ? '--/--/----' : format(date, 'dd/MM/yyyy');
   };
   const { trips, deleteTrip } = useTrips();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -115,6 +117,30 @@ const TripHistory = () => {
                   >
                     {tabs.find(t => t.id === trip.status)?.label || trip.status}
                   </div>
+                  {trip.owner && String(trip.owner.id) !== String(user?.id) && (
+                    <div 
+                      className="trip-history-badge"
+                      style={{ 
+                        top: '10px', 
+                        left: '10px', 
+                        right: 'auto', 
+                        bottom: 'auto', 
+                        background: 'rgba(0,0,0,0.6)', 
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="Chuyến đi chung"
+                    >
+                      <img 
+                        src={trip.owner.avatar || '/avatars/traveler.svg'} 
+                        alt={trip.owner.name} 
+                        style={{ width: 16, height: 16, borderRadius: '50%' }} 
+                      />
+                      Nhóm của {trip.owner.name}
+                    </div>
+                  )}
                 </Link>
                 
                 <div className="trip-history-content">
