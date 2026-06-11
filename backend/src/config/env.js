@@ -9,8 +9,7 @@ const projectRoot = path.resolve(backendRoot, "..");
 
 const envFiles = [
     path.join(projectRoot, ".env"),
-    path.join(backendRoot, ".env"),
-    path.join(backendRoot, "python_service", "Database", ".env")
+    path.join(backendRoot, ".env")
 ];
 
 for (const envFile of envFiles) {

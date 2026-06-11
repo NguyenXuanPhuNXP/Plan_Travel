@@ -1,6 +1,7 @@
 import express from "express";
 import prisma from "../config/db.js";
 import { authenticate } from "../middleware/authMiddleware.js";
+import { adminOnly } from "../middleware/adminMiddleware.js";
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import path from "path";
@@ -9,12 +10,7 @@ import { generateLocationEmbedding, refreshSearchCache } from "../services/embed
 const router = express.Router();
 
 router.use(authenticate);
-router.use((req, res, next) => {
-    if (req.user?.role !== "admin") {
-        return res.status(403).json({ message: "Bạn không có quyền truy cập trang quản trị." });
-    }
-    next();
-});
+router.use(adminOnly);
 
 const serializeUser = (user, extra = {}) => ({
     id: user.id?.toString(),

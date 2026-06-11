@@ -129,7 +129,7 @@ def _normalize_organized_plan_payload(parsed: dict) -> dict:
 class PlannerService:
     def __init__(self):
         if not GEMINI_API_KEY:
-            raise ValueError("Thiếu GEMINI_API_KEY trong Database/.env")
+            raise ValueError("Thiếu GEMINI_API_KEY trong file .env")
 
         self.client = genai.Client(api_key=GEMINI_API_KEY)
 
@@ -183,6 +183,7 @@ class PlannerService:
             raise ValueError(f"Lỗi xử lý output từ Gemini: {str(exc)}")
 
     def rank_locations(self, request: LocationRankingRequest) -> LocationRankingResponse:
+        preferences_text = ", ".join(request.preferences or [])
         location_list = "\n".join([
             f"- {l.name} (ID: {l.id}, category: {l.category or 'general'}, cost: ~{l.estimatedCost or 0}đ)"
             for l in request.locations
@@ -192,7 +193,7 @@ class PlannerService:
             f"Bạn là chuyên gia du lịch Việt Nam. Đánh giá và xếp hạng các địa điểm sau cho chuyến đi {request.region}"
             f"{f' {request.days} ngày' if request.days else ''}"
             f"{f', ngân sách {request.budget}đ' if request.budget else ''}"
-            f"{f', sở thích: {', '.join(request.preferences)}' if request.preferences else ''}.\n\n"
+            f"{f', sở thích: {preferences_text}' if preferences_text else ''}.\n\n"
             f"Danh sách địa điểm:\n{location_list}\n\n"
             "BẮT BUỘC trả về JSON array theo định dạng: {\"rankings\": [{\"name\": \"tên\", \"id\": \"ID từ input\", \"score\": 1-10, \"reason\": \"lý do\"}]}"
         )
