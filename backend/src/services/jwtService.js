@@ -1,3 +1,4 @@
+import "../config/env.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
@@ -6,7 +7,7 @@ import crypto from "crypto";
  * Tương đương JwtTokenService.GenerateAccessToken trong C#
  */
 export function generateAccessToken(user) {
-    const secret = process.env.JWT_SECRET;
+    const secret = getJwtSecret();
     const issuer = process.env.JWT_ISSUER || "TravelPlannerAPI";
     const audience = process.env.JWT_AUDIENCE || "TravelPlannerClient";
     const expiryMinutes = parseInt(process.env.ACCESS_TOKEN_EXPIRY_MINUTES || "60", 10);
@@ -37,7 +38,7 @@ export function generateRefreshToken() {
  * Verify và decode Access Token
  */
 export function verifyAccessToken(token) {
-    const secret = process.env.JWT_SECRET;
+    const secret = getJwtSecret();
     const issuer = process.env.JWT_ISSUER || "TravelPlannerAPI";
     const audience = process.env.JWT_AUDIENCE || "TravelPlannerClient";
 
@@ -49,4 +50,12 @@ export function verifyAccessToken(token) {
  */
 export function hashToken(token) {
     return crypto.createHash("sha256").update(token, "utf8").digest("base64");
+}
+
+function getJwtSecret() {
+    if (!process.env.JWT_SECRET) {
+        throw new Error("Missing JWT_SECRET environment variable.");
+    }
+
+    return process.env.JWT_SECRET;
 }

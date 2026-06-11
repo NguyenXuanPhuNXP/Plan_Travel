@@ -116,16 +116,12 @@ const TripPlanner = () => {
         description: tripInfo.notes,
         destination: mainDestination,
         startLocation: tripInfo.startLocation.trim(),
-        endLocation: finalDestination
-      });
-
-      for (let i = 0; i < persistedLocations.length; i++) {
-        const loc = persistedLocations[i];
-        await itineraryService.addItem(newTrip.id, {
+        endLocation: finalDestination,
+        items: persistedLocations.map((loc, index) => ({
           locationId: loc.id,
-          note: `Điểm dừng ${i + 1}`
-        });
-      }
+          note: `Điểm dừng ${index + 1}`
+        }))
+      });
 
       await fetchTrips();
       navigate(`/trip/${newTrip.id}`);

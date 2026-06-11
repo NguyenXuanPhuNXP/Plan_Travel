@@ -20,8 +20,9 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      await login(email, password);
-      navigate('/');
+      const user = await login(email, password);
+      const isAdmin = user?.role === 1 || user?.role === 'admin';
+      navigate(isAdmin ? '/admin' : '/');
     } catch (err) {
       setError(err.message);
     } finally {

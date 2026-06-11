@@ -4,23 +4,29 @@ import prisma from "../config/db.js";
  * Tạo itinerary mới
  */
 export async function createItinerary(userId, data) {
-    const itinerary = await prisma.itineraries.create({
-        data: {
-            user_id: BigInt(userId),
-            name: data.name,
-            destination: data.destination || null,
-            start_location: data.startLocation || null,
-            end_location: data.endLocation || null,
-            trip_date: data.tripDate ? new Date(data.tripDate) : null,
-            start_time: data.startDate ? new Date(data.startDate) : null,
-            end_time: data.endDate ? new Date(data.endDate) : null,
-            total_days: data.totalDays || null,
-            budget: data.budget || null,
-            preferences: data.preferences || null,
-            description: data.description || null,
-            status: "draft",
-            visibility: "private"
+    const items = Array.isArray(data.items) ? data.items : [];
+
+    const itinerary = await prisma.$transaction(async (tx) => {
+        const created = await tx.itineraries.create({
+            data: buildItineraryData(userId, data)
+        });
+
+        for (let index = 0; index < items.length; index++) {
+            const itemData = buildItemData(created.id, items[index], index + 1);
+            if (itemData) {
+                await tx.itinerary_items.create({ data: itemData });
+            }
         }
+
+        return tx.itineraries.findUnique({
+            where: { id: created.id },
+            include: {
+                itinerary_items: {
+                    include: { locations: true, businesses: true },
+                    orderBy: { sort_order: "asc" }
+                }
+            }
+        });
     });
 
     return serializeItinerary(itinerary);
@@ -257,6 +263,54 @@ export async function reorderItems(itineraryId, userId, orderedItemIds) {
 }
 
 // ===== HELPERS =====
+
+function buildItineraryData(userId, data) {
+    return {
+        user_id: BigInt(userId),
+        name: data.name,
+        destination: data.destination || null,
+        start_location: data.startLocation || null,
+        end_location: data.endLocation || null,
+        trip_date: data.tripDate ? new Date(data.tripDate) : null,
+        start_time: data.startDate ? new Date(data.startDate) : null,
+        end_time: data.endDate ? new Date(data.endDate) : null,
+        total_days: data.totalDays || null,
+        budget: data.budget || null,
+        preferences: data.preferences || null,
+        description: data.description || null,
+        status: "draft",
+        visibility: "private"
+    };
+}
+
+function buildItemData(itineraryId, item, sortOrder) {
+    const locationId = toBigIntId(item?.locationId);
+    const businessId = toBigIntId(item?.businessId);
+
+    if (!locationId && !businessId) return null;
+
+    return {
+        itinerary_id: itineraryId,
+        location_id: locationId,
+        business_id: businessId,
+        sort_order: sortOrder,
+        planned_start_time: item.startTime ? new Date(item.startTime) : null,
+        planned_end_time: item.endTime ? new Date(item.endTime) : null,
+        travel_minutes: toPositiveInt(item.travelMinutes),
+        travel_distance_km: item.travelDistanceKm || null,
+        note: item.note || null
+    };
+}
+
+function toBigIntId(value) {
+    const text = String(value ?? "").trim();
+    return /^\d+$/.test(text) ? BigInt(text) : null;
+}
+
+function toPositiveInt(value) {
+    const number = Number(value);
+    return Number.isInteger(number) && number >= 0 ? number : null;
+}
 
 async function checkEditPermission(itineraryId, userId) {
     const itinerary = await prisma.itineraries.findUnique({

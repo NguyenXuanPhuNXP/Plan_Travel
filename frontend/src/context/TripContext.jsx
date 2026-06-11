@@ -110,16 +110,7 @@ export const TripProvider = ({ children }) => {
       return normalized;
     } catch (error) {
       console.error('Failed to create trip:', error);
-      // Fallback: local-only
-      const localTrip = {
-        ...tripData,
-        id: Date.now().toString(),
-        status: 'upcoming',
-        createdAt: new Date().toISOString(),
-        locations: []
-      };
-      setTrips(prev => [localTrip, ...prev]);
-      return localTrip;
+      throw error;
     }
   };
 

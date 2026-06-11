@@ -236,29 +236,16 @@ const PlannerWizard = () => {
       totalDays: computeDays(),
       budget: tripInfo.budget ? Number(tripInfo.budget) : null,
       preferences: tripInfo.preferences,
-      description: null
+      description: null,
+      items: selectedLocations
+        .filter((loc) => loc?.id)
+        .map((loc) => ({ locationId: loc.id }))
     });
 
-    for (const loc of selectedLocations) {
-      if (loc?.id) {
-        await itineraryService.addItem(itinerary.id, { locationId: loc.id });
-      }
-    }
     return itinerary;
   };
 
   const saveAIPlan = async (finalPlan) => {
-    const itinerary = await itineraryService.create({
-      name: tripInfo.name || finalPlan?.planName || `Du lịch ${tripInfo.destination}`,
-      destination: tripInfo.destination,
-      startDate: tripInfo.startDate || null,
-      endDate: tripInfo.endDate || null,
-      totalDays: computeDays(),
-      budget: tripInfo.budget ? Number(tripInfo.budget) : null,
-      preferences: tripInfo.preferences,
-      description: finalPlan?.description || null
-    });
-
     const allItems = finalPlan?.days?.flatMap((day, dayIndex) =>
       (day?.items || []).map((item) => ({
         locationId: item?.locationId || item?.location?.id || null,
@@ -269,11 +256,17 @@ const PlannerWizard = () => {
       }))
     ) || [];
 
-    for (const item of allItems) {
-      if (item.locationId) {
-        await itineraryService.addItem(itinerary.id, item);
-      }
-    }
+    const itinerary = await itineraryService.create({
+      name: tripInfo.name || finalPlan?.planName || `Du lịch ${tripInfo.destination}`,
+      destination: tripInfo.destination,
+      startDate: tripInfo.startDate || null,
+      endDate: tripInfo.endDate || null,
+      totalDays: computeDays(),
+      budget: tripInfo.budget ? Number(tripInfo.budget) : null,
+      preferences: tripInfo.preferences,
+      description: finalPlan?.description || null,
+      items: allItems.filter((item) => item.locationId)
+    });
 
     return itinerary;
   };
