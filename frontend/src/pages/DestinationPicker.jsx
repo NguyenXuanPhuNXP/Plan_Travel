@@ -114,7 +114,7 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
           <div className="picker-cards-grid">
             {filteredSuggestions.map((loc, idx) => (
               <motion.div
-                key={loc.id || idx}
+                key={`${getLocKey(loc)}_${idx}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
@@ -200,7 +200,7 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
             <MapComponent
               selectedLocations={mapSelectedLocations}
               suggestedLocations={filteredSuggestions.map(loc => ({
-                id: loc.id,
+                id: getLocKey(loc),
                 name: loc.name,
                 address: loc.address || '',
                 lat: loc.latitude,

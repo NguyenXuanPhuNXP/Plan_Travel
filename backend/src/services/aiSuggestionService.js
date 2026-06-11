@@ -143,28 +143,36 @@ export async function generateAutoPlan({ region, days, budget, preferences, sele
 
     // 4. Dùng Python AI để tổ chức lịch trình chi tiết (Gửi tối đa 30 địa điểm để AI có đủ lựa chọn ăn/ngủ/chơi)
     try {
-        const response = await axios.post(`${PYTHON_AI_URL}/ai/organize-plan`, {
+        const payload = {
             region,
-            days: days || 3,
-            budget,
-            preferences: preferences || [],
+            days: Number(days) || 3,
+            budget: budget ?? null,
+            preferences: Array.isArray(preferences) ? preferences : [],
             focusLocationId: focusLocationId ? String(focusLocationId) : null,
-            locations: selectedLocations.slice(0, 30).map(l => ({
-                id: l.id,
-                name: l.name,
-                category: l.category,
-                estimatedCost: l.estimatedCost || 0,
-                latitude: l.latitude,
-                longitude: l.longitude,
-                suggestedDuration: l.suggestedDuration
+            locations: selectedLocations.slice(0, 30).map((l) => ({
+                id: l?.id != null ? String(l.id) : null,
+                name: l?.name || "Địa điểm chưa đặt tên",
+                category: l?.category || "general",
+                estimatedCost: Number(l?.estimatedCost || 0),
+                latitude: l?.latitude != null ? Number(l.latitude) : null,
+                longitude: l?.longitude != null ? Number(l.longitude) : null,
+                suggestedDuration: l?.suggestedDuration || "1-2h"
             }))
-        });
+        };
+
+        const response = await axios.post(`${PYTHON_AI_URL}/ai/organize-plan`, payload);
 
         if (response.data) {
             return mapPlanToLocations(response.data, selectedLocations);
         }
     } catch (err) {
-        console.error("[AI] Python organize-plan error:", err.message);
+        const status = err?.response?.status;
+        const detail = err?.response?.data?.detail || err?.response?.data?.message || err?.response?.data;
+        console.error("[AI] Python organize-plan error:", {
+            message: err?.message,
+            status,
+            detail
+        });
     }
 
     // Fallback

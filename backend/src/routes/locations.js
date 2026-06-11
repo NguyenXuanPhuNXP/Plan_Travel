@@ -5,6 +5,7 @@ import {
     mapGeoapifyFeatureToLocation,
     isVietnamLocation
 } from "../services/locationMapper.js";
+import { generateLocationEmbedding, refreshSearchCache } from "../services/embeddingService.js";
 
 const router = express.Router();
 
@@ -160,18 +161,30 @@ router.post("/", async (req, res) => {
 
         const externalId = `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
+        const embedding = await generateLocationEmbedding({
+            name,
+            address,
+            country,
+            region,
+            category,
+            latitude: lat,
+            longitude: lng
+        });
+
         await prisma.$executeRaw`
             INSERT INTO locations
             (
                 external_id, source, name, address, country, region, category,
-                latitude, longitude, geo_point, estimated_cost, suggested_duration, image_url, tags, raw_json
+                latitude, longitude, geo_point, estimated_cost, suggested_duration, image_url, tags, raw_json, embedding
             )
             VALUES
             (
                 ${externalId}, 'manual', ${name}, ${address || null}, ${country}, ${region || null}, ${category || null},
-                ${lat}, ${lng}, ST_SRID(POINT(${lng}, ${lat}), 4326), ${Number(estimatedCost) || 0}, ${suggestedDuration || null}, ${imageUrl || null}, JSON_ARRAY(), JSON_OBJECT()
+                ${lat}, ${lng}, ST_SRID(POINT(${lng}, ${lat}), 4326), ${Number(estimatedCost) || 0}, ${suggestedDuration || null}, ${imageUrl || null}, JSON_ARRAY(), JSON_OBJECT(),
+                CAST(${JSON.stringify(embedding ?? [])} AS JSON)
             )
         `;
+        await refreshSearchCache();
 
         const rows = await prisma.$queryRaw`
             SELECT id, name, address, country, region, category, latitude, longitude, estimated_cost, suggested_duration, image_url
@@ -203,16 +216,18 @@ router.post("/", async (req, res) => {
    UPSERT LOCATION
 ========================= */
 async function upsertLocation(location) {
+    const embedding = await generateLocationEmbedding(location);
+
     await prisma.$executeRaw`
         INSERT INTO locations (
             external_id, source, name, address, country, province, city, district, region,
             category, subcategory, description, latitude, longitude, geo_point,
-            estimated_cost, suggested_duration, image_url, rating, tags, raw_json
+            estimated_cost, suggested_duration, image_url, rating, tags, raw_json, embedding
         )
         VALUES (
             ${location.external_id}, ${location.source}, ${location.name}, ${location.address}, ${location.country}, ${location.province}, ${location.city}, ${location.district}, ${location.region},
             ${location.category}, ${location.subcategory}, ${location.description}, ${location.latitude}, ${location.longitude}, ST_SRID(POINT(${location.longitude}, ${location.latitude}), 4326),
-            ${location.estimated_cost}, ${location.suggested_duration}, ${location.image_url}, ${location.rating}, CAST(${JSON.stringify(location.tags || [])} AS JSON), CAST(${JSON.stringify(location.raw_json || {})} AS JSON)
+            ${location.estimated_cost}, ${location.suggested_duration}, ${location.image_url}, ${location.rating}, CAST(${JSON.stringify(location.tags || [])} AS JSON), CAST(${JSON.stringify(location.raw_json || {})} AS JSON), CAST(${JSON.stringify(embedding ?? [])} AS JSON)
         )
         ON DUPLICATE KEY UPDATE
             source = VALUES(source),
@@ -235,8 +250,10 @@ async function upsertLocation(location) {
             rating = VALUES(rating),
             tags = VALUES(tags),
             raw_json = VALUES(raw_json),
+            embedding = VALUES(embedding),
             updated_at = CURRENT_TIMESTAMP
     `;
+    await refreshSearchCache();
 }
 
 /* =========================

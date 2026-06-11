@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { locationService } from '../services/locationService';
 import { itineraryService } from '../services/itineraryService';
+import { useTrips } from '../context/TripContext';
 import DestinationPicker from './DestinationPicker';
 import TimelineEditor from './TimelineEditor';
 import './PlannerWizard.css';
@@ -28,6 +29,7 @@ const PREFERENCE_OPTIONS = [
 const PlannerWizard = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { fetchTrips } = useTrips();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -225,40 +227,65 @@ const PlannerWizard = () => {
     }
   };
 
+  const saveManualPlan = async () => {
+    const itinerary = await itineraryService.create({
+      name: tripInfo.name || `Du lịch ${tripInfo.destination}`,
+      destination: tripInfo.destination,
+      startDate: tripInfo.startDate || null,
+      endDate: tripInfo.endDate || null,
+      totalDays: computeDays(),
+      budget: tripInfo.budget ? Number(tripInfo.budget) : null,
+      preferences: tripInfo.preferences,
+      description: null
+    });
+
+    for (const loc of selectedLocations) {
+      if (loc?.id) {
+        await itineraryService.addItem(itinerary.id, { locationId: loc.id });
+      }
+    }
+    return itinerary;
+  };
+
+  const saveAIPlan = async (finalPlan) => {
+    const itinerary = await itineraryService.create({
+      name: tripInfo.name || finalPlan?.planName || `Du lịch ${tripInfo.destination}`,
+      destination: tripInfo.destination,
+      startDate: tripInfo.startDate || null,
+      endDate: tripInfo.endDate || null,
+      totalDays: computeDays(),
+      budget: tripInfo.budget ? Number(tripInfo.budget) : null,
+      preferences: tripInfo.preferences,
+      description: finalPlan?.description || null
+    });
+
+    const allItems = finalPlan?.days?.flatMap((day, dayIndex) =>
+      (day?.items || []).map((item) => ({
+        locationId: item?.locationId || item?.location?.id || null,
+        startTime: item?.startTime ? `2025-01-01T${item.startTime}:00` : null,
+        endTime: item?.endTime ? `2025-01-01T${item.endTime}:00` : null,
+        note: `[DAY:${Number(day?.dayNumber || dayIndex + 1)}] ${item?.note || ''}`.trim(),
+        travelMinutes: item?.travelMinutesToNext ?? null
+      }))
+    ) || [];
+
+    for (const item of allItems) {
+      if (item.locationId) {
+        await itineraryService.addItem(itinerary.id, item);
+      }
+    }
+
+    return itinerary;
+  };
+
   // Save itinerary
   const handleSave = async (finalPlan) => {
     setSaving(true);
     try {
-      // 1. Create itinerary
-      const itinerary = await itineraryService.create({
-        name: tripInfo.name || `Du lịch ${tripInfo.destination}`,
-        destination: tripInfo.destination,
-        startDate: tripInfo.startDate || null,
-        endDate: tripInfo.endDate || null,
-        totalDays: computeDays(),
-        budget: tripInfo.budget ? Number(tripInfo.budget) : null,
-        preferences: tripInfo.preferences,
-        description: finalPlan?.description || null
-      });
-
-      // 2. Add items from the plan
-      const allItems = finalPlan?.days?.flatMap(day => 
-        day.items.map((item, idx) => ({
-          locationId: item.locationId || item.location?.id || null,
-          startTime: item.startTime ? `2025-01-01T${item.startTime}:00` : null,
-          endTime: item.endTime ? `2025-01-01T${item.endTime}:00` : null,
-          note: item.note || null,
-          travelMinutes: item.travelMinutesToNext || null
-        }))
-      ) || selectedLocations.map(loc => ({ locationId: loc.id }));
-
-      for (const item of allItems) {
-        if (item.locationId) {
-          await itineraryService.addItem(itinerary.id, item);
-        }
-      }
-
-      navigate(`/trip/${itinerary.id}`);
+      const hasAIPlan = Boolean(finalPlan?.days?.length);
+      const itinerary = hasAIPlan ? await saveAIPlan(finalPlan) : await saveManualPlan();
+      await fetchTrips();
+      navigate('/history');
     } catch (error) {
       console.error('Save error:', error);
       setToast('Có lỗi khi lưu. Vui lòng thử lại.');
