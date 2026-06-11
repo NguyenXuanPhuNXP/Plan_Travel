@@ -27,6 +27,7 @@ import AdminPlaceCreate from './pages/AdminPlaceCreate';
 import AdminPlaceDetail from './pages/AdminPlaceDetail';
 import AdminPlaceEdit from './pages/AdminPlaceEdit';
 import AdminHotPlaceEdit from './pages/AdminHotPlaceEdit';
+import ChatWidget from './Components/Chat/ChatWidget';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -53,6 +54,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 
 function App() {
   return (
+    <>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -174,6 +176,8 @@ function App() {
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
+    <ChatWidget />
+    </>
   );
 }
 

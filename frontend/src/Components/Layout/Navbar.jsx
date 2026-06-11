@@ -146,12 +146,12 @@ const Navbar = () => {
         </div>
 
         <div className="navbar-right">
-          <Link to="/notifications" className="navbar-bell" title="Thông báo">
+          {/* <Link to="/notifications" className="navbar-bell" title="Thông báo">
             <Bell size={20} />
             {unreadCount > 0 && (
               <span className="navbar-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
             )}
-          </Link>
+          </Link> */}
 
           {user ? (
             <div className="navbar-user" ref={userDropdownRef}>
