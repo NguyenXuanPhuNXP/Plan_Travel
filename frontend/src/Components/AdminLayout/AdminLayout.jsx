@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { BarChart3, Users, Home, LogOut, Shield, MapPinned } from 'lucide-react';
+import { BarChart3, Users, Home, LogOut, Shield, MapPinned, Route } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import './AdminLayout.css';
 
@@ -11,6 +11,7 @@ const AdminLayout = ({ children }) => {
   const navItems = [
     { to: '/admin', label: 'Dashboard', icon: BarChart3, end: true },
     { to: '/admin/users', label: 'Quản lý User', icon: Users },
+    { to: '/admin/plans', label: 'Quản lý kế hoạch', icon: Route },
     { to: '/admin/places', label: 'Quản lý địa điểm', icon: MapPinned },
   ];
 

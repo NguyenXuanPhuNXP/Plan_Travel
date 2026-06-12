@@ -66,6 +66,8 @@ const TripDetails = () => {
   const locations = Array.isArray(trip?.locations) ? trip.locations : [];
   const isTripOwner = String(trip?.userId || trip?.owner?.id || '') === String(user?.id || '');
   const collaborators = groupMembers?.members || trip?.collaborators || [];
+  const currentMember = collaborators.find((member) => String(member.userId || member.user?.id || '') === String(user?.id || ''));
+  const canEditTrip = isTripOwner || currentMember?.permission === 'edit';
   const groupOwner = groupMembers?.owner || trip?.owner || {
     id: trip?.userId,
     name: 'Trưởng nhóm',
@@ -150,6 +152,12 @@ const TripDetails = () => {
     }
   }, [trip]);
 
+  useEffect(() => {
+    if (!canEditTrip && isEditingInfo) {
+      setIsEditingInfo(false);
+    }
+  }, [canEditTrip, isEditingInfo]);
+
   const fetchWeather = async (locId, lat, lng) => {
     setActiveWeatherLoc(locId);
     if (weatherData[locId]) return;
@@ -232,6 +240,11 @@ const TripDetails = () => {
   }, [geoError, isConfirming]);
 
   const handleFinishTrip = () => {
+    if (!canEditTrip) {
+      setToast('Bạn chỉ có quyền xem kế hoạch này.');
+      setTimeout(() => setToast(''), 2200);
+      return;
+    }
     updateTrip(trip.id, { status: 'completed' });
     setIsConfirming(false);
   };
@@ -347,6 +360,11 @@ const TripDetails = () => {
   };
 
   const handleSaveInfo = async () => {
+    if (!canEditTrip) {
+      setToast('Bạn chỉ có quyền xem kế hoạch này.');
+      setTimeout(() => setToast(''), 2200);
+      return;
+    }
     try {
       await updateTrip(trip.id, {
         name: editForm.title,
@@ -371,6 +389,7 @@ const TripDetails = () => {
   // normalizeMapLoc is now declared near the top of the component (before groupedLocationsByDay)
 
   const handleAddEditLocation = (loc) => {
+    if (!canEditTrip) return;
     const normalized = normalizeMapLoc(loc);
     setEditingLocations((prev) => {
       const exists = prev.some((p) => String(p.id) === String(normalized.id));
@@ -380,10 +399,12 @@ const TripDetails = () => {
   };
 
   const handleRemoveEditLocation = (locId) => {
+    if (!canEditTrip) return;
     setEditingLocations((prev) => prev.filter((p) => String(p.id) !== String(locId)));
   };
 
   const moveLocation = (fromIndex, toIndex) => {
+    if (!canEditTrip) return;
     setEditingLocations((prev) => {
       if (toIndex < 0 || toIndex >= prev.length) return prev;
       const next = [...prev];
@@ -394,6 +415,11 @@ const TripDetails = () => {
   };
 
   const handleSaveTimeline = async () => {
+    if (!canEditTrip) {
+      setToast('Bạn chỉ có quyền xem kế hoạch này.');
+      setTimeout(() => setToast(''), 2200);
+      return;
+    }
     try {
       const existingItems = Array.isArray(trip.items) ? trip.items : [];
       for (const item of existingItems) {
@@ -493,7 +519,7 @@ const TripDetails = () => {
             </div>
             
             <div className="trip-details-actions-stack">
-            {trip.status !== 'completed' && (
+            {canEditTrip && trip.status !== 'completed' && (
               <div className="trip-details-actions">
                 <button 
                   onClick={() => updateTrip(trip.id, { status: trip.status === 'upcoming' ? 'ongoing' : 'upcoming' })}
@@ -507,9 +533,9 @@ const TripDetails = () => {
               </div>
             )}
             <div className="trip-details-actions">
-              <button onClick={() => setIsEditingInfo((v) => !v)} className="btn btn-outline">
+              {canEditTrip && <button onClick={() => setIsEditingInfo((v) => !v)} className="btn btn-outline">
                 {isEditingInfo ? 'Đóng chỉnh sửa' : 'Chỉnh sửa kế hoạch'}
-              </button>
+              </button>}
               <button onClick={openGroupModal} className="btn btn-outline">
                 <Users size={18} /> Nhóm kế hoạch
               </button>
@@ -613,7 +639,7 @@ const TripDetails = () => {
                     exit={{ opacity: 0, y: -10 }}
                   >
                     <div className="trip-details-weather-main">
-                      <div className="trip-details-weather-temp">{weatherData[activeWeatherLoc].temp}°C</div>
+                      <div className="trip-details-weather-temp">{weatherData[activeWeatherLoc].temp}</div>
                       <div className="trip-details-weather-cond">{weatherData[activeWeatherLoc].condition}</div>
                     </div>
                     <div className="trip-details-weather-grid">

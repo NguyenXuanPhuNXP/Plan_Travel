@@ -21,6 +21,26 @@ export const adminService = {
     return response.data;
   },
 
+  getPlans: async (params = {}) => {
+    const response = await apiClient.get('/admin/plans', { params });
+    return response.data;
+  },
+
+  getPlanById: async (id) => {
+    const response = await apiClient.get(`/admin/plans/${id}`);
+    return response.data;
+  },
+
+  updatePlan: async (id, data) => {
+    const response = await apiClient.patch(`/admin/plans/${id}`, data);
+    return response.data;
+  },
+
+  deletePlan: async (id) => {
+    const response = await apiClient.delete(`/admin/plans/${id}`);
+    return response.data;
+  },
+
   getHotLocations: async () => {
     const response = await apiClient.get('/admin/hot-locations');
     return response.data;

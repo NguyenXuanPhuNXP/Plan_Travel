@@ -105,12 +105,7 @@ const TripHistory = () => {
                 exit={{ opacity: 0, scale: 0.9 }}
                 className="card trip-history-card"
               >
-                <Link to={`/trip/${trip.id}`} className="trip-history-img-wrapper">
-                  <img 
-                    src={locations[0]?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'} 
-                    alt={trip.title} 
-                    className="trip-history-img"
-                  />
+                <div className="trip-history-status-row">
                   <div 
                     className="trip-history-badge"
                     style={{ color: getStatusColor(trip.status) }}
@@ -119,29 +114,13 @@ const TripHistory = () => {
                   </div>
                   {trip.owner && String(trip.owner.id) !== String(user?.id) && (
                     <div 
-                      className="trip-history-badge"
-                      style={{ 
-                        top: '10px', 
-                        left: '10px', 
-                        right: 'auto', 
-                        bottom: 'auto', 
-                        background: 'rgba(0,0,0,0.6)', 
-                        color: 'white',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
+                      className="trip-history-badge trip-history-badge-shared"
                       title="Chuyến đi chung"
                     >
-                      <img 
-                        src={trip.owner.avatar || '/avatars/traveler.svg'} 
-                        alt={trip.owner.name} 
-                        style={{ width: 16, height: 16, borderRadius: '50%' }} 
-                      />
                       Nhóm của {trip.owner.name}
                     </div>
                   )}
-                </Link>
+                </div>
                 
                 <div className="trip-history-content">
                   <div className="trip-history-card-header">

@@ -116,14 +116,14 @@ const AdminPlacesList = () => {
         <div className="admin-header">
           <div>
             <h1 className="admin-title">Quản lý địa điểm</h1>
-            <p className="admin-subtitle">Danh sách tổng cho điểm hot và CRUD location.</p>
+            <p className="admin-subtitle">Danh sách tổng cho điểm hot.</p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className={`btn ${tab === 'hot' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('hot')}>
               Điểm hot
             </button>
             <button className={`btn ${tab === 'all' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('all')}>
-              CRUD địa điểm
+              Sửa địa điểm
             </button>
           </div>
         </div>
@@ -138,7 +138,7 @@ const AdminPlacesList = () => {
                 <Search size={16} />
                 <input
                   className="admin-input"
-                  placeholder="Tìm location để thêm hot..."
+                  placeholder="Tìm location để thêm..."
                   value={addHotKeyword}
                   onChange={(e) => setAddHotKeyword(e.target.value)}
                 />
@@ -151,11 +151,11 @@ const AdminPlacesList = () => {
                       <div className="admin-subtitle" style={{ margin: 0 }}>{loc.region || loc.city || loc.address || '-'}</div>
                     </div>
                     <button className="btn btn-primary" onClick={() => handleAddHot(loc.id)} disabled={addingHotId === loc.id || addingHotId === String(loc.id)}>
-                      <Plus size={14} /> {addingHotId === loc.id || addingHotId === String(loc.id) ? 'Đang thêm...' : 'Thêm hot'}
+                      <Plus size={14} /> {addingHotId === loc.id || addingHotId === String(loc.id) ? 'Đang thêm...' : 'Thêm'}
                     </button>
                   </div>
                 ))}
-                {!addableLocations.length && <div className="admin-inline-status">Không có location khả dụng để thêm hot.</div>}
+                {!addableLocations.length && <div className="admin-inline-status">Không có location khả dụng để thêm.</div>}
               </div>
             </div>
 
@@ -173,10 +173,10 @@ const AdminPlacesList = () => {
                   </div>
                   <div className="admin-actions" style={{ marginTop: '0.75rem' }}>
                     <button className="btn btn-outline" onClick={() => navigate(`/admin/places/hot/${loc.id}/edit`)}>
-                      <Edit3 size={16} /> Sửa hot
+                      <Edit3 size={16} /> Sửa
                     </button>
                     <button className="btn btn-danger" onClick={() => handleRemoveHot(loc.id)}>
-                      <Trash2 size={16} /> Xóa hot
+                      <Trash2 size={16} /> Xóa
                     </button>
                   </div>
                 </div>
@@ -228,7 +228,7 @@ const AdminPlacesList = () => {
                       <Edit3 size={16} /> Sửa
                     </button>
                     <button className="btn btn-outline" onClick={() => handleAddHot(loc.id)} disabled={addingHotId === loc.id || addingHotId === String(loc.id)}>
-                      <Plus size={16} /> Thêm hot
+                      <Plus size={16} /> Thêm
                     </button>
                     <button className="btn btn-danger" onClick={() => handleDeleteLocation(loc.id)}>
                       <Trash2 size={16} /> Xóa

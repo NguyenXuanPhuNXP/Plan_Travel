@@ -135,7 +135,7 @@ export const TripProvider = ({ children }) => {
       return normalized;
     } catch (error) {
       console.error('Failed to update trip:', error);
-      setTrips(prev => prev.map(t => t.id === String(tripId) ? { ...t, ...updates } : t));
+      throw error;
     }
   };
 
@@ -145,7 +145,7 @@ export const TripProvider = ({ children }) => {
       setTrips(prev => prev.filter(t => t.id !== tripId));
     } catch (error) {
       console.error('Failed to delete trip:', error);
-      setTrips(prev => prev.filter(t => t.id !== tripId));
+      throw error;
     }
   };
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import Layout from '../Components/Layout/Layout';
-import { Bell, CalendarClock, RefreshCw, Trash2, Users } from 'lucide-react';
+import { Bell, CalendarClock, MessageCircle, RefreshCw, Trash2, Users } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import './Notifications.css';
 
@@ -17,6 +17,7 @@ const Notifications = () => {
   const getIcon = (type) => {
     if (type === 'plan_update') return <RefreshCw size={18} />;
     if (type === 'group') return <Users size={18} />;
+    if (type === 'message') return <MessageCircle size={18} />;
     return <CalendarClock size={18} />;
   };
 

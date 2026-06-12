@@ -35,7 +35,6 @@ const AdminUsers = () => {
         <div className="admin-header">
           <div>
             <h1 className="admin-title">Quản lý User</h1>
-            <p className="admin-subtitle">Ẩn user role admin. Xem lịch sử hoạt động trên trang riêng.</p>
           </div>
         </div>
 
@@ -58,14 +57,7 @@ const AdminUsers = () => {
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{user.email}</div>
                   </td>
                   <td>
-                    <select
-                      className="admin-select"
-                      value={user.role}
-                      onChange={(e) => updateUser(user.id, { role: e.target.value })}
-                    >
-                      <option value="user">user</option>
-                      {/* <option value="admin">admin</option> */}
-                    </select>
+                    <span class="admin-badge info">User</span>
                   </td>
                   <td>
                     <span className={`admin-badge ${user.isActive ? 'ok' : 'warn'}`}>

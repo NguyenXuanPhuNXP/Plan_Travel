@@ -1,14 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../Components/Layout/Layout';
 import { TRENDING_DESTINATIONS, PREFERENCE_TAGS } from '../utils/mockData';
-import { WeatherService } from '../services/WeatherService';
 import { locationService } from '../services/locationService';
 import { motion } from 'framer-motion';
 import { 
   Search, DollarSign, Clock, 
   Sparkles, TrendingUp, Users, Sun, Compass,
-  Thermometer
+  Thermometer, X, MapPin
 } from 'lucide-react';
 import './Explore.css';
 
@@ -111,57 +110,81 @@ const normalizeExploreDestination = (loc, fallbackPlanCount = 0) => {
 
 const Explore = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryParam = searchParams.get('q') || '';
+  const locationIdParam = searchParams.get('locationId') || '';
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState('all');
-  const [weatherCache, setWeatherCache] = useState({});
+  const [weatherCache] = useState({});
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [landmarkSlideIndex, setLandmarkSlideIndex] = useState(0);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hotDestinations, setHotDestinations] = useState([]);
+  const [selectedDestination, setSelectedDestination] = useState(null);
+  const [detailLoadingId, setDetailLoadingId] = useState(null);
   const baseDestinations = hotDestinations;
 
   useEffect(() => {
     locationService.getHotLocations(12).then((locations) => {
-      setHotDestinations((locations || []).map((loc) => normalizeExploreDestination(loc)));
+      const destinations = locationService.mergeDestinationLocations(locations || []);
+      setHotDestinations(destinations.map((loc) => normalizeExploreDestination(loc)));
     }).catch(() => {});
   }, []);
 
-  // Fetch weather for all destinations
   useEffect(() => {
-    baseDestinations.forEach(async (dest) => {
-      if (dest.latitude && dest.longitude && !weatherCache[dest.id]) {
-        try {
-          const data = await WeatherService.getWeather(dest.latitude, dest.longitude);
-          setWeatherCache(prev => ({ ...prev, [dest.id]: data }));
-        } catch (err) {
-          // Silently fail - weather is optional
+    if (queryParam) {
+      setSearchQuery(queryParam);
+      setActiveTag('all');
+    }
+  }, [queryParam]);
+
+  useEffect(() => {
+    if (!locationIdParam) return undefined;
+
+    let cancelled = false;
+    const loadDestinationDetail = async () => {
+      setDetailLoadingId(String(locationIdParam));
+      try {
+        const location = await locationService.getLocationById(locationIdParam);
+        if (!cancelled) {
+          const destinationName = queryParam || location.region || location.city || location.province || location.name;
+          setSelectedDestination(normalizeExploreDestination({
+            ...location,
+            id: `destination-${String(locationIdParam)}`,
+            primaryLocationId: String(locationIdParam),
+            name: destinationName,
+            region: location.region || destinationName
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load destination detail:', err);
+      } finally {
+        if (!cancelled) {
+          setDetailLoadingId(null);
         }
       }
-    });
-  }, [baseDestinations]);
+    };
+
+    loadDestinationDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [locationIdParam, queryParam]);
 
   const getPlanCount = (dest) => {
     return Number(dest.planCount ?? dest.trips ?? 0) || 0;
   };
 
   useEffect(() => {
-    if (!hoveredCardId) return undefined;
-    const timer = setInterval(() => {
-      setLandmarkSlideIndex((prev) => prev + 1);
-    }, 1800);
-    return () => clearInterval(timer);
-  }, [hoveredCardId]);
-
-  useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
       if (searchQuery.trim().length > 2) {
         setIsSearching(true);
         try {
-          const results = await locationService.hybridSearch(searchQuery);
+          const results = await locationService.searchDestinations(searchQuery);
           setSearchResults((results || []).map((loc) => normalizeExploreDestination(loc)));
         } catch (err) {
-          console.error("Hybrid search error:", err);
+          console.error("Destination search error:", err);
           setSearchResults([]);
         } finally {
           setIsSearching(false);
@@ -180,9 +203,14 @@ const Explore = () => {
     }
 
     return baseDestinations.filter(dest => {
+      const searchableDestination = [
+        dest.name,
+        dest.region,
+        dest.city,
+        dest.province
+      ].filter(Boolean).join(' ').toLowerCase();
       const matchSearch = !searchQuery || 
-        dest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        dest.description?.toLowerCase().includes(searchQuery.toLowerCase());
+        searchableDestination.includes(searchQuery.toLowerCase());
       
       const matchTag = activeTag === 'all' || 
         dest.tags?.includes(activeTag);
@@ -191,11 +219,35 @@ const Explore = () => {
     });
   }, [searchQuery, activeTag, searchResults, isSearching, baseDestinations]);
 
-  const handleCardClick = (dest) => {
+  const openDestinationDetail = async (dest) => {
+    setSelectedDestination(dest);
+    const detailId = dest?.primaryLocationId || dest?.locationId || dest?.id;
+    if (!detailId || String(detailId).startsWith('destination-')) return;
+
+    setDetailLoadingId(String(detailId));
+    try {
+      const location = await locationService.getLocationById(detailId);
+      setSelectedDestination(normalizeExploreDestination({
+        ...dest,
+        ...location,
+        id: dest.id,
+        primaryLocationId: detailId,
+        name: dest.name,
+        region: dest.region || location.region || dest.name
+      }));
+    } catch (err) {
+      console.error('Failed to refresh destination detail:', err);
+    } finally {
+      setDetailLoadingId(null);
+    }
+  };
+
+  const handlePlanWithAI = (dest) => {
+    if (!dest) return;
     // Nếu là kết quả từ hybrid search (có id là number) hoặc từ mock data
     const destName = dest.name;
-    const destId = dest.id;
-    const destRegion = dest.region || dest.city || dest.province || '';
+    const destId = dest.primaryLocationId || dest.locationId || dest.id;
+    const destRegion = dest.region || dest.city || dest.province || dest.name || '';
     
     const params = new URLSearchParams({
       destination: destName,
@@ -317,7 +369,7 @@ const Explore = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.06 }}
                 className="explore-card"
-                onClick={() => handleCardClick(dest)}
+                onClick={() => openDestinationDetail(dest)}
                 onMouseEnter={() => {
                   setHoveredCardId(dest.id);
                   setLandmarkSlideIndex(0);
@@ -335,7 +387,7 @@ const Explore = () => {
                     }}
                   />
                   <div className="explore-card-overlay">
-                    <h3 className="explore-card-name">{landmarkVisual.name}</h3>
+                    <h3 className="explore-card-name">{dest.name}</h3>
                   </div>
 
                   {hoveredCardId === dest.id && (
@@ -428,7 +480,7 @@ const Explore = () => {
                     className="explore-card-action"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleCardClick(dest);
+                      handlePlanWithAI(dest);
                     }}
                   >
                     <Sparkles size={16} />
@@ -448,6 +500,125 @@ const Explore = () => {
             </div>
           )}
         </div>
+
+        {selectedDestination && (
+          <div
+            className="explore-modal-overlay"
+            onClick={() => setSelectedDestination(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              className="explore-modal-card"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="explore-modal-hero">
+                <img
+                  src={selectedDestination.image}
+                  alt={selectedDestination.name}
+                  className="explore-modal-img"
+                  onError={(e) => {
+                    e.currentTarget.src = DEFAULT_LOCATION_IMAGE;
+                  }}
+                />
+                <button
+                  type="button"
+                  className="explore-modal-close"
+                  onClick={() => setSelectedDestination(null)}
+                  aria-label="Đóng"
+                >
+                  <X size={18} />
+                </button>
+                <div className="explore-modal-title">
+                  <h2>{selectedDestination.name}</h2>
+                  {(selectedDestination.region || selectedDestination.city || selectedDestination.province || selectedDestination.address) && (
+                    <div className="explore-modal-location">
+                      <MapPin size={15} />
+                      <span>
+                        {selectedDestination.region || selectedDestination.city || selectedDestination.province || selectedDestination.address}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="explore-modal-body">
+                <p className="explore-modal-desc">{selectedDestination.description}</p>
+
+                {selectedDestination.address && (
+                  <div className="explore-modal-address">
+                    <MapPin size={16} />
+                    <span>{selectedDestination.address}</span>
+                  </div>
+                )}
+
+                <div className="explore-modal-meta-grid">
+                  <div className="explore-modal-meta-item">
+                    <Sun size={17} />
+                    <div>
+                      <span>Mùa đẹp</span>
+                      <strong>{selectedDestination.bestSeason}</strong>
+                    </div>
+                  </div>
+                  <div className="explore-modal-meta-item">
+                    <DollarSign size={17} />
+                    <div>
+                      <span>Chi phí TB</span>
+                      <strong>{formatCost(selectedDestination.avgCost)} VNĐ</strong>
+                    </div>
+                  </div>
+                  <div className="explore-modal-meta-item">
+                    <Clock size={17} />
+                    <div>
+                      <span>Thời gian</span>
+                      <strong>{selectedDestination.idealDays}</strong>
+                    </div>
+                  </div>
+                  <div className="explore-modal-meta-item">
+                    <Users size={17} />
+                    <div>
+                      <span>Kế hoạch</span>
+                      <strong>{getPlanCount(selectedDestination).toLocaleString()}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="explore-modal-tags">
+                  {(selectedDestination.tags || []).map((tag) => {
+                    const tagInfo = PREFERENCE_TAGS[tag];
+                    return (
+                      <span
+                        key={tag}
+                        className="explore-card-tag"
+                        style={{
+                          background: `${tagInfo?.color || '#6366f1'}15`,
+                          color: tagInfo?.color || '#6366f1'
+                        }}
+                      >
+                        {tagInfo?.label || tag}
+                      </span>
+                    );
+                  })}
+                </div>
+
+                {(selectedDestination.category || selectedDestination.subcategory) && (
+                  <div className="explore-modal-type">
+                    {[selectedDestination.category, selectedDestination.subcategory].filter(Boolean).join(' / ')}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="explore-modal-action"
+                  onClick={() => handlePlanWithAI(selectedDestination)}
+                >
+                  <Sparkles size={17} />
+                  {detailLoadingId === String(selectedDestination.id) ? 'Đang tải thông tin...' : 'Lên kế hoạch bằng AI'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </div>
     </Layout>
   );

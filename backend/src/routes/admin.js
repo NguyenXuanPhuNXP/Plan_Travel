@@ -132,6 +132,59 @@ const serializeLocation = (loc) => {
     };
 };
 
+const serializePlan = (plan) => ({
+    id: plan.id?.toString(),
+    name: plan.name,
+    destination: plan.destination,
+    startLocation: plan.start_location,
+    endLocation: plan.end_location,
+    status: plan.status,
+    visibility: plan.visibility,
+    tripDate: plan.trip_date,
+    startDate: plan.start_time,
+    endDate: plan.end_time,
+    totalDays: plan.total_days,
+    budget: plan.budget ? Number(plan.budget) : null,
+    description: plan.description,
+    shareToken: plan.share_token,
+    createdAt: plan.created_at,
+    updatedAt: plan.updated_at,
+    owner: plan.users ? {
+        id: plan.users.id?.toString(),
+        fullName: plan.users.full_name,
+        email: plan.users.email,
+        avatarUrl: plan.users.avatar_url,
+        isActive: plan.users.is_active
+    } : null,
+    itemCount: plan._count?.itinerary_items ?? plan.item_count ?? 0,
+    collaboratorCount: plan._count?.collaborators ?? plan.collaborator_count ?? 0,
+    items: plan.itinerary_items?.map((item) => ({
+        id: item.id?.toString(),
+        sortOrder: item.sort_order,
+        note: item.note,
+        startTime: item.planned_start_time,
+        endTime: item.planned_end_time,
+        location: item.locations ? {
+            id: item.locations.id?.toString(),
+            name: item.locations.name,
+            address: item.locations.address,
+            category: item.locations.category,
+            imageUrl: item.locations.image_url
+        } : null
+    })) || undefined,
+    collaborators: plan.collaborators?.map((member) => ({
+        userId: member.user_id?.toString(),
+        permission: member.permission,
+        invitedAt: member.invited_at,
+        user: member.users ? {
+            id: member.users.id?.toString(),
+            fullName: member.users.full_name,
+            email: member.users.email,
+            avatarUrl: member.users.avatar_url
+        } : null
+    })) || undefined
+});
+
 router.get("/stats", async (_req, res) => {
     try {
         const [totalUsers, totalPlans, hotLocations] = await Promise.all([
@@ -236,6 +289,161 @@ router.get("/users/:id/activity", async (req, res) => {
         res.json(activities);
     } catch (error) {
         res.status(500).json({ message: error.message || "Không thể tải lịch sử hoạt động." });
+    }
+});
+
+router.get("/plans", async (req, res) => {
+    try {
+        const {
+            keyword = "",
+            status = "",
+            visibility = "",
+            limit = 100,
+            offset = 0
+        } = req.query;
+
+        const where = {};
+        const and = [];
+        const keywordText = String(keyword || "").trim();
+
+        if (keywordText) {
+            and.push({
+                OR: [
+                    { name: { contains: keywordText } },
+                    { destination: { contains: keywordText } },
+                    { start_location: { contains: keywordText } },
+                    { end_location: { contains: keywordText } },
+                    { users: { full_name: { contains: keywordText } } },
+                    { users: { email: { contains: keywordText } } }
+                ]
+            });
+        }
+
+        if (status) {
+            where.status = String(status);
+        }
+
+        if (visibility) {
+            where.visibility = String(visibility);
+        }
+
+        if (and.length) {
+            where.AND = and;
+        }
+
+        const take = Math.min(Math.max(Number(limit) || 100, 1), 300);
+        const skip = Math.max(Number(offset) || 0, 0);
+
+        const [items, total] = await Promise.all([
+            prisma.itineraries.findMany({
+                where,
+                orderBy: { updated_at: "desc" },
+                take,
+                skip,
+                include: {
+                    users: {
+                        select: { id: true, full_name: true, email: true, avatar_url: true, is_active: true }
+                    },
+                    _count: {
+                        select: { itinerary_items: true, collaborators: true }
+                    }
+                }
+            }),
+            prisma.itineraries.count({ where })
+        ]);
+
+        res.json({
+            items: items.map(serializePlan),
+            total,
+            limit: take,
+            offset: skip
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Khong the tai danh sach ke hoach." });
+    }
+});
+
+router.get("/plans/:id", async (req, res) => {
+    try {
+        const plan = await prisma.itineraries.findUnique({
+            where: { id: BigInt(req.params.id) },
+            include: {
+                users: {
+                    select: { id: true, full_name: true, email: true, avatar_url: true, is_active: true }
+                },
+                itinerary_items: {
+                    include: { locations: true },
+                    orderBy: { sort_order: "asc" }
+                },
+                collaborators: {
+                    include: {
+                        users: {
+                            select: { id: true, full_name: true, email: true, avatar_url: true }
+                        }
+                    },
+                    orderBy: { invited_at: "asc" }
+                },
+                _count: {
+                    select: { itinerary_items: true, collaborators: true }
+                }
+            }
+        });
+
+        if (!plan) {
+            return res.status(404).json({ message: "Khong tim thay ke hoach." });
+        }
+
+        res.json(serializePlan(plan));
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Khong the tai chi tiet ke hoach." });
+    }
+});
+
+router.patch("/plans/:id", async (req, res) => {
+    try {
+        const data = {};
+        if (req.body.status !== undefined) {
+            if (!["draft", "generated", "completed", "cancelled"].includes(req.body.status)) {
+                return res.status(400).json({ message: "Trang thai khong hop le." });
+            }
+            data.status = req.body.status;
+        }
+        if (req.body.visibility !== undefined) {
+            if (!["private", "shared", "public", "public_edit"].includes(req.body.visibility)) {
+                return res.status(400).json({ message: "Visibility khong hop le." });
+            }
+            data.visibility = req.body.visibility;
+        }
+        data.updated_at = new Date();
+
+        const plan = await prisma.itineraries.update({
+            where: { id: BigInt(req.params.id) },
+            data,
+            include: {
+                users: {
+                    select: { id: true, full_name: true, email: true, avatar_url: true, is_active: true }
+                },
+                _count: {
+                    select: { itinerary_items: true, collaborators: true }
+                }
+            }
+        });
+
+        res.json(serializePlan(plan));
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Khong the cap nhat ke hoach." });
+    }
+});
+
+router.delete("/plans/:id", async (req, res) => {
+    try {
+        await prisma.itineraries.delete({
+            where: { id: BigInt(req.params.id) }
+        });
+
+        res.json({ message: "Da xoa ke hoach." });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Khong the xoa ke hoach." });
     }
 });
 

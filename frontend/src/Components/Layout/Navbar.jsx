@@ -49,7 +49,7 @@ const Navbar = () => {
       if (searchQuery.trim().length > 2) {
         setIsSearching(true);
         try {
-          const results = await locationService.hybridSearch(searchQuery, 5);
+          const results = await locationService.searchDestinations(searchQuery, 5);
           setSearchResults(results);
           setShowDropdown(true);
         } catch (err) {
@@ -70,7 +70,12 @@ const Navbar = () => {
   const handleResultClick = (loc) => {
     setSearchQuery('');
     setShowDropdown(false);
-    navigate(`/planner?destination=${encodeURIComponent(loc.name)}&locationId=${loc.id}&region=${encodeURIComponent(loc.region || '')}`);
+    const params = new URLSearchParams({
+      q: loc.name || searchQuery,
+      locationId: String(loc.primaryLocationId || loc.locationId || loc.id),
+      region: loc.region || loc.city || loc.province || loc.name || ''
+    });
+    navigate(`/explore?${params.toString()}`);
   };
 
   const handleOpenFriendModal = () => {

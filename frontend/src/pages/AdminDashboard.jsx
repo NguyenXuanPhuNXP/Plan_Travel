@@ -18,35 +18,35 @@ const AdminDashboard = () => {
         <div className="admin-header">
           <div>
             <h1 className="admin-title">Admin Dashboard</h1>
-            <p className="admin-subtitle">Tổng quan hệ thống, người dùng và các điểm đến đang được quan tâm.</p>
+            <p className="admin-subtitle">Tổng quan hệ thống, người dùng và các địa điểm đang được quan tâm.</p>
           </div>
-          <Link to="/admin/explore" className="btn btn-primary">
+          <Link to="/admin/places" className="btn btn-primary">
             Quản lý khám phá <ArrowRight size={16} />
           </Link>
         </div>
 
         <div className="admin-grid">
-          <div className="card admin-stat-card">
+          <Link to="/admin/users" className="card admin-stat-card admin-stat-card-link">
             <div>
               <div className="admin-stat-label">Tổng user</div>
               <div className="admin-stat-value">{stats.totalUsers}</div>
             </div>
             <div className="admin-stat-icon"><Users size={22} /></div>
-          </div>
-          <div className="card admin-stat-card">
+          </Link>
+          <Link to="/admin/plans" className="card admin-stat-card admin-stat-card-link">
             <div>
               <div className="admin-stat-label">Kế hoạch đã tạo</div>
               <div className="admin-stat-value">{stats.totalPlans}</div>
             </div>
             <div className="admin-stat-icon"><Route size={22} /></div>
-          </div>
-          <div className="card admin-stat-card">
+          </Link>
+          <Link to="/admin/places" className="card admin-stat-card admin-stat-card-link">
             <div>
               <div className="admin-stat-label">Địa điểm hot</div>
               <div className="admin-stat-value">{stats.hotLocations?.length || 0}</div>
             </div>
             <div className="admin-stat-icon"><Flame size={22} /></div>
-          </div>
+          </Link>
         </div>
 
         <div className="card admin-panel">

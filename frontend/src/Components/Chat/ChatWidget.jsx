@@ -4,10 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { chatService } from '../../services/chatService';
 import { friendService } from '../../services/friendService';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import './ChatWidget.css';
 
 const ChatWidget = () => {
   const { user } = useAuth();
+  const { pushNotification } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [activeFriend, setActiveFriend] = useState(null); // The friend currently chatting with
   const [recentChats, setRecentChats] = useState([]);
@@ -16,10 +18,63 @@ const ChatWidget = () => {
   const [newMessage, setNewMessage] = useState('');
   const [totalUnread, setTotalUnread] = useState(0);
   const messagesEndRef = useRef(null);
+  const chatSnapshotRef = useRef(new Map());
+  const initializedRef = useRef(false);
+  const activeFriendRef = useRef(null);
+  const isOpenRef = useRef(false);
+  const pushNotificationRef = useRef(pushNotification);
+
+  useEffect(() => {
+    pushNotificationRef.current = pushNotification;
+  }, [pushNotification]);
+
+  useEffect(() => {
+    activeFriendRef.current = activeFriend;
+  }, [activeFriend]);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
 
   // Load friends and recent chats when widget is opened or periodically
   useEffect(() => {
     if (!user) return;
+    chatSnapshotRef.current = new Map();
+    initializedRef.current = false;
+
+    const detectNewMessages = (chatsData) => {
+      const currentUserId = String(user.id);
+      const nextSnapshot = new Map();
+
+      (chatsData || []).forEach((chat) => {
+        const friendId = String(chat.friendId);
+        const lastMessageAt = chat.lastMessageAt ? new Date(chat.lastMessageAt).getTime() : 0;
+        nextSnapshot.set(friendId, lastMessageAt);
+
+        const previousAt = chatSnapshotRef.current.get(friendId) || 0;
+        const isIncoming = String(chat.senderId || '') !== currentUserId;
+        const isActiveConversation = isOpenRef.current && String(activeFriendRef.current?.id || '') === friendId;
+
+        if (
+          initializedRef.current &&
+          chat.unreadCount > 0 &&
+          isIncoming &&
+          lastMessageAt > previousAt &&
+          !isActiveConversation
+        ) {
+          pushNotificationRef.current({
+            id: `message_${friendId}_${lastMessageAt}`,
+            type: 'message',
+            title: `Tin nhắn mới từ ${chat.friendName || 'Bạn bè'}`,
+            message: chat.lastMessage || 'Bạn có một tin nhắn mới.',
+            createdAt: chat.lastMessageAt || new Date().toISOString()
+          });
+        }
+      });
+
+      chatSnapshotRef.current = nextSnapshot;
+      initializedRef.current = true;
+    };
 
     const loadData = async () => {
       try {
@@ -27,6 +82,7 @@ const ChatWidget = () => {
           friendService.getFriends(),
           chatService.getRecentChats()
         ]);
+        detectNewMessages(chatsData || []);
         setFriends(friendsData || []);
         setRecentChats(chatsData || []);
 
@@ -38,16 +94,10 @@ const ChatWidget = () => {
     };
 
     loadData();
-    
-    // Poll for new messages every 5 seconds if widget is open
-    const interval = setInterval(() => {
-      if (isOpen && !activeFriend) {
-        loadData();
-      }
-    }, 5000);
+    const interval = setInterval(loadData, 5000);
 
     return () => clearInterval(interval);
-  }, [user, isOpen, activeFriend]);
+  }, [user?.id]);
 
   // Load conversation messages when a friend is selected
   useEffect(() => {
@@ -66,6 +116,9 @@ const ChatWidget = () => {
             c.friendId === activeFriend.id ? { ...c, unreadCount: 0 } : c
           ));
           setTotalUnread(prev => Math.max(0, prev - msgs.filter(m => m.receiverId === String(user.id) && !m.isRead).length));
+          chatService.getRecentChats()
+            .then((chatsData) => setRecentChats(chatsData || []))
+            .catch((error) => console.error("Failed to refresh recent chats:", error));
         }
       } catch (error) {
         console.error("Failed to load messages:", error);
@@ -94,6 +147,9 @@ const ChatWidget = () => {
     try {
       const msg = await chatService.sendMessage(activeFriend.id, content);
       setMessages(prev => [...prev, msg]);
+      chatService.getRecentChats()
+        .then((chatsData) => setRecentChats(chatsData || []))
+        .catch((error) => console.error("Failed to refresh recent chats:", error));
     } catch (error) {
       console.error("Failed to send message:", error);
     }
@@ -106,6 +162,22 @@ const ChatWidget = () => {
   const handleBackToList = () => {
     setActiveFriend(null);
   };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    setActiveFriend(null);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') handleClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
 
   if (!user) return null;
 
@@ -142,7 +214,7 @@ const ChatWidget = () => {
               {activeFriend ? (
                 <>
                   <h3>
-                    <button onClick={handleBackToList} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                    <button type="button" onClick={handleBackToList} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: 0, display: 'flex' }}>
                       <ChevronLeft size={20} />
                     </button>
                     {activeFriend.name}
@@ -152,7 +224,7 @@ const ChatWidget = () => {
                 <h3><MessageCircle size={20} /> Tin nhắn</h3>
               )}
               <div className="chat-header-actions">
-                <button onClick={() => setIsOpen(false)}><X size={18} /></button>
+                <button type="button" onClick={handleClose} aria-label="Đóng tin nhắn"><X size={18} /></button>
               </div>
             </div>
 
@@ -161,7 +233,7 @@ const ChatWidget = () => {
               <div className="chat-friend-list">
                 {displayList.length > 0 ? (
                   displayList.map(friend => (
-                    <div key={friend.id} className="chat-friend-item" onClick={() => handleOpenChat(friend)}>
+                    <button key={friend.id} type="button" className="chat-friend-item" onClick={() => handleOpenChat(friend)}>
                       <img src={friend.avatar || '/avatars/traveler.svg'} alt={friend.name} className="chat-friend-avatar" />
                       <div className="chat-friend-info">
                         <p className="chat-friend-name">{friend.name}</p>
@@ -172,7 +244,7 @@ const ChatWidget = () => {
                       {friend.unreadCount > 0 && (
                         <div className="chat-friend-unread">{friend.unreadCount}</div>
                       )}
-                    </div>
+                    </button>
                   ))
                 ) : (
                   <div className="chat-empty-state">
@@ -222,7 +294,7 @@ const ChatWidget = () => {
       </AnimatePresence>
 
       {!isOpen && (
-        <button className="chat-widget-button" onClick={() => setIsOpen(true)}>
+        <button type="button" className="chat-widget-button" onClick={() => setIsOpen(true)} aria-label="Mở tin nhắn">
           <MessageCircle size={28} />
           {totalUnread > 0 && (
             <div className="chat-widget-badge">

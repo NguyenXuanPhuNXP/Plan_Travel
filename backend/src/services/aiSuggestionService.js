@@ -70,18 +70,13 @@ export async function getSuggestions({ region, days, budget, preferences }) {
     }
     locations = Array.from(uniqueMap.values());
 
-    // 4. Dùng Gemini AI để rank và gợi ý
+    // 4. Rank through Python service. Python handles Gemini or rule-based fallback.
     let aiSuggestions = null;
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        console.warn("[AI] ⚠️ GEMINI_API_KEY chưa được cấu hình trong .env → sẽ dùng rule-based scoring");
-    } else {
-        try {
-            aiSuggestions = await getGeminiSuggestions(region, days, budget, preferences, locations);
-            console.log(`[AI] Gemini returned ${aiSuggestions?.length || 0} scored suggestions`);
-        } catch (err) {
-            console.error("[AI] Gemini AI error:", err.message);
-        }
+    try {
+        aiSuggestions = await getGeminiSuggestions(region, days, budget, preferences, locations);
+        console.log(`[AI] Python rank-locations returned ${aiSuggestions?.length || 0} scored suggestions`);
+    } catch (err) {
+        console.error("[AI] Python rank-locations error:", err.message);
     }
 
     // 5. Merge AI suggestions với location data
@@ -255,7 +250,7 @@ async function getGeminiSuggestions(region, days, budget, preferences, locations
             budget: budget || 5000000,
             preferences: preferences || [],
             locations: locations.slice(0, 30).map(l => ({
-                id: l.id,
+                id: l.id != null ? String(l.id) : null,
                 name: l.name,
                 category: l.category,
                 estimatedCost: l.estimatedCost || 0
@@ -264,7 +259,11 @@ async function getGeminiSuggestions(region, days, budget, preferences, locations
         
         return response.data.rankings;
     } catch (error) {
-        console.error("[AI] Error calling Python rank-locations:", error.message);
+        console.error("[AI] Error calling Python rank-locations:", {
+            message: error?.message,
+            status: error?.response?.status,
+            detail: error?.response?.data?.detail || error?.response?.data
+        });
         return null;
     }
 }

@@ -35,6 +35,22 @@
   min-height: 130px;
 }
 
+.admin-stat-card-link {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.admin-stat-card-link:hover {
+  border-color: rgba(99, 91, 255, 0.35);
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.1);
+  transform: translateY(-2px);
+}
+
+.admin-stat-card-compact {
+  min-height: 112px;
+}
+
 .admin-stat-label {
   color: var(--text-muted);
   font-size: 0.82rem;
@@ -60,6 +76,25 @@
 
 .admin-panel {
   overflow: hidden;
+}
+
+.admin-filters {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 180px 180px auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.admin-search-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-muted-line {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin-top: 0.18rem;
 }
 
 .admin-table {
@@ -154,6 +189,16 @@
 .admin-badge.warn {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.admin-badge.info {
+  background: #eef2ff;
+  color: var(--primary);
+}
+
+.admin-badge.muted {
+  background: #f1f5f9;
+  color: var(--text-muted);
 }
 
 .admin-hot-list {
@@ -267,4 +312,73 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: #fff;
+}
+
+.admin-plan-detail {
+  padding: 1rem;
+}
+
+.admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(16, 24, 40, 0.55);
+}
+
+.admin-modal-card {
+  width: min(760px, 100%);
+  max-height: min(720px, calc(100vh - 3rem));
+  overflow: auto;
+}
+
+.admin-plan-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.85rem;
+  margin-bottom: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.admin-plan-detail-grid {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.admin-plan-stop {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fff;
+}
+
+.admin-plan-stop-index {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #eef2ff;
+  color: var(--primary);
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .admin-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-plan-meta-grid {
+    grid-template-columns: 1fr;
+  }
 }
