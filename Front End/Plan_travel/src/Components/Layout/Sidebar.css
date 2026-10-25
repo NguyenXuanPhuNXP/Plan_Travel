@@ -20,7 +20,7 @@
 }
 
 .sidebar-section-title {
-  font-size: 0.75rem;
+  font-size: 0.725rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -75,6 +75,17 @@
   border-radius: var(--radius-full);
   letter-spacing: 0.05em;
   line-height: 1;
+}
+
+.sidebar-notification-badge {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--accent-danger);
+  color: white;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-full);
+  line-height: 1.2;
 }
 
 /* Sidebar Call to Action */

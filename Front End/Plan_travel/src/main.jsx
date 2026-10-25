@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './context/AuthContext';
 import { TripProvider } from './context/TripContext';
+import { NotificationProvider } from './context/NotificationContext';
 import './index.css';
 import App from './App.jsx';
 
@@ -15,7 +16,9 @@ createRoot(document.getElementById('root')).render(
       <BrowserRouter>
         <AuthProvider>
           <TripProvider>
-            <App />
+            <NotificationProvider>
+              <App />
+            </NotificationProvider>
           </TripProvider>
         </AuthProvider>
       </BrowserRouter>
