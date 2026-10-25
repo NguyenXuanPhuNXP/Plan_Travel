@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/Layout/Layout';
+import Layout from '../Components/Layout/Layout';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTrips } from '../context/TripContext';
 import { useGeolocation } from '../hooks/useGeolocation';
@@ -31,16 +31,21 @@ const TripDetails = () => {
   const { location: currentPos, error: geoError, loading: geoLoading, getLocation } = useGeolocation();
   
   const trip = getTripById(id);
+  const locations = Array.isArray(trip?.locations) ? trip.locations : (Array.isArray(trip?.items) ? trip.items : []);
+
   const [weatherData, setWeatherData] = useState({});
   const [activeWeatherLoc, setActiveWeatherLoc] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [completionResult, setCompletionResult] = useState(null);
 
   useEffect(() => {
-    if (trip && trip.locations.length > 0) {
-      // Fetch weather for the first location by default
-      const first = trip.locations[0];
-      fetchWeather(first.id, first.lat, first.lng);
+    if (locations.length > 0) {
+      const first = locations[0];
+      const lat = first.latitude ?? first.lat;
+      const lng = first.longitude ?? first.lng;
+      if (lat && lng) {
+        fetchWeather(first.id, lat, lng);
+      }
     }
   }, [trip]);
 
@@ -69,21 +74,24 @@ const TripDetails = () => {
   };
 
   useEffect(() => {
-    if (currentPos && isConfirming && trip) {
-      const lastLoc = trip.locations[trip.locations.length - 1];
-      const distance = calculateDistance(currentPos.lat, currentPos.lng, lastLoc.lat, lastLoc.lng);
+    if (currentPos && isConfirming && locations.length > 0) {
+      const lastLoc = locations[locations.length - 1];
+      const lastLat = lastLoc.latitude ?? lastLoc.lat;
+      const lastLng = lastLoc.longitude ?? lastLoc.lng;
       
-      // If within 500m (0.5km)
-      if (distance < 0.5) {
-        setCompletionResult({ success: true, message: 'Bạn đang ở đúng vị trí điểm đến cuối cùng!' });
-      } else {
-        setCompletionResult({ 
-          success: false, 
-          message: `Bạn đang ở cách điểm đến cuối cùng ${distance.toFixed(2)}km. Vui lòng đến gần hơn để xác nhận.` 
-        });
+      if (lastLat && lastLng) {
+        const distance = calculateDistance(currentPos.lat, currentPos.lng, lastLat, lastLng);
+        if (distance < 0.5) {
+          setCompletionResult({ success: true, message: 'Bạn đang ở đúng vị trí điểm đến cuối cùng!' });
+        } else {
+          setCompletionResult({ 
+            success: false, 
+            message: `Bạn đang ở cách điểm đến cuối cùng ${distance.toFixed(2)}km. Vui lòng đến gần hơn để xác nhận.` 
+          });
+        }
       }
     }
-  }, [currentPos, isConfirming]);
+  }, [currentPos, isConfirming, locations]);
 
   const handleFinishTrip = () => {
     updateTrip(trip.id, { status: 'completed' });
@@ -102,52 +110,102 @@ const TripDetails = () => {
   return (
     <Layout>
       <div className="trip-details-container">
-        {/* Header Navigation */}
-        <div className="trip-details-header">
-          <Link to="/history" className="trip-details-header-link"><ArrowLeft size={14} /> Lịch sử</Link>
+        {/* Breadcrumb */}
+        <div className="trip-details-breadcrumb">
+          <Link to="/" className="trip-details-breadcrumb-link"><ArrowLeft size={16} /> Dashboard</Link>
           <ChevronRight size={14} />
-          <span>Chi tiết chuyến đi</span>
+          <Link to="/history" className="trip-details-breadcrumb-link">Lịch sử</Link>
+          <ChevronRight size={14} />
+          <span>{trip.title || trip.name}</span>
         </div>
 
-        {/* Hero Info */}
+        {/* Hero Banner */}
         <div className="card trip-details-hero">
-          <div className="trip-details-hero-bg">
-            <MapPin size={200} />
-          </div>
-          
           <div className="trip-details-hero-content">
-            <div>
-              <div className={`trip-details-status-badge trip-details-status-${trip.status}`}>
-                {trip.status === 'upcoming' ? 'Sắp tới' : (trip.status === 'ongoing' ? 'Đang diễn ra' : 'Đã hoàn thành')}
-              </div>
-              <h1 className="trip-details-title">{trip.title}</h1>
-              <div className="trip-details-meta">
-                <div className="trip-details-meta-item">
-                  <Calendar size={18} />
-                  <span>{format(new Date(trip.startDate), 'dd/MM/yyyy')} - {format(new Date(trip.endDate), 'dd/MM/yyyy')}</span>
-                </div>
-                <div className="trip-details-meta-item">
-                  <DollarSign size={18} />
-                  <span>Ngân sách: {Number(trip.budget).toLocaleString()} VNĐ</span>
-                </div>
-              </div>
+            <div className="trip-details-hero-badge-wrap">
+              <span className={`trip-details-badge trip-details-badge-${trip.status}`}>
+                {trip.status === 'upcoming' ? 'Sắp tới' : (trip.status === 'ongoing' ? 'Đang đi' : 'Hoàn thành')}
+              </span>
             </div>
             
+            <h1 className="trip-details-title">{trip.title || trip.name}</h1>
+            
+            <div className="trip-details-meta">
+              <div className="trip-details-meta-item">
+                <Calendar size={18} />
+                <span>
+                  {trip.startDate ? format(new Date(trip.startDate), 'dd/MM/yyyy') : 'Chưa định ngày'}
+                  {trip.endDate ? ` — ${format(new Date(trip.endDate), 'dd/MM/yyyy')}` : ''}
+                </span>
+              </div>
+              <div className="trip-details-meta-item">
+                <MapPin size={18} />
+                <span>{locations.length} điểm đến</span>
+              </div>
+              {trip.budget && (
+                <div className="trip-details-meta-item">
+                  <DollarSign size={18} />
+                  <span>{typeof trip.budget === 'number' ? `${trip.budget.toLocaleString()} VNĐ` : trip.budget}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Finish Trip Action */}
             {trip.status !== 'completed' && (
               <div className="trip-details-actions">
                 <button 
-                  onClick={() => updateTrip(trip.id, { status: trip.status === 'upcoming' ? 'ongoing' : 'upcoming' })}
-                  className={`btn ${trip.status === 'upcoming' ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={handleVerifyLocation} 
+                  disabled={geoLoading}
+                  className="btn btn-primary trip-details-verify-btn"
                 >
-                  {trip.status === 'upcoming' ? 'Bắt đầu chuyến đi' : 'Tạm dừng chuyến đi'}
-                </button>
-                <button onClick={handleVerifyLocation} className="btn btn-primary trip-details-action-finish">
-                  <CheckCircle size={18} /> Hoàn thành chuyến đi
+                  {geoLoading ? (
+                    <><Loader2 className="animate-spin" size={18} /> Đang lấy vị trí...</>
+                  ) : (
+                    <><Navigation size={18} /> Xác thực vị trí & Hoàn thành</>
+                  )}
                 </button>
               </div>
             )}
           </div>
         </div>
+
+        {/* Geolocation Verification Modal/Alert */}
+        {isConfirming && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`card trip-details-confirm-card ${completionResult?.success ? 'success' : ''}`}
+          >
+            <div className="trip-details-confirm-header">
+              <h4>Xác thực hoàn thành chuyến đi</h4>
+              <button onClick={() => setIsConfirming(false)} className="trip-details-confirm-close">
+                <X size={18} />
+              </button>
+            </div>
+            
+            {geoError && (
+              <div className="trip-details-alert-error">
+                <AlertTriangle size={18} />
+                <p>Không thể lấy vị trí hiện tại của bạn: {geoError}. Bạn có muốn hoàn thành thủ công?</p>
+                <button onClick={handleFinishTrip} className="btn btn-outline trip-details-manual-btn">
+                  Hoàn thành thủ công
+                </button>
+              </div>
+            )}
+
+            {completionResult && (
+              <div className={`trip-details-result-box ${completionResult.success ? 'success' : 'warn'}`}>
+                {completionResult.success ? <CheckCircle size={24} /> : <AlertTriangle size={24} />}
+                <p>{completionResult.message}</p>
+                {completionResult.success && (
+                  <button onClick={handleFinishTrip} className="btn btn-primary trip-details-finish-btn">
+                    <CheckCircle size={18} /> Hoàn thành chuyến đi
+                  </button>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
 
         <div className="trip-details-grid">
           {/* Timeline */}
@@ -157,38 +215,43 @@ const TripDetails = () => {
             </h3>
             
             <div className="trip-details-timeline">
-              {/* Vertical line */}
               <div className="trip-details-timeline-line"></div>
               
-              {trip.locations.map((loc, idx) => (
-                <div 
-                  key={loc.tripLocId || loc.id} 
-                  className={`trip-details-timeline-item ${activeWeatherLoc === loc.id ? 'active' : ''}`}
-                  onClick={() => fetchWeather(loc.id, loc.lat, loc.lng)}
-                >
-                  <div className="trip-details-timeline-number">
-                    {idx + 1}
-                  </div>
-                  
-                  <div className="trip-details-timeline-content">
-                    <img src={loc.image} alt={loc.name} className="trip-details-timeline-img" />
-                    <div className="trip-details-timeline-info">
-                      <h4 className="trip-details-timeline-name">{loc.name}</h4>
-                      <p className="trip-details-timeline-address">{loc.address}</p>
-                      <div className="trip-details-timeline-tags">
-                        <span className="trip-details-tag-duration">⏰ Gợi ý: {loc.suggestedDuration || '2 giờ'}</span>
-                        <span className="trip-details-tag-cost">💰 Phí: {loc.estimatedCost?.toLocaleString() || 'Miễn phí'}</span>
+              {locations.length > 0 ? (
+                locations.map((loc, idx) => (
+                  <div 
+                    key={loc.tripLocId || loc.id || idx} 
+                    className={`trip-details-timeline-item ${activeWeatherLoc === loc.id ? 'active' : ''}`}
+                    onClick={() => fetchWeather(loc.id, loc.latitude ?? loc.lat, loc.longitude ?? loc.lng)}
+                  >
+                    <div className="trip-details-timeline-number">
+                      {idx + 1}
+                    </div>
+                    
+                    <div className="trip-details-timeline-content">
+                      <img src={loc.image || loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'} alt={loc.name} className="trip-details-timeline-img" />
+                      <div className="trip-details-timeline-info">
+                        <h4 className="trip-details-timeline-name">{loc.name}</h4>
+                        <p className="trip-details-timeline-address">{loc.address}</p>
+                        <div className="trip-details-timeline-tags">
+                          <span className="trip-details-tag-duration">⏰ Gợi ý: {loc.suggestedDuration || '2 giờ'}</span>
+                          <span className="trip-details-tag-cost">💰 Phí: {typeof loc.estimatedCost === 'number' ? `${loc.estimatedCost.toLocaleString()} đ` : 'Miễn phí'}</span>
+                        </div>
                       </div>
                     </div>
+                    
+                    {idx === locations.length - 1 && (
+                      <div className="trip-details-timeline-end">
+                        <MapPin size={16} /> Điểm cuối
+                      </div>
+                    )}
                   </div>
-                  
-                  {idx === trip.locations.length - 1 && (
-                    <div className="trip-details-timeline-end">
-                      <MapPin size={16} /> Đểm cuối
-                    </div>
-                  )}
+                ))
+              ) : (
+                <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  Chưa có điểm dừng chân nào được thêm vào chuyến đi này.
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -219,83 +282,29 @@ const TripDetails = () => {
                       </div>
                       <div className="trip-details-weather-stat">
                         <div className="trip-details-weather-label">Điểm dừng</div>
-                        <div className="trip-details-weather-val">#{trip.locations.findIndex(l => l.id === activeWeatherLoc) + 1}</div>
+                        <div className="trip-details-weather-val">#{locations.findIndex(l => l.id === activeWeatherLoc) + 1}</div>
                       </div>
                     </div>
                   </motion.div>
                 ) : (
                   <div className="trip-details-weather-loading">
-                    <Loader2 className="animate-spin" size={24} />
-                    <p>Đang tải...</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Chọn một điểm đến trong lịch trình để xem dự báo thời tiết.</p>
                   </div>
                 )}
               </AnimatePresence>
             </div>
 
             {/* Notes Card */}
-            <div className="card">
+            <div className="card trip-details-notes-card">
               <h3 className="trip-details-notes-title">
-                <StickyNote size={18} color="var(--primary)" /> Ghi chú
+                <StickyNote size={18} /> Ghi chú chuyến đi
               </h3>
-              <p className="trip-details-notes-content">
-                {trip.notes || 'Không có ghi chú nào cho chuyến đi này.'}
+              <p className="trip-details-notes-desc">
+                {trip.notes || trip.description || 'Không có ghi chú nào cho chuyến đi này.'}
               </p>
             </div>
           </div>
         </div>
-
-        {/* Confirmation Modal */}
-        <AnimatePresence>
-          {isConfirming && (
-            <div className="trip-details-modal-overlay">
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="card trip-details-modal-card" 
-              >
-                <div className="trip-details-modal-header">
-                  <h2 className="trip-details-modal-title">Hoàn thành chuyến đi</h2>
-                  <button onClick={() => setIsConfirming(false)} className="trip-details-modal-close"><X size={24} /></button>
-                </div>
-
-                <div className="trip-details-modal-body">
-                  <Navigation size={48} color="var(--primary)" className="trip-details-modal-icon" />
-                  <p className="trip-details-modal-text">Chúng tôi cần xác nhận vị trí của bạn để đánh dấu chuyến đi là hoàn thành.</p>
-                  
-                  {geoLoading ? (
-                    <div className="trip-details-modal-loading">
-                      <Loader2 className="animate-spin" size={20} />
-                      <span>Đang xác định vị trí...</span>
-                    </div>
-                  ) : completionResult ? (
-                    <div className={`trip-details-modal-result ${completionResult.success ? 'trip-details-modal-success' : 'trip-details-modal-error-result'}`}>
-                      {completionResult.success ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
-                      {completionResult.message}
-                    </div>
-                  ) : (
-                    <button onClick={getLocation} className="btn btn-primary trip-details-modal-full-btn">Xác nhận vị trí hiện tại</button>
-                  )}
-                  
-                  {geoError && (
-                    <div className="trip-details-modal-error">⚠️ {geoError}</div>
-                  )}
-                </div>
-
-                <div className="trip-details-modal-footer">
-                  <button onClick={() => setIsConfirming(false)} className="btn btn-outline trip-details-modal-btn">Hủy</button>
-                  <button 
-                    onClick={handleFinishTrip} 
-                    disabled={!completionResult?.success}
-                    className="btn btn-primary trip-details-modal-btn trip-details-modal-btn-confirm" 
-                  >
-                    Xác nhận hoàn thành
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
       </div>
     </Layout>
   );

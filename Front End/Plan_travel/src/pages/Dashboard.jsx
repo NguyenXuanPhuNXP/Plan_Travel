@@ -1,9 +1,8 @@
 import React from 'react';
-import Layout from '../components/Layout/Layout';
+import Layout from '../Components/Layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import { useTrips } from '../context/TripContext';
 import { TRENDING_DESTINATIONS } from '../utils/mockData';
-import { motion } from 'framer-motion';
 import { 
   Calendar, 
   MapPin, 
@@ -29,6 +28,7 @@ const Dashboard = () => {
 
   const getDaysLeft = (dateStr) => {
     try {
+      if (!dateStr) return '';
       const diff = differenceInDays(new Date(dateStr), new Date());
       if (diff > 0) return `Còn ${diff} ngày nữa`;
       if (diff === 0) return 'Khởi hành hôm nay!';
@@ -43,6 +43,13 @@ const Dashboard = () => {
     if (hour < 12) return 'Chào buổi sáng';
     if (hour < 18) return 'Chào buổi chiều';
     return 'Chào buổi tối';
+  };
+
+  const getLocationsArray = (tripObj) => {
+    if (!tripObj) return [];
+    if (Array.isArray(tripObj.locations)) return tripObj.locations;
+    if (Array.isArray(tripObj.items)) return tripObj.items;
+    return [];
   };
 
   return (
@@ -71,7 +78,7 @@ const Dashboard = () => {
             <div 
               className="dashboard-hero-bg"
               style={{
-                backgroundImage: `url(${upcomingTrip.locations[0]?.image || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=1200'})`
+                backgroundImage: `url(${getLocationsArray(upcomingTrip)[0]?.image || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=1200'})`
               }}
             />
             <div className="dashboard-hero-overlay" />
@@ -86,15 +93,18 @@ const Dashboard = () => {
               </div>
 
               <div className="dashboard-hero-main">
-                <h2 className="dashboard-hero-title">{upcomingTrip.title}</h2>
+                <h2 className="dashboard-hero-title">{upcomingTrip.title || upcomingTrip.name}</h2>
                 <div className="dashboard-hero-meta">
                   <div className="dashboard-hero-meta-item">
                     <Calendar size={15} />
-                    <span>{format(new Date(upcomingTrip.startDate), 'dd/MM/yyyy')} — {format(new Date(upcomingTrip.endDate), 'dd/MM/yyyy')}</span>
+                    <span>
+                      {upcomingTrip.startDate ? format(new Date(upcomingTrip.startDate), 'dd/MM/yyyy') : 'Chưa định ngày'} 
+                      {upcomingTrip.endDate ? ` — ${format(new Date(upcomingTrip.endDate), 'dd/MM/yyyy')}` : ''}
+                    </span>
                   </div>
                   <div className="dashboard-hero-meta-item">
                     <MapPin size={15} />
-                    <span>{upcomingTrip.locations.length} điểm đến</span>
+                    <span>{getLocationsArray(upcomingTrip).length} điểm đến</span>
                   </div>
                 </div>
               </div>
@@ -130,7 +140,7 @@ const Dashboard = () => {
           <div className="dashboard-stat-divider" />
           <div className="dashboard-stat-box">
             <div className="dashboard-stat-num">
-              {trips.reduce((acc, t) => acc + (t.locations?.length || 0), 0)}
+              {trips.reduce((acc, t) => acc + getLocationsArray(t).length, 0)}
             </div>
             <div className="dashboard-stat-name">Điểm đến đã lưu</div>
           </div>
@@ -158,34 +168,37 @@ const Dashboard = () => {
 
           <div className="dashboard-trips-grid">
             {recentTrips.length > 0 ? (
-              recentTrips.map((trip) => (
-                <Link key={trip.id} to={`/trip/${trip.id}`} className="card dashboard-trip-postcard">
-                  <div className="dashboard-postcard-img-box">
-                    <img 
-                      src={trip.locations[0]?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'} 
-                      alt={trip.title} 
-                      className="dashboard-postcard-img"
-                    />
-                    <div className="dashboard-postcard-tag">
-                      {trip.status === 'upcoming' ? 'Sắp tới' : (trip.status === 'ongoing' ? 'Đang đi' : 'Đã đi')}
+              recentTrips.map((trip) => {
+                const locs = getLocationsArray(trip);
+                return (
+                  <Link key={trip.id} to={`/trip/${trip.id}`} className="card dashboard-trip-postcard">
+                    <div className="dashboard-postcard-img-box">
+                      <img 
+                        src={locs[0]?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'} 
+                        alt={trip.title || trip.name} 
+                        className="dashboard-postcard-img"
+                      />
+                      <div className="dashboard-postcard-tag">
+                        {trip.status === 'upcoming' ? 'Sắp tới' : (trip.status === 'ongoing' ? 'Đang đi' : 'Đã đi')}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="dashboard-postcard-body">
-                    <h3 className="dashboard-postcard-title">{trip.title}</h3>
-                    <div className="dashboard-postcard-meta">
-                      <div className="dashboard-postcard-meta-line">
-                        <Calendar size={14} className="dashboard-meta-icon" />
-                        <span>{format(new Date(trip.startDate), 'dd/MM/yyyy')}</span>
-                      </div>
-                      <div className="dashboard-postcard-meta-line">
-                        <Navigation size={14} className="dashboard-meta-icon" />
-                        <span>{trip.locations.length} điểm ghé thăm</span>
+                    <div className="dashboard-postcard-body">
+                      <h3 className="dashboard-postcard-title">{trip.title || trip.name}</h3>
+                      <div className="dashboard-postcard-meta">
+                        <div className="dashboard-postcard-meta-line">
+                          <Calendar size={14} className="dashboard-meta-icon" />
+                          <span>{trip.startDate ? format(new Date(trip.startDate), 'dd/MM/yyyy') : 'Chưa định ngày'}</span>
+                        </div>
+                        <div className="dashboard-postcard-meta-line">
+                          <Navigation size={14} className="dashboard-meta-icon" />
+                          <span>{locs.length} điểm ghé thăm</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))
+                  </Link>
+                );
+              })
             ) : (
               <div className="dashboard-trips-empty card">
                 <p>Chưa có chuyến đi nào được lưu. Bấm vào nút "Tạo kế hoạch mới" để bắt đầu.</p>

@@ -6,18 +6,34 @@ export const TripProvider = ({ children }) => {
   const [trips, setTrips] = useState([]);
   const [currentTrip, setCurrentTrip] = useState(null);
 
-  useEffect(() => {
+  const fetchTrips = () => {
     const storedTrips = localStorage.getItem('travel_trips');
     if (storedTrips) {
-      setTrips(JSON.parse(storedTrips));
+      try {
+        const parsed = JSON.parse(storedTrips);
+        setTrips(parsed);
+        return parsed;
+      } catch (e) {
+        console.error('Lỗi nạp dữ liệu chuyến đi:', e);
+      }
     }
+    return [];
+  };
+
+  useEffect(() => {
+    fetchTrips();
   }, []);
 
   const addTrip = (tripData) => {
+    const title = tripData.title || tripData.name || 'Chuyến đi chưa đặt tên';
+    const locations = tripData.locations || tripData.items || [];
     const newTrip = {
       ...tripData,
-      id: Date.now().toString(),
-      status: 'upcoming', // upcoming, ongoing, completed
+      title,
+      name: title,
+      locations,
+      id: tripData.id || Date.now().toString(),
+      status: tripData.status || 'upcoming', // upcoming, ongoing, completed
       createdAt: new Date().toISOString(),
     };
     const updatedTrips = [...trips, newTrip];
@@ -41,11 +57,11 @@ export const TripProvider = ({ children }) => {
   };
 
   const getTripById = (id) => {
-    return trips.find((trip) => trip.id === id);
+    return trips.find((trip) => String(trip.id) === String(id));
   };
 
   return (
-    <TripContext.Provider value={{ trips, currentTrip, setCurrentTrip, addTrip, updateTrip, deleteTrip, getTripById }}>
+    <TripContext.Provider value={{ trips, currentTrip, setCurrentTrip, addTrip, updateTrip, deleteTrip, getTripById, fetchTrips }}>
       {children}
     </TripContext.Provider>
   );

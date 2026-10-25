@@ -1,50 +1,25 @@
-import apiClient from './apiClient';
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const itineraryService = {
-  // CRUD Itineraries
-  create: async (data) => {
-    const response = await apiClient.post('/itineraries', data);
-    return response.data;
-  },
-
   getAll: async () => {
-    const response = await apiClient.get('/itineraries');
-    return response.data;
+    try {
+      const response = await axios.get(`${API_BASE}/itineraries`, { timeout: 3000 });
+      return response.data;
+    } catch (err) {
+      console.warn('itineraryService: Dùng local fallback:', err.message);
+      return [];
+    }
   },
 
-  getById: async (id) => {
-    const response = await apiClient.get(`/itineraries/${id}`);
-    return response.data;
-  },
-
-  update: async (id, data) => {
-    const response = await apiClient.put(`/itineraries/${id}`, data);
-    return response.data;
-  },
-
-  delete: async (id) => {
-    const response = await apiClient.delete(`/itineraries/${id}`);
-    return response.data;
-  },
-
-  // Items
-  addItem: async (itineraryId, item) => {
-    const response = await apiClient.post(`/itineraries/${itineraryId}/items`, item);
-    return response.data;
-  },
-
-  updateItem: async (itineraryId, itemId, data) => {
-    const response = await apiClient.put(`/itineraries/${itineraryId}/items/${itemId}`, data);
-    return response.data;
-  },
-
-  removeItem: async (itineraryId, itemId) => {
-    const response = await apiClient.delete(`/itineraries/${itineraryId}/items/${itemId}`);
-    return response.data;
-  },
-
-  reorderItems: async (itineraryId, orderedItemIds) => {
-    const response = await apiClient.put(`/itineraries/${itineraryId}/reorder`, { orderedItemIds });
-    return response.data;
+  create: async (data) => {
+    try {
+      const response = await axios.post(`${API_BASE}/itineraries`, data, { timeout: 3000 });
+      return response.data;
+    } catch (err) {
+      console.warn('itineraryService: Dùng local fallback:', err.message);
+      return { id: `itinerary_${Date.now()}`, ...data };
+    }
   }
 };

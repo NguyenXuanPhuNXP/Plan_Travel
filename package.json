@@ -1,4 +1,13 @@
 {
+  "name": "plan-travel",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npm --prefix \"Front End/Plan_travel\" run dev",
+    "build": "npm --prefix \"Front End/Plan_travel\" run build",
+    "start": "npm --prefix \"Back End\" start",
+    "backend": "npm --prefix \"Back End\" start"
+  },
   "dependencies": {
     "prisma": "^7.8.0"
   }
