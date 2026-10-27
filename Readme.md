@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🌍 PlanTravel - Ứng dụng Lập kế hoạch Du lịch AI
 
 [![React](https://img.shields.io/badge/React-19-brightgreen)](https://react.dev/)
@@ -111,7 +110,6 @@ Plan_Travel/
 ---
 
 *Built with ❤️ for travel lovers* 🇻🇳✈️
-=======
 # 🧭 PLAN TRAVEL (LỮ HÀNH) - SỔ TAY KHÁM PHÁ & LẬP LỊCH TRÌNH VIỆT NAM
 
 > Nền tảng lập kế hoạch du lịch thông minh, tối ưu lộ trình và ghi lại nhật ký hành trình qua các địa danh Việt Nam.
@@ -300,4 +298,3 @@ Truy cập trình duyệt tại: **`http://localhost:5173`** để bắt đầu 
      VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
      ```
    * Hệ thống sẽ tự động chuyển sang luồng xác thực chính thức của Google.
->>>>>>> 9e24a6f (update giao diện)

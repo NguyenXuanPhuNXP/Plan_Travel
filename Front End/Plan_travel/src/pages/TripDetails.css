@@ -565,3 +565,92 @@
     width: 100%;
   }
 }
+
+/* ==========================================
+   ENHANCED DETAILS: Cost Breakdown, Checklist, Preferences
+========================================== */
+
+.trip-details-pref-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-right: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.trip-details-cost-card {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.04), rgba(99, 102, 241, 0.04));
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.trip-details-cost-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.trip-details-cost-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.trip-details-cost-col strong {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.trip-details-cost-total-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(16, 185, 129, 0.3);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.trip-details-packing-card {
+  margin-top: 1.25rem;
+}
+
+.trip-details-packing-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.trip-details-packing-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+.trip-details-packing-item-row:hover {
+  background: rgba(99, 102, 241, 0.05);
+}

@@ -24,7 +24,11 @@ import {
   X,
   Users,
   UserPlus,
-  Trash2
+  Trash2,
+  Briefcase,
+  CheckSquare,
+  Square,
+  Car
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { sharingService } from '../services/sharingService';
@@ -40,7 +44,49 @@ const TripDetails = () => {
   const { pushNotification } = useNotifications();
   const { location: currentPos, error: geoError, loading: geoLoading, getLocation } = useGeolocation();
   
-  const trip = getTripById(id);
+  const contextTrip = getTripById(id);
+  const [dbTrip, setDbTrip] = useState(null);
+  const trip = dbTrip || contextTrip;
+  const [packingItems, setPackingItems] = useState(trip?.packingItems || []);
+
+  useEffect(() => {
+    async function loadFreshTrip() {
+      if (!id) return;
+      try {
+        const fresh = await itineraryService.getById(id);
+        if (fresh && fresh.id) {
+          setDbTrip(fresh);
+          if (Array.isArray(fresh.packingItems)) {
+            setPackingItems(fresh.packingItems);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch fresh trip:', e);
+      }
+    }
+    loadFreshTrip();
+  }, [id]);
+
+  useEffect(() => {
+    if (trip?.packingItems && packingItems.length === 0) {
+      setPackingItems(trip.packingItems);
+    }
+  }, [trip]);
+
+  const handleTogglePacking = async (packingItemId) => {
+    const item = packingItems.find(p => String(p.id) === String(packingItemId));
+    if (!item) return;
+    const nextPacked = !item.isPacked;
+    setPackingItems(prev => prev.map(p => String(p.id) === String(packingItemId) ? { ...p, isPacked: nextPacked } : p));
+    try {
+      if (/^\d+$/.test(String(packingItemId)) && /^\d+$/.test(String(trip?.id))) {
+        await itineraryService.updatePackingItem(trip.id, packingItemId, { isPacked: nextPacked });
+      }
+    } catch (e) {
+      console.warn('Failed to update packing item:', e);
+    }
+  };
+
   const [weatherData, setWeatherData] = useState({});
   const [activeWeatherLoc, setActiveWeatherLoc] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -74,7 +120,6 @@ const TripDetails = () => {
     email: ''
   };
 
-  // --- Helpers: declared before any usage to avoid TDZ (const is not hoisted) ---
   const normalizeMapLoc = (loc) => ({
     id: String(loc.id || loc.locationId || `tmp_${Date.now()}`),
     name: loc.name || 'Địa điểm',
@@ -94,7 +139,7 @@ const TripDetails = () => {
   };
   const stripDayMarker = (note) => String(note || '').replace(/\[DAY:\d+\]\s*/gi, '').trim();
 
-  // --- Group locations by day ---
+  // Group locations by day
   const groupedLocationsByDay = (() => {
     if (isEditingInfo) {
       return [{ day: 1, items: editingLocations.map((loc, idx) => ({ loc, idx, note: '' })) }];
@@ -110,15 +155,14 @@ const TripDetails = () => {
         const day = parseDayFromNote(item?.note);
         const cleanNote = stripDayMarker(item?.note);
         if (!map.has(day)) map.set(day, []);
-        map.get(day).push({ loc: normalized, idx, note: cleanNote });
+        map.get(day).push({ loc: normalized, idx, note: cleanNote, rawItem: item });
       });
       return [...map.entries()]
         .sort((a, b) => a[0] - b[0])
         .map(([day, items]) => ({ day, items }));
     }
 
-    // Fallback: show all locations as Day 1 when trip.items is empty
-    return [{ day: 1, items: locations.map((loc, idx) => ({ loc: normalizeMapLoc(loc), idx, note: '' })) }];
+    return [{ day: 1, items: locations.map((loc, idx) => ({ loc: normalizeMapLoc(loc), idx, note: '', rawItem: null })) }];
   })();
 
   const lastLocation = locations[locations.length - 1];
@@ -131,7 +175,6 @@ const TripDetails = () => {
 
   useEffect(() => {
     if (trip && locations.length > 0) {
-      // Fetch weather for the first location by default
       const first = locations[0];
       fetchWeather(first.id, first.lat, first.lng);
     }
@@ -152,210 +195,181 @@ const TripDetails = () => {
     }
   }, [trip]);
 
-  useEffect(() => {
-    if (!canEditTrip && isEditingInfo) {
-      setIsEditingInfo(false);
-    }
-  }, [canEditTrip, isEditingInfo]);
-
   const fetchWeather = async (locId, lat, lng) => {
+    if (!lat || !lng) return;
     setActiveWeatherLoc(locId);
     if (weatherData[locId]) return;
-    const data = await WeatherService.getWeather(lat, lng);
-    setWeatherData(prev => ({ ...prev, [locId]: data }));
+
+    try {
+      const data = await WeatherService.getWeather(lat, lng);
+      setWeatherData(prev => ({
+        ...prev,
+        [locId]: data
+      }));
+    } catch (err) {
+      console.error("Failed to fetch weather:", err);
+    }
   };
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // km
+    const R = 6371; // Earth's radius in km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
   };
 
-  const getLocCoords = (loc) => {
-    const lat = Number(loc?.lat ?? loc?.latitude);
-    const lng = Number(loc?.lng ?? loc?.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return { lat, lng };
-  };
-
   const handleVerifyLocation = () => {
-    getLocation();
     setIsConfirming(true);
     setCompletionResult(null);
-  };
 
-  useEffect(() => {
-    if (currentPos && isConfirming && trip) {
-      // Kiểm tra tất cả các điểm đến, không chỉ điểm cuối
-      const validLocations = locations
-        .map((loc) => ({ ...loc, _coords: getLocCoords(loc) }))
-        .filter((loc) => !!loc._coords);
-      
-      if (validLocations.length === 0) {
-        setCompletionResult({ 
-          success: false, 
-          message: 'Không có điểm đến nào có tọa độ GPS hợp lệ để xác nhận.' 
-        });
-        return;
-      }
-
-      // Tìm điểm gần nhất
-      let closestLoc = null;
-      let closestDist = Infinity;
-      for (const loc of validLocations) {
-        const dist = calculateDistance(currentPos.lat, currentPos.lng, loc._coords.lat, loc._coords.lng);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closestLoc = loc;
-        }
-      }
-      
-      // Nếu trong phạm vi 1km của bất kỳ điểm nào
-      if (closestDist <= 2.0) {
-        setCompletionResult({ 
-          success: true, 
-          message: `Bạn đang ở gần "${closestLoc.name}" (cách ${(closestDist * 1000).toFixed(0)}m). Xác nhận thành công!` 
-        });
-      } else {
-        setCompletionResult({ 
-          success: false, 
-          message: `Bạn đang ở cách điểm gần nhất "${closestLoc.name}" khoảng ${closestDist.toFixed(2)}km. Vui lòng đến gần hơn (< 1km) để xác nhận.` 
-        });
-      }
-    }
-  }, [currentPos, isConfirming, trip, locations]);
-
-  useEffect(() => {
-    if (isConfirming && geoError) {
+    if (!lastLocation) {
       setCompletionResult({
         success: false,
-        message: 'Không lấy được vị trí hiện tại. Vui lòng bật GPS/quyền vị trí rồi thử lại.'
+        message: 'Chuyến đi không có điểm đến để xác thực.'
       });
-    }
-  }, [geoError, isConfirming]);
-
-  const handleFinishTrip = () => {
-    if (!canEditTrip) {
-      setToast('Bạn chỉ có quyền xem kế hoạch này.');
-      setTimeout(() => setToast(''), 2200);
       return;
     }
-    updateTrip(trip.id, { status: 'completed' });
-    setIsConfirming(false);
+
+    getLocation(
+      (pos) => {
+        const destLat = lastLocation.lat ?? lastLocation.latitude;
+        const destLng = lastLocation.lng ?? lastLocation.longitude;
+        if (!destLat || !destLng) {
+          setCompletionResult({
+            success: false,
+            message: 'Điểm đến không có tọa độ GPS hợp lệ để xác thực.'
+          });
+          return;
+        }
+
+        const dist = calculateDistance(
+          pos.latitude, 
+          pos.longitude, 
+          destLat, 
+          destLng
+        );
+
+        if (dist <= 1.0) {
+          setCompletionResult({
+            success: true,
+            message: `Xác thực thành công! Bạn đang ở rất gần điểm đến (${dist.toFixed(2)} km).`
+          });
+        } else {
+          setCompletionResult({
+            success: false,
+            message: `Bạn đang ở cách điểm đến khoảng ${dist.toFixed(2)} km. Hãy đến gần hơn (dưới 1 km) để hoàn thành.`
+          });
+        }
+      },
+      (err) => {
+        setCompletionResult({
+          success: false,
+          message: 'Không thể lấy vị trí hiện tại. Vui lòng bật định vị GPS trên trình duyệt.'
+        });
+      }
+    );
   };
 
-  const loadGroupMembers = async () => {
-    if (!trip?.id) return;
-    setGroupLoading(true);
-    try {
-      const data = await sharingService.getGroupMembers(trip.id);
-      setGroupMembers(data);
-    } catch (error) {
-      console.error('Load group failed:', error);
-      setToast('Không thể tải nhóm kế hoạch lúc này.');
-      setTimeout(() => setToast(''), 2500);
-    } finally {
-      setGroupLoading(false);
+  const handleFinishTrip = () => {
+    if (completionResult && completionResult.success) {
+      updateTrip(trip.id, { status: 'completed' });
+      setIsConfirming(false);
+      pushNotification('Chúc mừng bạn đã hoàn thành chuyến đi!', 'success');
     }
   };
 
   const openGroupModal = async () => {
     setShowGroupModal(true);
-    await loadGroupMembers();
+    setGroupLoading(true);
+    try {
+      const data = await sharingService.getTripGroup(trip.id);
+      setGroupMembers(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGroupLoading(false);
+    }
+
     if (isTripOwner) {
       setLoadingFriends(true);
       try {
         const friends = await friendService.getFriends();
-        setFriendsList(friends || []);
-      } catch (err) {
-        console.error("Failed to load friends", err);
+        setFriendsList(friends);
+      } catch (e) {
+        console.error(e);
       } finally {
         setLoadingFriends(false);
       }
     }
   };
 
-  const handleInviteFriend = async (friend) => {
+  const handleCreateInviteLink = async () => {
     try {
-      const data = await sharingService.addCollaborator(trip.id, { email: friend.email, permission: 'view' });
-      setGroupMembers(data);
-      pushNotification({
-        id: `invite_friend_${trip.id}_${friend.id}`,
-        type: 'group',
-        title: 'Đã thêm thành viên',
-        message: `Đã thêm ${friend.name} vào nhóm kế hoạch.`
-      });
-      setToast(`Đã thêm ${friend.name} vào nhóm.`);
-      setTimeout(() => setToast(''), 2200);
-    } catch (err) {
-      setToast(err.response?.data?.message || 'Không thể thêm bạn vào nhóm.');
+      const res = await sharingService.createGroupInvite(trip.id, 'view');
+      setInviteLink(res.inviteUrl);
+      setToast('Đã tạo link mời vào nhóm!');
+      setTimeout(() => setToast(''), 2500);
+    } catch (e) {
+      console.error(e);
+      setToast('Không thể tạo link mời.');
       setTimeout(() => setToast(''), 2500);
     }
   };
 
-  const handleCreateInviteLink = async () => {
+  const handleInviteFriend = async (friend) => {
     try {
-      const data = await sharingService.createInviteLink(trip.id);
-      const link = `${window.location.origin}${data.inviteUrl}`;
-      setInviteLink(link);
-      await navigator.clipboard.writeText(link);
-      pushNotification({
-        id: `group_invite_link_${trip.id}_${Date.now()}`,
-        type: 'group',
-        title: 'Đã tạo link mời nhóm',
-        message: `Link mời cho kế hoạch "${trip.title || trip.name}" đã được sao chép.`
-      });
-      setToast('Đã tạo link mời và sao chép vào clipboard.');
+      await sharingService.inviteFriendToGroup(trip.id, friend.id, 'edit');
+      setToast(`Đã thêm ${friend.name} vào nhóm!`);
+      const data = await sharingService.getTripGroup(trip.id);
+      setGroupMembers(data);
       setTimeout(() => setToast(''), 2500);
-    } catch (error) {
-      console.error('Create invite link failed:', error);
-      setToast(error.response?.data?.message || 'Không thể tạo link mời.');
+    } catch (e) {
+      console.error(e);
+      setToast('Thêm bạn bè thất bại.');
       setTimeout(() => setToast(''), 2500);
     }
   };
 
   const handleUpdateMemberPermission = async (targetUserId, permission) => {
     try {
-      const data = await sharingService.updateCollaboratorPermission(trip.id, targetUserId, permission);
-      setGroupMembers(data);
-      await fetchTrips();
-      pushNotification({
-        id: `group_permission_${trip.id}_${targetUserId}_${Date.now()}`,
-        type: 'group',
-        title: 'Đã cập nhật quyền thành viên',
-        message: `Một thành viên trong "${trip.title || trip.name}" đã được chuyển sang quyền ${permission === 'edit' ? 'chỉnh sửa' : 'chỉ xem'}.`
+      await sharingService.updateMemberPermission(trip.id, targetUserId, permission);
+      setGroupMembers((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          members: (prev.members || []).map((m) =>
+            m.userId === targetUserId ? { ...m, permission } : m
+          )
+        };
       });
       setToast('Đã cập nhật quyền thành viên.');
-      setTimeout(() => setToast(''), 2200);
-    } catch (error) {
-      console.error('Update permission failed:', error);
-      setToast(error.response?.data?.message || 'Không thể đổi quyền thành viên.');
-      setTimeout(() => setToast(''), 2500);
+      setTimeout(() => setToast(''), 2000);
+    } catch (e) {
+      setToast('Không thể cập nhật quyền.');
+      setTimeout(() => setToast(''), 2000);
     }
   };
 
   const handleRemoveMember = async (targetUserId) => {
     try {
-      const data = await sharingService.removeCollaborator(trip.id, targetUserId);
-      setGroupMembers(data);
-      await fetchTrips();
-      pushNotification({
-        id: `group_removed_${trip.id}_${targetUserId}_${Date.now()}`,
-        type: 'group',
-        title: 'Đã xóa thành viên khỏi nhóm',
-        message: `Danh sách nhóm của "${trip.title || trip.name}" vừa được cập nhật.`
+      await sharingService.removeMember(trip.id, targetUserId);
+      setGroupMembers((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          members: (prev.members || []).filter((m) => m.userId !== targetUserId)
+        };
       });
-      setToast('Đã xóa thành viên khỏi nhóm kế hoạch.');
-      setTimeout(() => setToast(''), 2200);
-    } catch (error) {
-      console.error('Remove member failed:', error);
-      setToast(error.response?.data?.message || 'Không thể xóa thành viên.');
-      setTimeout(() => setToast(''), 2500);
+      setToast('Đã xóa thành viên khỏi nhóm.');
+      setTimeout(() => setToast(''), 2000);
+    } catch (e) {
+      setToast('Không thể xóa thành viên.');
+      setTimeout(() => setToast(''), 2000);
     }
   };
 
@@ -385,8 +399,6 @@ const TripDetails = () => {
       setTimeout(() => setToast(''), 2200);
     }
   };
-
-  // normalizeMapLoc is now declared near the top of the component (before groupedLocationsByDay)
 
   const handleAddEditLocation = (loc) => {
     if (!canEditTrip) return;
@@ -494,9 +506,69 @@ const TripDetails = () => {
                 </div>
                 <div className="trip-details-meta-item">
                   <DollarSign size={18} />
-                  <span>Ngân sách: {Number(trip.budget).toLocaleString()} VNĐ</span>
+                  <span>Ngân sách: {Number(trip.budget || trip.totalCost || 0).toLocaleString()} VNĐ</span>
                 </div>
+                <div className="trip-details-meta-item">
+                  <Users size={18} />
+                  <span>{trip.travelerCount || 1} người tham gia</span>
+                </div>
+                {trip.transportMode && (
+                  <div className="trip-details-meta-item">
+                    <Car size={18} />
+                    <span>{trip.transportMode === 'flight' ? 'Máy bay' : (trip.transportMode === 'coach' ? 'Xe khách' : (trip.transportMode === 'train' ? 'Tàu hỏa' : (trip.transportMode === 'motorbike' ? 'Xe máy' : (trip.transportMode === 'car' ? 'Ô tô tự lái' : 'Đi bộ / Khác'))))}</span>
+                  </div>
+                )}
               </div>
+              {Array.isArray(trip.preferences) && trip.preferences.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.6rem' }}>
+                  {trip.preferences.map((p) => (
+                    <span key={p} className="trip-details-pref-pill">#{p}</span>
+                  ))}
+                </div>
+              )}
+              {(Number(trip.costTransport) > 0 || Number(trip.costMeals) > 0 || Number(trip.costAttractions) > 0 || Number(trip.costAccommodation) > 0 || Number(trip.costContingency) > 0 || Number(trip.totalCost) > 0) && (
+                <div className="trip-details-cost-card" style={{ marginTop: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
+                      <DollarSign size={18} color="var(--primary)" /> Chi tiết dự toán chi phí
+                    </h3>
+                    <span style={{ fontSize: '0.78rem', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: 999, fontWeight: 600 }}>
+                      {trip.costScope === 'PERSON' ? `Tính theo đầu người (× ${trip.travelerCount || 1} người)` : 'Tính chung cho cả nhóm'}
+                    </span>
+                  </div>
+
+                  <div className="trip-details-cost-grid">
+                    <div className="trip-details-cost-col">
+                      <span>Di chuyển</span>
+                      <strong>{Number(trip.costTransport || 0).toLocaleString()} VNĐ</strong>
+                    </div>
+                    <div className="trip-details-cost-col">
+                      <span>Ăn uống</span>
+                      <strong>{Number(trip.costMeals || 0).toLocaleString()} VNĐ</strong>
+                    </div>
+                    <div className="trip-details-cost-col">
+                      <span>Tham quan</span>
+                      <strong>{Number(trip.costAttractions || 0).toLocaleString()} VNĐ</strong>
+                    </div>
+                    <div className="trip-details-cost-col">
+                      <span>Lưu trú</span>
+                      <strong>{Number(trip.costAccommodation || 0).toLocaleString()} VNĐ</strong>
+                    </div>
+                    <div className="trip-details-cost-col">
+                      <span>Dự phòng</span>
+                      <strong>{Number(trip.costContingency || 0).toLocaleString()} VNĐ</strong>
+                    </div>
+                  </div>
+
+                  <div className="trip-details-cost-total-bar">
+                    <span>Tổng chi phí tính toán ({trip.costScope === 'PERSON' ? `${trip.travelerCount || 1} người` : 'cả nhóm'}):</span>
+                    <span style={{ fontSize: '1.15rem', color: '#059669', fontWeight: 800 }}>
+                      {Number(trip.totalCost || trip.budget || 0).toLocaleString()} VNĐ
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {isEditingInfo && (
                 <div className="card" style={{ marginTop: '0.8rem', padding: '0.8rem' }}>
                   <div style={{ display: 'grid', gap: '0.6rem' }}>
@@ -519,27 +591,27 @@ const TripDetails = () => {
             </div>
             
             <div className="trip-details-actions-stack">
-            {canEditTrip && trip.status !== 'completed' && (
+              {canEditTrip && trip.status !== 'completed' && (
+                <div className="trip-details-actions">
+                  <button 
+                    onClick={() => updateTrip(trip.id, { status: trip.status === 'upcoming' ? 'ongoing' : 'upcoming' })}
+                    className={`btn ${trip.status === 'upcoming' ? 'btn-primary' : 'btn-outline'}`}
+                  >
+                    {trip.status === 'upcoming' ? 'Bắt đầu chuyến đi' : 'Tạm dừng chuyến đi'}
+                  </button>
+                  <button onClick={handleVerifyLocation} className="btn btn-primary trip-details-action-finish">
+                    <CheckCircle size={18} /> Hoàn thành chuyến đi
+                  </button>
+                </div>
+              )}
               <div className="trip-details-actions">
-                <button 
-                  onClick={() => updateTrip(trip.id, { status: trip.status === 'upcoming' ? 'ongoing' : 'upcoming' })}
-                  className={`btn ${trip.status === 'upcoming' ? 'btn-primary' : 'btn-outline'}`}
-                >
-                  {trip.status === 'upcoming' ? 'Bắt đầu chuyến đi' : 'Tạm dừng chuyến đi'}
-                </button>
-                <button onClick={handleVerifyLocation} className="btn btn-primary trip-details-action-finish">
-                  <CheckCircle size={18} /> Hoàn thành chuyến đi
+                {canEditTrip && <button onClick={() => setIsEditingInfo((v) => !v)} className="btn btn-outline">
+                  {isEditingInfo ? 'Đóng chỉnh sửa' : 'Chỉnh sửa kế hoạch'}
+                </button>}
+                <button onClick={openGroupModal} className="btn btn-outline">
+                  <Users size={18} /> Nhóm kế hoạch
                 </button>
               </div>
-            )}
-            <div className="trip-details-actions">
-              {canEditTrip && <button onClick={() => setIsEditingInfo((v) => !v)} className="btn btn-outline">
-                {isEditingInfo ? 'Đóng chỉnh sửa' : 'Chỉnh sửa kế hoạch'}
-              </button>}
-              <button onClick={openGroupModal} className="btn btn-outline">
-                <Users size={18} /> Nhóm kế hoạch
-              </button>
-            </div>
             </div>
           </div>
         </div>
@@ -576,7 +648,7 @@ const TripDetails = () => {
                   <div style={{ fontWeight: 700, margin: '0.5rem 0 0.75rem', color: 'var(--primary)' }}>
                     Ngày {dayGroup.day}
                   </div>
-                  {dayGroup.items.map(({ loc, idx, note }, itemIndex) => (
+                  {dayGroup.items.map(({ loc, idx, note, rawItem }, itemIndex) => (
                     <div
                       key={`${dayGroup.day}_${loc.tripLocId || loc.id}_${idx}`}
                       className={`trip-details-timeline-item ${activeWeatherLoc === loc.id ? 'active' : ''}`}
@@ -589,16 +661,23 @@ const TripDetails = () => {
                       <div className="trip-details-timeline-content">
                         <img src={loc.image} alt={loc.name} className="trip-details-timeline-img" />
                         <div className="trip-details-timeline-info">
-                          <h4 className="trip-details-timeline-name">{loc.name}</h4>
+                          <h4 className="trip-details-timeline-name">{rawItem?.customName || loc.name}</h4>
                           <p className="trip-details-timeline-address">{loc.address}</p>
+                          {(rawItem?.startTime || loc.startTime) && (
+                            <div style={{ fontSize: '0.8rem', color: '#4338ca', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span><Clock size={13} style={{ verticalAlign: 'middle', marginRight: 2 }} /> Khởi hành: {rawItem?.startTime ? (String(rawItem.startTime).includes('T') ? String(rawItem.startTime).split('T')[1].slice(0, 5) : String(rawItem.startTime).slice(0, 5)) : loc.startTime}</span>
+                              {rawItem?.durationMinutes ? <span style={{ background: '#e0e7ff', padding: '0.1rem 0.4rem', borderRadius: 4 }}>Thời lượng: {rawItem.durationMinutes}p</span> : null}
+                              {rawItem?.travelMinutes ? <span style={{ background: '#fef3c7', color: '#b45309', padding: '0.1rem 0.4rem', borderRadius: 4 }}>Di chuyển: {rawItem.travelMinutes}p</span> : null}
+                            </div>
+                          )}
                           {note ? (
                             <p className="trip-details-timeline-address" style={{ marginTop: 4 }}>
-                              📝 {note}
+                              {note}
                             </p>
                           ) : null}
                           <div className="trip-details-timeline-tags">
-                            <span className="trip-details-tag-duration">⏰ Gợi ý: {loc.suggestedDuration || '2 giờ'}</span>
-                            <span className="trip-details-tag-cost">💰 Phí: {loc.estimatedCost?.toLocaleString() || 'Miễn phí'}</span>
+                            <span className="trip-details-tag-duration">Gợi ý: {loc.suggestedDuration || '2 giờ'}</span>
+                            <span className="trip-details-tag-cost">Phí: {loc.estimatedCost?.toLocaleString() || 'Miễn phí'}</span>
                           </div>
                           {isEditingInfo && (
                             <div className="trip-details-actions" style={{ marginTop: '0.5rem', gap: '0.5rem' }}>
@@ -622,7 +701,7 @@ const TripDetails = () => {
             </div>
           </div>
 
-          {/* Sidebar: Weather & Notes */}
+          {/* Sidebar: Weather & Packing & Notes */}
           <div className="trip-details-sidebar">
             {/* Weather Card */}
             <div className="card trip-details-weather-card">
@@ -651,7 +730,6 @@ const TripDetails = () => {
                         <div className="trip-details-weather-label">Điểm dừng</div>
                         <div className="trip-details-weather-val">
                           {(() => {
-                            // Find the stop name from grouped data for accurate display
                             for (const dg of groupedLocationsByDay) {
                               const found = dg.items.find(({ loc }) => String(loc.id) === String(activeWeatherLoc));
                               if (found) return `Ngày ${dg.day} #${dg.items.indexOf(found) + 1}`;
@@ -670,6 +748,55 @@ const TripDetails = () => {
                   </div>
                 )}
               </AnimatePresence>
+            </div>
+
+            {/* Packing Checklist Card */}
+            <div className="card trip-details-packing-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                  <Briefcase size={18} color="var(--primary)" /> Đồ cần mang theo ({packingItems.filter(p => p.isPacked).length}/{packingItems.length})
+                </h3>
+              </div>
+
+              {packingItems.length > 0 ? (
+                <>
+                  <div style={{ background: '#e2e8f0', borderRadius: 999, height: 6, overflow: 'hidden', marginBottom: '0.75rem' }}>
+                    <div 
+                      style={{ 
+                        height: '100%', 
+                        background: 'var(--primary)', 
+                        width: `${Math.round((packingItems.filter(p => p.isPacked).length / Math.max(1, packingItems.length)) * 100)}%`,
+                        transition: 'width 0.3s ease'
+                      }} 
+                    />
+                  </div>
+
+                  <div className="trip-details-packing-items-list">
+                    {packingItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="trip-details-packing-item-row"
+                        onClick={() => handleTogglePacking(item.id)}
+                      >
+                        {item.isPacked ? (
+                          <CheckSquare size={16} color="var(--primary)" />
+                        ) : (
+                          <Square size={16} color="var(--text-muted)" />
+                        )}
+                        <div style={{ flex: 1, minWidth: 0, textDecoration: item.isPacked ? 'line-through' : 'none', color: item.isPacked ? 'var(--text-muted)' : 'inherit' }}>
+                          <span style={{ fontWeight: 500, fontSize: '0.85rem' }}>{item.itemName || item.name}</span>
+                          {item.notes && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 6 }}>({item.notes})</span>}
+                        </div>
+                        <span style={{ fontSize: '0.75rem', background: '#f1f5f9', padding: '0.15rem 0.4rem', borderRadius: 4, fontWeight: 600 }}>
+                          x{item.quantity || 1}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Chưa có danh sách đồ chuẩn bị cho chuyến đi này.</p>
+              )}
             </div>
 
             {/* Notes Card */}

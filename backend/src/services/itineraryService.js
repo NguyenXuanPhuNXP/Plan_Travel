@@ -1,10 +1,27 @@
 import prisma from "../config/db.js";
 
 /**
- * Tạo itinerary mới
+ * Lấy danh mục đồ cần chuẩn bị mặc định (dùng chung cho tất cả)
+ */
+export async function getPackingCatalog() {
+    const items = await prisma.packing_items.findMany({
+        orderBy: [{ category: "asc" }, { id: "asc" }]
+    });
+    return items.map(it => ({
+        id: it.id.toString(),
+        name: it.name,
+        category: it.category,
+        defaultQuantity: it.default_quantity,
+        notes: it.notes
+    }));
+}
+
+/**
+ * Tạo itinerary mới kèm items và danh sách đồ mang theo
  */
 export async function createItinerary(userId, data) {
     const items = Array.isArray(data.items) ? data.items : [];
+    const packingItems = Array.isArray(data.packingItems) ? data.packingItems : [];
 
     const itinerary = await prisma.$transaction(async (tx) => {
         const created = await tx.itineraries.create({
@@ -18,12 +35,32 @@ export async function createItinerary(userId, data) {
             }
         }
 
+        // Lưu danh sách đồ cần mang theo
+        for (const p of packingItems) {
+            const name = p.itemName || p.name;
+            if (name) {
+                await tx.itinerary_packing_items.create({
+                    data: {
+                        itinerary_id: created.id,
+                        item_name: String(name).trim(),
+                        category: p.category || "other",
+                        quantity: Math.max(1, Number(p.quantity) || 1),
+                        notes: p.notes || null,
+                        is_packed: Boolean(p.isPacked)
+                    }
+                });
+            }
+        }
+
         return tx.itineraries.findUnique({
             where: { id: created.id },
             include: {
                 itinerary_items: {
                     include: { locations: true, businesses: true },
                     orderBy: { sort_order: "asc" }
+                },
+                packing_items: {
+                    orderBy: { id: "asc" }
                 }
             }
         });
@@ -49,6 +86,9 @@ export async function getUserItineraries(userId) {
                 include: { locations: true, businesses: true },
                 orderBy: { sort_order: "asc" }
             },
+            packing_items: {
+                orderBy: { id: "asc" }
+            },
             users: {
                 select: { id: true, full_name: true, email: true, avatar_url: true }
             },
@@ -68,7 +108,7 @@ export async function getUserItineraries(userId) {
 }
 
 /**
- * Lấy chi tiết 1 itinerary (kèm items + locations)
+ * Lấy chi tiết 1 itinerary (kèm items, locations, packing_items)
  */
 export async function getItineraryById(itineraryId, userId = null) {
     const itinerary = await prisma.itineraries.findUnique({
@@ -77,6 +117,9 @@ export async function getItineraryById(itineraryId, userId = null) {
             itinerary_items: {
                 include: { locations: true, businesses: true },
                 orderBy: { sort_order: "asc" }
+            },
+            packing_items: {
+                orderBy: { id: "asc" }
             },
             users: {
                 select: { id: true, full_name: true, email: true, avatar_url: true }
@@ -107,7 +150,7 @@ export async function getItineraryById(itineraryId, userId = null) {
 }
 
 /**
- * Cập nhật itinerary
+ * Cập nhật itinerary (kèm chi phí, thông tin và packing checklist)
  */
 export async function updateItinerary(itineraryId, userId, data) {
     const itinerary = await prisma.itineraries.findUnique({
@@ -129,10 +172,39 @@ export async function updateItinerary(itineraryId, userId, data) {
     if (data.startDate !== undefined) updateData.start_time = data.startDate ? new Date(data.startDate) : null;
     if (data.endDate !== undefined) updateData.end_time = data.endDate ? new Date(data.endDate) : null;
     if (data.totalDays !== undefined) updateData.total_days = data.totalDays;
-    if (data.budget !== undefined) updateData.budget = data.budget;
     if (data.preferences !== undefined) updateData.preferences = data.preferences;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.status !== undefined) updateData.status = data.status;
+
+    // Các trường mới: số người, phương tiện, chi tiết chi phí
+    const currentTravelerCount = data.travelerCount !== undefined ? Math.max(1, Number(data.travelerCount) || 1) : itinerary.traveler_count;
+    if (data.travelerCount !== undefined) updateData.traveler_count = currentTravelerCount;
+    if (data.transportMode !== undefined) updateData.transport_mode = data.transportMode;
+    if (data.costScope !== undefined) updateData.cost_scope = data.costScope;
+
+    const costTransport = data.costTransport !== undefined ? toDecimalNumber(data.costTransport) : Number(itinerary.cost_transport || 0);
+    const costMeals = data.costMeals !== undefined ? toDecimalNumber(data.costMeals) : Number(itinerary.cost_meals || 0);
+    const costAttractions = data.costAttractions !== undefined ? toDecimalNumber(data.costAttractions) : Number(itinerary.cost_attractions || 0);
+    const costAccommodation = data.costAccommodation !== undefined ? toDecimalNumber(data.costAccommodation) : Number(itinerary.cost_accommodation || 0);
+    const costContingency = data.costContingency !== undefined ? toDecimalNumber(data.costContingency) : Number(itinerary.cost_contingency || 0);
+
+    if (data.costTransport !== undefined) updateData.cost_transport = costTransport;
+    if (data.costMeals !== undefined) updateData.cost_meals = costMeals;
+    if (data.costAttractions !== undefined) updateData.cost_attractions = costAttractions;
+    if (data.costAccommodation !== undefined) updateData.cost_accommodation = costAccommodation;
+    if (data.costContingency !== undefined) updateData.cost_contingency = costContingency;
+
+    const perPersonSum = costTransport + costMeals + costAttractions + costAccommodation + costContingency;
+    const scope = (data.costScope || itinerary.cost_scope || 'PERSON').toUpperCase();
+    const computedTotal = scope === 'GROUP' ? perPersonSum : (perPersonSum * currentTravelerCount);
+    updateData.total_cost = computedTotal;
+
+    if (data.budget !== undefined) {
+        updateData.budget = Number(data.budget) || computedTotal;
+    } else if (computedTotal > 0) {
+        updateData.budget = computedTotal;
+    }
+
     updateData.updated_at = new Date();
 
     const updated = await prisma.itineraries.update({
@@ -142,6 +214,9 @@ export async function updateItinerary(itineraryId, userId, data) {
             itinerary_items: {
                 include: { locations: true, businesses: true },
                 orderBy: { sort_order: "asc" }
+            },
+            packing_items: {
+                orderBy: { id: "asc" }
             }
         }
     });
@@ -185,12 +260,14 @@ export async function addItem(itineraryId, userId, data) {
     const item = await prisma.itinerary_items.create({
         data: {
             itinerary_id: BigInt(itineraryId),
-            location_id: data.locationId ? BigInt(data.locationId) : null,
-            business_id: data.businessId ? BigInt(data.businessId) : null,
+            location_id: toBigIntId(data.locationId),
+            business_id: toBigIntId(data.businessId),
+            custom_name: data.customName || null,
             sort_order: nextOrder,
             planned_start_time: data.startTime ? new Date(data.startTime) : null,
             planned_end_time: data.endTime ? new Date(data.endTime) : null,
-            travel_minutes: data.travelMinutes || null,
+            duration_minutes: toPositiveInt(data.durationMinutes),
+            travel_minutes: toPositiveInt(data.travelMinutes),
             travel_distance_km: data.travelDistanceKm || null,
             note: data.note || null
         },
@@ -214,10 +291,12 @@ export async function updateItem(itineraryId, itemId, userId, data) {
     if (!canEdit) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
 
     const updateData = {};
+    if (data.customName !== undefined) updateData.custom_name = data.customName;
     if (data.note !== undefined) updateData.note = data.note;
     if (data.startTime !== undefined) updateData.planned_start_time = data.startTime ? new Date(data.startTime) : null;
     if (data.endTime !== undefined) updateData.planned_end_time = data.endTime ? new Date(data.endTime) : null;
-    if (data.travelMinutes !== undefined) updateData.travel_minutes = data.travelMinutes;
+    if (data.durationMinutes !== undefined) updateData.duration_minutes = toPositiveInt(data.durationMinutes);
+    if (data.travelMinutes !== undefined) updateData.travel_minutes = toPositiveInt(data.travelMinutes);
 
     const item = await prisma.itinerary_items.update({
         where: { id: BigInt(itemId) },
@@ -254,22 +333,19 @@ export async function removeItem(itineraryId, itemId, userId) {
 }
 
 /**
- * Reorder items
+ * Sắp xếp lại thứ tự items
  */
 export async function reorderItems(itineraryId, userId, orderedItemIds) {
     const canEdit = await checkEditPermission(itineraryId, userId);
     if (!canEdit) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
 
-    // Use a transaction with temporary high sort_order to avoid unique constraint
     await prisma.$transaction(async (tx) => {
-        // First, set all to high temporary values
         for (let i = 0; i < orderedItemIds.length; i++) {
             await tx.itinerary_items.update({
                 where: { id: BigInt(orderedItemIds[i]) },
                 data: { sort_order: 10000 + i }
             });
         }
-        // Then set to final values
         for (let i = 0; i < orderedItemIds.length; i++) {
             await tx.itinerary_items.update({
                 where: { id: BigInt(orderedItemIds[i]) },
@@ -279,12 +355,96 @@ export async function reorderItems(itineraryId, userId, orderedItemIds) {
     });
 }
 
+// ===== PACKING ITEMS SERVICE =====
+
+export async function addPackingItem(itineraryId, userId, data) {
+    const canEdit = await checkEditPermission(itineraryId, userId);
+    if (!canEdit) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
+
+    const item = await prisma.itinerary_packing_items.create({
+        data: {
+            itinerary_id: BigInt(itineraryId),
+            item_name: String(data.itemName || data.name || "").trim(),
+            category: data.category || "other",
+            quantity: Math.max(1, Number(data.quantity) || 1),
+            notes: data.notes || null,
+            is_packed: Boolean(data.isPacked)
+        }
+    });
+
+    return {
+        id: item.id.toString(),
+        itineraryId: item.itinerary_id.toString(),
+        itemName: item.item_name,
+        category: item.category,
+        quantity: item.quantity,
+        notes: item.notes,
+        isPacked: item.is_packed
+    };
+}
+
+export async function updatePackingItem(itineraryId, packingItemId, userId, data) {
+    const canEdit = await checkEditPermission(itineraryId, userId);
+    if (!canEdit) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
+
+    const updateData = {};
+    if (data.isPacked !== undefined) updateData.is_packed = Boolean(data.isPacked);
+    if (data.quantity !== undefined) updateData.quantity = Math.max(1, Number(data.quantity) || 1);
+    if (data.notes !== undefined) updateData.notes = data.notes;
+    if (data.itemName !== undefined) updateData.item_name = data.itemName;
+    if (data.category !== undefined) updateData.category = data.category;
+
+    const updated = await prisma.itinerary_packing_items.update({
+        where: { id: BigInt(packingItemId) },
+        data: updateData
+    });
+
+    return {
+        id: updated.id.toString(),
+        itineraryId: updated.itinerary_id.toString(),
+        itemName: updated.item_name,
+        category: updated.category,
+        quantity: updated.quantity,
+        notes: updated.notes,
+        isPacked: updated.is_packed
+    };
+}
+
+export async function removePackingItem(itineraryId, packingItemId, userId) {
+    const canEdit = await checkEditPermission(itineraryId, userId);
+    if (!canEdit) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
+
+    await prisma.itinerary_packing_items.delete({
+        where: { id: BigInt(packingItemId) }
+    });
+}
+
 // ===== HELPERS =====
 
+function toDecimalNumber(val) {
+    const num = Number(val);
+    return Number.isFinite(num) && num >= 0 ? num : 0;
+}
+
 function buildItineraryData(userId, data) {
+    const travelerCount = Math.max(1, Number(data.travelerCount) || 1);
+    const costTransport = toDecimalNumber(data.costTransport);
+    const costMeals = toDecimalNumber(data.costMeals);
+    const costAttractions = toDecimalNumber(data.costAttractions);
+    const costAccommodation = toDecimalNumber(data.costAccommodation);
+    const costContingency = toDecimalNumber(data.costContingency);
+    const costScope = String(data.costScope || 'PERSON').toUpperCase() === 'GROUP' ? 'GROUP' : 'PERSON';
+
+    // Tổng chi phí = theo người * số người (nếu scope là PERSON), hoặc tổng nếu scope là GROUP
+    const perPersonSum = costTransport + costMeals + costAttractions + costAccommodation + costContingency;
+    const computedTotal = costScope === 'GROUP' ? perPersonSum : (perPersonSum * travelerCount);
+    
+    const rawBudget = Number(data.budget);
+    const finalBudget = Number.isFinite(rawBudget) && rawBudget > 0 ? rawBudget : (computedTotal > 0 ? computedTotal : null);
+
     return {
         user_id: BigInt(userId),
-        name: data.name,
+        name: data.name || data.title,
         destination: data.destination || null,
         start_location: data.startLocation || null,
         end_location: data.endLocation || null,
@@ -292,28 +452,40 @@ function buildItineraryData(userId, data) {
         start_time: data.startDate ? new Date(data.startDate) : null,
         end_time: data.endDate ? new Date(data.endDate) : null,
         total_days: data.totalDays || null,
-        budget: data.budget || null,
+        traveler_count: travelerCount,
+        transport_mode: data.transportMode || null,
+        cost_scope: costScope,
+        cost_transport: costTransport,
+        cost_meals: costMeals,
+        cost_attractions: costAttractions,
+        cost_accommodation: costAccommodation,
+        cost_contingency: costContingency,
+        total_cost: computedTotal,
+        budget: finalBudget,
         preferences: data.preferences || null,
-        description: data.description || null,
-        status: "draft",
-        visibility: "private"
+        description: data.description || data.notes || null,
+        status: data.status || "draft",
+        visibility: data.visibility || "private"
     };
 }
 
 function buildItemData(itineraryId, item, sortOrder) {
     const locationId = toBigIntId(item?.locationId);
     const businessId = toBigIntId(item?.businessId);
+    const customName = item?.customName || item?.name || item?.title || null;
 
-    if (!locationId && !businessId) return null;
+    if (!locationId && !businessId && !customName) return null;
 
     return {
         itinerary_id: itineraryId,
         location_id: locationId,
         business_id: businessId,
+        custom_name: customName,
         sort_order: sortOrder,
         planned_start_time: item.startTime ? new Date(item.startTime) : null,
         planned_end_time: item.endTime ? new Date(item.endTime) : null,
-        travel_minutes: toPositiveInt(item.travelMinutes),
+        duration_minutes: toPositiveInt(item.durationMinutes),
+        travel_minutes: toPositiveInt(item.travelMinutes ?? item.travelMinutesToNext),
         travel_distance_km: item.travelDistanceKm || null,
         note: item.note || null
     };
@@ -345,6 +517,10 @@ async function checkEditPermission(itineraryId, userId) {
 }
 
 function serializeItinerary(it) {
+    const rawTotalCost = Number(it.total_cost || 0);
+    const rawBudget = it.budget ? Number(it.budget) : 0;
+    const resolvedTotalCost = rawTotalCost > 0 ? rawTotalCost : rawBudget;
+
     return {
         id: it.id?.toString(),
         userId: it.user_id?.toString(),
@@ -357,6 +533,15 @@ function serializeItinerary(it) {
         endDate: it.end_time,
         totalDays: it.total_days,
         budget: it.budget ? Number(it.budget) : null,
+        travelerCount: it.traveler_count ?? 1,
+        transportMode: it.transport_mode ?? null,
+        costScope: it.cost_scope ?? "PERSON",
+        costTransport: it.cost_transport ? Number(it.cost_transport) : 0,
+        costMeals: it.cost_meals ? Number(it.cost_meals) : 0,
+        costAttractions: it.cost_attractions ? Number(it.cost_attractions) : 0,
+        costAccommodation: it.cost_accommodation ? Number(it.cost_accommodation) : 0,
+        costContingency: it.cost_contingency ? Number(it.cost_contingency) : 0,
+        totalCost: resolvedTotalCost,
         preferences: it.preferences,
         description: it.description,
         status: it.status,
@@ -371,6 +556,14 @@ function serializeItinerary(it) {
             avatar: it.users.avatar_url
         } : undefined,
         items: it.itinerary_items?.map(serializeItem) || [],
+        packingItems: it.packing_items?.map(p => ({
+            id: p.id?.toString(),
+            itemName: p.item_name,
+            category: p.category,
+            quantity: p.quantity,
+            notes: p.notes,
+            isPacked: p.is_packed
+        })) || [],
         collaborators: it.collaborators?.map(c => ({
             userId: c.user_id?.toString(),
             permission: c.permission,
@@ -393,9 +586,11 @@ function serializeItem(item) {
         itineraryId: item.itinerary_id?.toString(),
         locationId: item.location_id?.toString(),
         businessId: item.business_id?.toString(),
+        customName: item.custom_name,
         sortOrder: item.sort_order,
         startTime: item.planned_start_time,
         endTime: item.planned_end_time,
+        durationMinutes: item.duration_minutes,
         travelMinutes: item.travel_minutes,
         travelDistanceKm: item.travel_distance_km ? Number(item.travel_distance_km) : null,
         note: item.note,
@@ -412,6 +607,18 @@ function serializeItem(item) {
             suggestedDuration: loc.suggested_duration,
             rating: loc.rating ? Number(loc.rating) : null,
             tags: loc.tags
-        } : null
+        } : (item.custom_name ? {
+            id: `custom_${item.id}`,
+            name: item.custom_name,
+            address: '',
+            latitude: 21.0285,
+            longitude: 105.8542,
+            category: 'custom',
+            imageUrl: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
+            estimatedCost: 0,
+            suggestedDuration: item.duration_minutes ? `${item.duration_minutes} phút` : null,
+            rating: null,
+            tags: null
+        } : null)
     };
 }

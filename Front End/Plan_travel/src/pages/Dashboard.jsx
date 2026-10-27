@@ -66,10 +66,16 @@ const Dashboard = () => {
             </p>
           </div>
 
-          <Link to="/planner" className="btn btn-primary dashboard-new-trip-btn">
-            <Plus size={18} />
-            <span>Tạo kế hoạch mới</span>
-          </Link>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <Link to="/planner/map" className="btn btn-primary dashboard-new-trip-btn">
+              <MapPin size={18} />
+              <span>Lập kế hoạch thủ công</span>
+            </Link>
+            <Link to="/planner" className="btn btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: '#fff' }}>
+              <Plus size={18} />
+              <span>Lập kế hoạch AI</span>
+            </Link>
+          </div>
         </div>
 
         {/* Featured Trip Card */}
@@ -124,9 +130,14 @@ const Dashboard = () => {
               <p className="dashboard-hero-empty-desc">
                 Bắt đầu tạo lịch trình và lựa chọn các điểm đến thú vị ngay hôm nay.
               </p>
-              <Link to="/planner" className="btn btn-primary">
-                <Plus size={18} /> Tạo kế hoạch đầu tiên
-              </Link>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Link to="/planner/map" className="btn btn-primary">
+                  <MapPin size={18} /> Lập kế hoạch thủ công
+                </Link>
+                <Link to="/planner" className="btn btn-outline">
+                  <Plus size={18} /> Lập kế hoạch AI
+                </Link>
+              </div>
             </div>
           </div>
         )}

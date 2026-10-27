@@ -58,27 +58,37 @@ model categories {
 }
 
 model itineraries {
-  id              BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
-  user_id         BigInt             @db.UnsignedBigInt
-  name            String             @db.VarChar(200)
-  trip_date       DateTime?          @db.Date
-  start_time      DateTime?          @db.DateTime(6)
-  end_time        DateTime?          @db.DateTime(6)
-  start_location  String?            @db.VarChar(255)
-  end_location    String?            @db.VarChar(255)
-  status          itineraries_status @default(draft)
-  destination     String?            @db.VarChar(200)
-  total_days      Int?
-  budget          Decimal?           @db.Decimal(12, 0)
-  preferences     Json?
-  description     String?            @db.Text
-  visibility      String             @default("private") @db.VarChar(20)
-  share_token     String?            @unique(map: "uq_itineraries_share_token") @db.VarChar(100)
-  created_at      DateTime           @default(now()) @db.Timestamp(0)
-  updated_at      DateTime           @default(now()) @db.Timestamp(0)
-  users           users              @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_itineraries_users_user_id")
-  itinerary_items itinerary_items[]
-  collaborators   itinerary_collaborators[]
+  id                 BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id            BigInt                    @db.UnsignedBigInt
+  name               String                    @db.VarChar(200)
+  trip_date          DateTime?                 @db.Date
+  start_time         DateTime?                 @db.DateTime(6)
+  end_time           DateTime?                 @db.DateTime(6)
+  start_location     String?                   @db.VarChar(255)
+  end_location       String?                   @db.VarChar(255)
+  status             itineraries_status        @default(draft)
+  destination        String?                   @db.VarChar(200)
+  total_days         Int?
+  budget             Decimal?                  @db.Decimal(12, 0)
+  traveler_count     Int                       @default(1)
+  transport_mode     String?                   @db.VarChar(100)
+  cost_scope         String?                   @default("PERSON") @db.VarChar(20)
+  cost_transport     Decimal?                  @default(0) @db.Decimal(12, 0)
+  cost_meals         Decimal?                  @default(0) @db.Decimal(12, 0)
+  cost_attractions   Decimal?                  @default(0) @db.Decimal(12, 0)
+  cost_accommodation Decimal?                  @default(0) @db.Decimal(12, 0)
+  cost_contingency   Decimal?                  @default(0) @db.Decimal(12, 0)
+  total_cost         Decimal?                  @default(0) @db.Decimal(12, 0)
+  preferences        Json?
+  description        String?                   @db.Text
+  visibility         String                    @default("private") @db.VarChar(20)
+  share_token        String?                   @unique(map: "uq_itineraries_share_token") @db.VarChar(100)
+  created_at         DateTime                  @default(now()) @db.Timestamp(0)
+  updated_at         DateTime                  @default(now()) @db.Timestamp(0)
+  users              users                     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_itineraries_users_user_id")
+  itinerary_items    itinerary_items[]
+  collaborators      itinerary_collaborators[]
+  packing_items      itinerary_packing_items[]
 
   @@index([user_id], map: "idx_itineraries_user")
   @@index([share_token], map: "idx_itineraries_share_token")
@@ -90,9 +100,11 @@ model itinerary_items {
   itinerary_id       BigInt      @db.UnsignedBigInt
   location_id        BigInt?     @db.UnsignedBigInt
   business_id        BigInt?     @db.UnsignedBigInt
+  custom_name        String?     @db.VarChar(255)
   sort_order         Int         @db.UnsignedInt
   planned_start_time DateTime?   @db.DateTime(6)
   planned_end_time   DateTime?   @db.DateTime(6)
+  duration_minutes   Int?        @db.UnsignedInt
   travel_minutes     Int?        @db.UnsignedInt
   travel_distance_km Decimal?    @db.Decimal(8, 2)
   note               String?     @db.VarChar(500)
@@ -104,6 +116,31 @@ model itinerary_items {
   @@unique([itinerary_id, sort_order], map: "uq_itinerary_order")
   @@index([business_id], map: "idx_itinerary_business")
   @@index([location_id], map: "idx_itinerary_location")
+}
+
+model packing_items {
+  id               BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name             String   @db.VarChar(200)
+  category         String   @db.VarChar(100)
+  default_quantity Int      @default(1)
+  notes            String?  @db.VarChar(500)
+  created_at       DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([category], map: "idx_packing_category")
+}
+
+model itinerary_packing_items {
+  id           BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  itinerary_id BigInt      @db.UnsignedBigInt
+  item_name    String      @db.VarChar(200)
+  category     String      @default("other") @db.VarChar(100)
+  quantity     Int         @default(1)
+  notes        String?     @db.VarChar(500)
+  is_packed    Boolean     @default(false)
+  created_at   DateTime    @default(now()) @db.Timestamp(0)
+  itineraries  itineraries @relation(fields: [itinerary_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_itinerary_packing_items_itinerary_id")
+
+  @@index([itinerary_id], map: "idx_itinerary_packing_itinerary")
 }
 
 model location_seed_jobs {
@@ -126,32 +163,32 @@ model location_seed_jobs {
 }
 
 model locations {
-  id                 BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
-  external_id        String               @unique(map: "uq_locations_external_id") @db.VarChar(255)
-  source             String               @default("geoapify") @db.VarChar(50)
-  name               String               @db.VarChar(255)
-  address            String?              @db.Text
-  country            String?              @db.VarChar(100)
-  country_code       String?              @db.VarChar(10)
-  province           String?              @db.VarChar(100)
-  city               String?              @db.VarChar(100)
-  district           String?              @db.VarChar(100)
-  region             String?              @db.VarChar(100)
-  category           String?              @db.VarChar(100)
-  subcategory        String?              @db.VarChar(150)
-  description        String?              @db.Text
-  latitude           Decimal              @db.Decimal(10, 7)
-  longitude          Decimal              @db.Decimal(10, 7)
+  id                 BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  external_id        String            @unique(map: "uq_locations_external_id") @db.VarChar(255)
+  source             String            @default("geoapify") @db.VarChar(50)
+  name               String            @db.VarChar(255)
+  address            String?           @db.Text
+  country            String?           @db.VarChar(100)
+  country_code       String?           @db.VarChar(10)
+  province           String?           @db.VarChar(100)
+  city               String?           @db.VarChar(100)
+  district           String?           @db.VarChar(100)
+  region             String?           @db.VarChar(100)
+  category           String?           @db.VarChar(100)
+  subcategory        String?           @db.VarChar(150)
+  description        String?           @db.Text
+  latitude           Decimal           @db.Decimal(10, 7)
+  longitude          Decimal           @db.Decimal(10, 7)
   geo_point          Unsupported("point")
-  estimated_cost     Int                  @default(0)
-  suggested_duration String?              @db.VarChar(50)
-  image_url          String?              @db.Text
-  rating             Decimal?             @db.Decimal(3, 2)
+  estimated_cost     Int               @default(0)
+  suggested_duration String?           @db.VarChar(50)
+  image_url          String?           @db.Text
+  rating             Decimal?          @db.Decimal(3, 2)
   tags               Json?
   raw_json           Json?
   embedding          Json?
-  created_at         DateTime             @default(now()) @db.Timestamp(0)
-  updated_at         DateTime             @default(now()) @db.Timestamp(0)
+  created_at         DateTime          @default(now()) @db.Timestamp(0)
+  updated_at         DateTime          @default(now()) @db.Timestamp(0)
   itinerary_items    itinerary_items[]
   reviews            reviews[]
   visit_history      visit_history[]
@@ -207,40 +244,39 @@ model user_preferences {
 }
 
 model users {
-  id               BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
-  full_name        String             @db.VarChar(150)
-  email            String             @unique(map: "IX_users_email") @db.VarChar(255)
-  phone            String?            @unique(map: "IX_users_phone") @db.VarChar(20)
-  password_hash    String             @db.VarChar(255)
-  role             users_role         @default(user)
-  avatar_url       String?            @db.VarChar(500)
-  is_active        Boolean            @default(true)
-  created_at       DateTime           @default(now()) @db.Timestamp(0)
-  updated_at       DateTime           @default(now()) @db.Timestamp(0)
-  auth_challenges  auth_challenges[]
-  itineraries      itineraries[]
-  refresh_tokens   refresh_tokens[]
-  reviews          reviews[]
-  user_preferences user_preferences[]
-  visit_history    visit_history[]
-  collaborations   itinerary_collaborators[]
-  user_friends_user   user_friends[] @relation("user_friends_user")
-  user_friends_friend user_friends[] @relation("user_friends_friend")
+  id                  BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  full_name           String                    @db.VarChar(150)
+  email               String                    @unique(map: "IX_users_email") @db.VarChar(255)
+  phone               String?                   @unique(map: "IX_users_phone") @db.VarChar(20)
+  password_hash       String?                   @db.VarChar(255)
+  role                users_role                @default(user)
+  avatar_url          String?                   @db.VarChar(500)
+  is_active           Boolean                   @default(true)
+  created_at          DateTime                  @default(now()) @db.Timestamp(0)
+  updated_at          DateTime                  @default(now()) @db.Timestamp(0)
+  auth_challenges     auth_challenges[]
+  itineraries         itineraries[]
+  refresh_tokens      refresh_tokens[]
+  reviews             reviews[]
+  user_preferences    user_preferences[]
+  visit_history       visit_history[]
+  collaborations      itinerary_collaborators[]
+  user_friends_user   user_friends[]            @relation("user_friends_user")
+  user_friends_friend user_friends[]            @relation("user_friends_friend")
   user_notifications  user_notifications[]
-  sent_messages       user_messages[] @relation("sent_messages")
-  received_messages   user_messages[] @relation("received_messages")
+  sent_messages       user_messages[]           @relation("sent_messages")
+  received_messages   user_messages[]           @relation("received_messages")
 }
 
 model itinerary_collaborators {
-  id            BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
-  itinerary_id  BigInt      @db.UnsignedBigInt
-  user_id       BigInt      @db.UnsignedBigInt
-  permission    String      @default("view") @db.VarChar(20)
-  invited_at    DateTime    @default(now()) @db.Timestamp(0)
-  accepted_at   DateTime?   @db.Timestamp(0)
-
-  itineraries   itineraries @relation(fields: [itinerary_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_collab_itinerary")
-  users         users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_collab_user")
+  id           BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  itinerary_id BigInt      @db.UnsignedBigInt
+  user_id      BigInt      @db.UnsignedBigInt
+  permission   String      @default("view") @db.VarChar(20)
+  invited_at   DateTime    @default(now()) @db.Timestamp(0)
+  accepted_at  DateTime?   @db.Timestamp(0)
+  itineraries  itineraries @relation(fields: [itinerary_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_collab_itinerary")
+  users        users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_collab_user")
 
   @@unique([itinerary_id, user_id], map: "uq_collab_itinerary_user")
   @@index([user_id], map: "idx_collab_user")
@@ -269,15 +305,14 @@ model visit_history {
 }
 
 model user_friends {
-  id         BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
-  user_id    BigInt             @db.UnsignedBigInt
-  friend_id  BigInt             @db.UnsignedBigInt
+  id         BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id    BigInt              @db.UnsignedBigInt
+  friend_id  BigInt              @db.UnsignedBigInt
   status     user_friends_status @default(pending)
-  created_at DateTime           @default(now()) @db.Timestamp(0)
-  updated_at DateTime           @default(now()) @db.Timestamp(0)
-
-  user       users              @relation("user_friends_user", fields: [user_id], references: [id], onDelete: Cascade)
-  friend     users              @relation("user_friends_friend", fields: [friend_id], references: [id], onDelete: Cascade)
+  created_at DateTime            @default(now()) @db.Timestamp(0)
+  updated_at DateTime            @default(now()) @db.Timestamp(0)
+  user       users               @relation("user_friends_user", fields: [user_id], references: [id], onDelete: Cascade)
+  friend     users               @relation("user_friends_friend", fields: [friend_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, friend_id], map: "uq_user_friend")
   @@index([user_id], map: "idx_user_friend_user")
@@ -285,15 +320,14 @@ model user_friends {
 }
 
 model user_notifications {
-  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  user_id    BigInt    @db.UnsignedBigInt
-  type       String    @db.VarChar(50)
-  title      String    @db.VarChar(255)
-  message    String    @db.Text
-  is_read    Boolean   @default(false)
-  created_at DateTime  @default(now()) @db.Timestamp(0)
-
-  user       users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id    BigInt   @db.UnsignedBigInt
+  type       String   @db.VarChar(50)
+  title      String   @db.VarChar(255)
+  message    String   @db.Text
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  user       users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id], map: "idx_user_notifications_user")
 }
@@ -329,15 +363,14 @@ enum user_friends_status {
 }
 
 model user_messages {
-  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  sender_id   BigInt    @db.UnsignedBigInt
-  receiver_id BigInt    @db.UnsignedBigInt
-  content     String    @db.Text
-  is_read     Boolean   @default(false)
-  created_at  DateTime  @default(now()) @db.Timestamp(0)
-
-  sender      users     @relation("sent_messages", fields: [sender_id], references: [id], onDelete: Cascade)
-  receiver    users     @relation("received_messages", fields: [receiver_id], references: [id], onDelete: Cascade)
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  sender_id   BigInt   @db.UnsignedBigInt
+  receiver_id BigInt   @db.UnsignedBigInt
+  content     String   @db.Text
+  is_read     Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  sender      users    @relation("sent_messages", fields: [sender_id], references: [id], onDelete: Cascade)
+  receiver    users    @relation("received_messages", fields: [receiver_id], references: [id], onDelete: Cascade)
 
   @@index([sender_id], map: "idx_user_messages_sender")
   @@index([receiver_id], map: "idx_user_messages_receiver")

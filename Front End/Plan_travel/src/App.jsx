@@ -92,6 +92,11 @@ function App() {
               <TripPlanner />
             </ProtectedRoute>
           } />
+          <Route path="/planner/manual" element={
+            <ProtectedRoute>
+              <TripPlanner />
+            </ProtectedRoute>
+          } />
           
           <Route path="/history" element={
             <ProtectedRoute>
