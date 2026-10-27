@@ -55,11 +55,33 @@ export const TripProvider = ({ children }) => {
     try {
       const remote = await itineraryService.getAll();
       if (Array.isArray(remote)) {
-        const normalized = remote.map(normalizeTrip).filter(Boolean);
-        setTrips(normalized);
-        localStorage.setItem('travel_trips', JSON.stringify(normalized));
+        const normalizedRemote = remote.map(normalizeTrip).filter(Boolean);
+        // Merge with existing local-only fallback trips (e.g. itinerary_xxx) so they are preserved
+        const stored = localStorage.getItem('travel_trips');
+        let localTrips = [];
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+              localTrips = parsed
+                .filter(t => t && !/^\d+$/.test(String(t.id)))
+                .map(normalizeTrip)
+                .filter(Boolean);
+            }
+          } catch {
+            // ignore
+          }
+        }
+        const merged = [...normalizedRemote];
+        for (const locTrip of localTrips) {
+          if (!merged.some(t => String(t.id) === String(locTrip.id))) {
+            merged.push(locTrip);
+          }
+        }
+        setTrips(merged);
+        localStorage.setItem('travel_trips', JSON.stringify(merged));
         setLoading(false);
-        return normalized;
+        return merged;
       }
     } catch (err) {
       console.warn('Lỗi fetchTrips từ backend API:', err);

@@ -13,6 +13,22 @@ export const itineraryService = {
   },
 
   getById: async (id) => {
+    if (!id) return null;
+    // Check localStorage first if it's a local fallback ID
+    if (!/^\d+$/.test(String(id))) {
+      const stored = localStorage.getItem('travel_trips');
+      if (stored) {
+        try {
+          const trips = JSON.parse(stored);
+          const found = trips.find(t => String(t.id) === String(id));
+          if (found) return found;
+        } catch {
+          // ignore
+        }
+      }
+      return null;
+    }
+
     try {
       const response = await apiClient.get(`/itineraries/${id}`);
       return response.data;
@@ -20,8 +36,12 @@ export const itineraryService = {
       console.warn('itineraryService.getById fallback:', err.message);
       const stored = localStorage.getItem('travel_trips');
       if (stored) {
-        const trips = JSON.parse(stored);
-        return trips.find(t => String(t.id) === String(id)) || null;
+        try {
+          const trips = JSON.parse(stored);
+          return trips.find(t => String(t.id) === String(id)) || null;
+        } catch {
+          return null;
+        }
       }
       return null;
     }

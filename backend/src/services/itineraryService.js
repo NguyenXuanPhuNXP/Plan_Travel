@@ -144,6 +144,7 @@ export async function getUserItineraries(userId) {
  * Lấy chi tiết 1 itinerary (kèm items, locations, packing_items)
  */
 export async function getItineraryById(itineraryId, userId = null) {
+    if (!/^\d+$/.test(String(itineraryId))) return null;
     const itinerary = await prisma.itineraries.findUnique({
         where: { id: BigInt(itineraryId) },
         include: {
@@ -535,6 +536,7 @@ function toPositiveInt(value) {
 }
 
 async function checkEditPermission(itineraryId, userId) {
+    if (!/^\d+$/.test(String(itineraryId))) return false;
     const itinerary = await prisma.itineraries.findUnique({
         where: { id: BigInt(itineraryId) },
         include: { collaborators: true }

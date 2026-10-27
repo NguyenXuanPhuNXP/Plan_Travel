@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { Loader2 } from 'lucide-react';
+import ErrorBoundary from './Components/Common/ErrorBoundary';
 
 // Pages
 const Login = lazy(() => import('./pages/Login'));
@@ -56,7 +57,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 
 function App() {
   return (
-    <>
+    <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -202,7 +203,7 @@ function App() {
 
       {/* Floating Real-time Messaging / Chat Widget */}
       <ChatWidget />
-    </>
+    </ErrorBoundary>
   );
 }
 

@@ -61,6 +61,7 @@ const TripDetails = () => {
   const contextTrip = getTripById(id);
   const [dbTrip, setDbTrip] = useState(null);
   const trip = dbTrip || contextTrip;
+  const [isLoadingTrip, setIsLoadingTrip] = useState(!trip);
   const [packingItems, setPackingItems] = useState(trip?.packingItems || []);
 
   useEffect(() => {
@@ -76,6 +77,8 @@ const TripDetails = () => {
         }
       } catch (e) {
         console.warn('Could not fetch fresh trip:', e);
+      } finally {
+        setIsLoadingTrip(false);
       }
     }
     loadFreshTrip();
@@ -84,6 +87,9 @@ const TripDetails = () => {
   useEffect(() => {
     if (trip?.packingItems && packingItems.length === 0) {
       setPackingItems(trip.packingItems);
+    }
+    if (trip) {
+      setIsLoadingTrip(false);
     }
   }, [trip]);
 
@@ -297,16 +303,24 @@ const TripDetails = () => {
     email: ''
   };
 
-  const normalizeMapLoc = (loc) => ({
-    id: String(loc.id || loc.locationId || `tmp_${Date.now()}`),
-    name: loc.name || 'Địa điểm',
-    address: loc.address || '',
-    lat: loc.lat ?? loc.latitude,
-    lng: loc.lng ?? loc.longitude,
-    image: loc.image || loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
-    suggestedDuration: loc.suggestedDuration || null,
-    estimatedCost: loc.estimatedCost || 0
-  });
+  const normalizeMapLoc = (loc) => {
+    if (!loc) return null;
+    const lat = Number(loc.lat ?? loc.latitude);
+    const lng = Number(loc.lng ?? loc.longitude);
+    const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
+    return {
+      id: String(loc.id || loc.locationId || `tmp_${Date.now()}`),
+      name: loc.name || loc.customName || 'Địa điểm',
+      address: loc.address || '',
+      lat: hasValidCoords ? lat : 21.0285,
+      lng: hasValidCoords ? lng : 105.8542,
+      hasRealCoords: hasValidCoords,
+      image: loc.image || loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
+      suggestedDuration: loc.suggestedDuration || null,
+      estimatedCost: Number(loc.estimatedCost || 0)
+    };
+  };
 
   const parseDayFromNote = (note) => {
     const match = String(note || '').match(/\[DAY:(\d+)\]/i);
@@ -319,27 +333,41 @@ const TripDetails = () => {
   // Group locations by day
   const groupedLocationsByDay = (() => {
     if (isEditingInfo) {
-      return [{ day: 1, items: editingLocations.map((loc, idx) => ({ loc, idx, note: '' })) }];
+      return [{ day: 1, items: editingLocations.map(normalizeMapLoc).filter(Boolean).map((loc, idx) => ({ loc, idx, note: '' })) }];
     }
 
     const tripItems = Array.isArray(trip?.items) ? trip.items : [];
     if (tripItems.length > 0) {
       const map = new Map();
       tripItems.forEach((item, idx) => {
-        const loc = item?.location;
-        if (!loc) return;
-        const normalized = normalizeMapLoc(loc);
+        if (!item) return;
+        const locRaw = item.location || (item.name ? item : {
+          id: item.locationId || `item_${idx}`,
+          name: item.customName || `Điểm dừng ${idx + 1}`,
+          address: item.address || '',
+          lat: 21.0285,
+          lng: 105.8542
+        });
+        const normalized = normalizeMapLoc(locRaw);
+        if (!normalized) return;
         const day = parseDayFromNote(item?.note);
         const cleanNote = stripDayMarker(item?.note);
         if (!map.has(day)) map.set(day, []);
         map.get(day).push({ loc: normalized, idx, note: cleanNote, rawItem: item });
       });
-      return [...map.entries()]
-        .sort((a, b) => a[0] - b[0])
-        .map(([day, items]) => ({ day, items }));
+      if (map.size > 0) {
+        return [...map.entries()]
+          .sort((a, b) => a[0] - b[0])
+          .map(([day, items]) => ({ day, items }));
+      }
     }
 
-    return [{ day: 1, items: locations.map((loc, idx) => ({ loc: normalizeMapLoc(loc), idx, note: '', rawItem: null })) }];
+    const safeLocs = locations.map(normalizeMapLoc).filter(Boolean);
+    if (safeLocs.length > 0) {
+      return [{ day: 1, items: safeLocs.map((loc, idx) => ({ loc, idx, note: '', rawItem: null })) }];
+    }
+
+    return [{ day: 1, items: [] }];
   })();
 
   const lastLocation = locations[locations.length - 1];
@@ -637,14 +665,36 @@ const TripDetails = () => {
     }
   };
 
-  if (!trip) return (
-    <Layout>
-      <div className="trip-details-not-found">
-        <h2>Không tìm thấy chuyến đi</h2>
-        <Link to="/" className="btn btn-primary trip-details-not-found-btn">Về trang chủ</Link>
-      </div>
-    </Layout>
-  );
+  if (!trip) {
+    if (isLoadingTrip) {
+      return (
+        <Layout>
+          <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+            <Loader2 className="animate-spin" size={36} color="var(--primary)" />
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Đang nạp chi tiết chuyến đi...</span>
+          </div>
+        </Layout>
+      );
+    }
+    return (
+      <Layout>
+        <div className="trip-details-not-found">
+          <h2>Không tìm thấy chuyến đi</h2>
+          <p style={{ color: 'var(--text-muted)', margin: '0.5rem 0 1.25rem' }}>
+            Chuyến đi này có thể đã được lưu ở phiên làm việc khác hoặc liên kết không chính xác.
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link to="/history" className="btn btn-primary trip-details-not-found-btn">
+              Xem lịch sử chuyến đi
+            </Link>
+            <Link to="/" className="btn btn-outline trip-details-not-found-btn">
+              Về trang chủ
+            </Link>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

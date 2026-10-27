@@ -4,13 +4,13 @@ import {
   TileLayer, 
   Marker, 
   Popup, 
-  useMapEvents,
-  Polyline,
-  ZoomControl
+  useMapEvents, 
+  Polyline, 
+  ZoomControl 
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, MapPin, Loader2, Thermometer, CloudRain } from 'lucide-react';
+import { Search, Loader2, Thermometer, CloudRain } from 'lucide-react';
 import { WeatherService } from '../../services/WeatherService';
 
 // Fix Leaflet icon issue
@@ -32,25 +32,39 @@ L.Marker.prototype.options.icon = DefaultIcon;
 const MapEventsHandler = ({ onMapClick }) => {
   useMapEvents({
     click: (e) => {
-      onMapClick(e.latlng);
+      if (typeof onMapClick === 'function' && e && e.latlng) {
+        onMapClick(e.latlng);
+      }
     },
   });
   return null;
 };
 
-const MapComponent = ({ selectedLocations, onLocationAdd, onLocationRemove, showRoute = true }) => {
+const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove, showRoute = true }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [weatherData, setWeatherData] = useState({});
-  const center = [21.0285, 105.8542]; // Hanoi
+
+  // Filter only valid locations with finite lat/lng to prevent Leaflet LatLng crash
+  const validLocations = (Array.isArray(selectedLocations) ? selectedLocations : [])
+    .filter((loc) => loc && Number.isFinite(Number(loc.lat)) && Number.isFinite(Number(loc.lng)))
+    .map((loc) => ({
+      ...loc,
+      lat: Number(loc.lat),
+      lng: Number(loc.lng)
+    }));
+
+  const center = validLocations.length > 0
+    ? [validLocations[0].lat, validLocations[0].lng]
+    : [21.0285, 105.8542]; // Default to Hanoi
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!searchQuery) return;
+    if (!searchQuery.trim() || typeof onLocationAdd !== 'function') return;
     
     setIsSearching(true);
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${searchQuery}&limit=1`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`);
       const data = await response.json();
       if (data && data.length > 0) {
         const { lat, lon, display_name } = data[0];
@@ -72,21 +86,25 @@ const MapComponent = ({ selectedLocations, onLocationAdd, onLocationRemove, show
   };
 
   const fetchWeatherForLocation = async (id, lat, lng) => {
-    if (weatherData[id]) return;
-    const data = await WeatherService.getWeather(lat, lng);
-    setWeatherData(prev => ({ ...prev, [id]: data }));
+    if (!id || !Number.isFinite(lat) || !Number.isFinite(lng) || weatherData[id]) return;
+    try {
+      const data = await WeatherService.getWeather(lat, lng);
+      setWeatherData(prev => ({ ...prev, [id]: data }));
+    } catch {
+      // silent
+    }
   };
 
   const [routeGeometry, setRouteGeometry] = useState([]);
 
   useEffect(() => {
-    if (selectedLocations.length < 2) {
+    if (validLocations.length < 2) {
       setRouteGeometry([]);
       return;
     }
 
     const fetchRoute = async () => {
-      const coords = selectedLocations.map(loc => `${loc.lng},${loc.lat}`).join(';');
+      const coords = validLocations.map(loc => `${loc.lng},${loc.lat}`).join(';');
       const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
       try {
         const response = await fetch(url);
@@ -97,49 +115,51 @@ const MapComponent = ({ selectedLocations, onLocationAdd, onLocationRemove, show
           setRouteGeometry(coordsGeo);
         }
       } catch (err) {
-        console.error('Lỗi khi lấy lộ trình:', err);
+        console.warn('Lỗi khi lấy lộ trình:', err);
       }
     };
 
     fetchRoute();
-  }, [selectedLocations]);
+  }, [validLocations]);
 
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       {/* Search Overlay */}
-      <div style={{ 
-        position: 'absolute', 
-        top: '20px', 
-        left: '50%', 
-        transform: 'translateX(-50%)', 
-        zIndex: 1000,
-        width: '90%',
-        maxWidth: '500px'
-      }}>
-        <form onSubmit={handleSearch} className="glass" style={{ 
-          display: 'flex', 
-          padding: '0.5rem', 
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-lg)'
+      {typeof onLocationAdd === 'function' && (
+        <div style={{ 
+          position: 'absolute', 
+          top: '20px', 
+          left: '50%', 
+          transform: 'translateX(-50%)', 
+          zIndex: 1000, 
+          width: '90%', 
+          maxWidth: '500px' 
         }}>
-          <input 
-            type="text" 
-            placeholder="Tìm địa điểm du lịch..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ 
-              flex: 1, 
-              border: 'none', 
-              background: 'transparent', 
-              padding: '0.5rem 1rem',
-              fontSize: '0.9rem'
-            }}
-          />
-          <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)' }}>
-            {isSearching ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
-          </button>
-        </form>
-      </div>
+          <form onSubmit={handleSearch} className="glass" style={{ 
+            display: 'flex', 
+            padding: '0.5rem', 
+            borderRadius: 'var(--radius-lg)', 
+            boxShadow: 'var(--shadow-lg)' 
+          }}>
+            <input 
+              type="text" 
+              placeholder="Tìm địa điểm du lịch..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ 
+                flex: 1, 
+                border: 'none', 
+                background: 'transparent', 
+                padding: '0.5rem 1rem', 
+                fontSize: '0.9rem' 
+              }}
+            />
+            <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)' }}>
+              {isSearching ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
+            </button>
+          </form>
+        </div>
+      )}
 
       <MapContainer 
         center={center} 
@@ -154,19 +174,21 @@ const MapComponent = ({ selectedLocations, onLocationAdd, onLocationRemove, show
         
         <ZoomControl position="bottomright" />
         <MapEventsHandler onMapClick={(latlng) => {
-          onLocationAdd({
-            id: `click_${Date.now()}`,
-            name: `Địa điểm mới (${latlng.lat.toFixed(4)})`,
-            address: `Vĩ độ: ${latlng.lat.toFixed(4)}, Kinh độ: ${latlng.lng.toFixed(4)}`,
-            lat: latlng.lat,
-            lng: latlng.lng,
-            image: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800'
-          });
+          if (typeof onLocationAdd === 'function') {
+            onLocationAdd({
+              id: `click_${Date.now()}`,
+              name: `Địa điểm mới (${latlng.lat.toFixed(4)})`,
+              address: `Vĩ độ: ${latlng.lat.toFixed(4)}, Kinh độ: ${latlng.lng.toFixed(4)}`,
+              lat: latlng.lat,
+              lng: latlng.lng,
+              image: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800'
+            });
+          }
         }} />
 
-        {selectedLocations.map((loc, idx) => (
+        {validLocations.map((loc, idx) => (
           <Marker 
-            key={loc.id} 
+            key={loc.id || `loc_${idx}`} 
             position={[loc.lat, loc.lng]}
             eventHandlers={{
               click: () => fetchWeatherForLocation(loc.id, loc.lat, loc.lng)
@@ -185,9 +207,9 @@ const MapComponent = ({ selectedLocations, onLocationAdd, onLocationRemove, show
                     gap: '1rem', 
                     padding: '0.5rem', 
                     background: '#f8fafc', 
-                    borderRadius: '4px',
-                    marginBottom: '0.5rem',
-                    fontSize: '0.8rem'
+                    borderRadius: '4px', 
+                    marginBottom: '0.5rem', 
+                    fontSize: '0.8rem' 
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       <Thermometer size={14} color="var(--accent)" />
@@ -200,20 +222,22 @@ const MapComponent = ({ selectedLocations, onLocationAdd, onLocationRemove, show
                   </div>
                 )}
                 
-                <button 
-                  onClick={() => onLocationRemove(loc.id)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '0.4rem', 
-                    background: '#fee2e2', 
-                    color: '#dc2626', 
-                    fontSize: '0.75rem', 
-                    fontWeight: 600,
-                    borderRadius: '4px' 
-                  }}
-                >
-                  Xóa khỏi lịch trình
-                </button>
+                {typeof onLocationRemove === 'function' && (
+                  <button 
+                    onClick={() => onLocationRemove(loc.id)}
+                    style={{ 
+                      width: '100%', 
+                      padding: '0.4rem', 
+                      background: '#fee2e2', 
+                      color: '#dc2626', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 600, 
+                      borderRadius: '4px' 
+                    }}
+                  >
+                    Xóa khỏi lịch trình
+                  </button>
+                )}
               </div>
             </Popup>
           </Marker>
