@@ -51,7 +51,7 @@ const PACKING_CATEGORIES = [
 const PlannerWizard = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { fetchTrips } = useTrips();
+  const { addTrip, fetchTrips } = useTrips();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -198,8 +198,33 @@ const PlannerWizard = () => {
     }));
   };
 
+  const [newPackingName, setNewPackingName] = useState('');
+
   const togglePackingItem = (id) => {
     setPackingList(prev => prev.map(p => String(p.id) === String(id) ? { ...p, selected: !p.selected } : p));
+  };
+
+  const selectAllPackingInFilter = (select) => {
+    setPackingList(prev => prev.map(p => {
+      if (packingCategoryFilter === 'all' || p.category === packingCategoryFilter) {
+        return { ...p, selected: select };
+      }
+      return p;
+    }));
+  };
+
+  const handleAddCustomPacking = () => {
+    if (!newPackingName.trim()) return;
+    const newItem = {
+      id: `pack_custom_${Date.now()}`,
+      itemName: newPackingName.trim(),
+      category: packingCategoryFilter === 'all' ? 'tools' : packingCategoryFilter,
+      quantity: 1,
+      notes: '',
+      selected: true
+    };
+    setPackingList(prev => [newItem, ...prev]);
+    setNewPackingName('');
   };
 
   const updatePackingQty = (id, delta) => {
@@ -409,6 +434,7 @@ const PlannerWizard = () => {
       totalCost: getEffectiveBudget(),
       preferences: tripInfo.preferences,
       packingItems: selectedPacking,
+      collaboratorIds: selectedFriendIds,
       description: finalPlan?.description || null,
       items: allItems.filter((item) => item.locationId)
     });
@@ -422,6 +448,9 @@ const PlannerWizard = () => {
     try {
       const hasAIPlan = Boolean(finalPlan?.days?.length);
       const itinerary = hasAIPlan ? await saveAIPlan(finalPlan) : await saveManualPlan();
+      if (itinerary) {
+        addTrip(itinerary);
+      }
       await fetchTrips();
       navigate('/history');
     } catch (error) {
@@ -828,6 +857,46 @@ const PlannerWizard = () => {
                               {cat.label}
                             </button>
                           ))}
+                        </div>
+
+                        {/* Quick action buttons & custom add */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <button
+                              type="button"
+                              onClick={() => selectAllPackingInFilter(true)}
+                              className="btn btn-outline"
+                              style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                            >
+                              Chọn tất cả
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => selectAllPackingInFilter(false)}
+                              className="btn btn-outline"
+                              style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                            >
+                              Bỏ chọn
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.3rem', flex: 1, maxWidth: 300 }}>
+                            <input
+                              type="text"
+                              value={newPackingName}
+                              onChange={(e) => setNewPackingName(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomPacking(); } }}
+                              placeholder="+ Thêm món khác..."
+                              style={{ flex: 1, fontSize: '0.8rem', padding: '0.25rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: 4 }}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddCustomPacking}
+                              className="btn btn-primary"
+                              style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                            >
+                              Thêm
+                            </button>
+                          </div>
                         </div>
 
                         {/* Items list */}

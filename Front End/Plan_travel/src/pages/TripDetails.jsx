@@ -29,7 +29,10 @@ import {
   CheckSquare,
   Square,
   Car,
-  MessageCircle
+  MessageCircle,
+  Plus,
+  Search,
+  Check
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { sharingService } from '../services/sharingService';
@@ -37,6 +40,16 @@ import { friendService } from '../services/friendService';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import './TripDetails.css';
+
+const PACKING_CATEGORIES = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'clothing', label: 'Quần áo' },
+  { key: 'devices', label: 'Thiết bị' },
+  { key: 'tools', label: 'Đồ cá nhân' },
+  { key: 'accessories', label: 'Phụ kiện' },
+  { key: 'documents', label: 'Giấy tờ & Tiền' },
+  { key: 'medical', label: 'Y tế & Thuốc' }
+];
 
 const TripDetails = () => {
   const { id } = useParams();
@@ -85,6 +98,169 @@ const TripDetails = () => {
       }
     } catch (e) {
       console.warn('Failed to update packing item:', e);
+    }
+  };
+
+  // Packing Catalog Modal States
+  const [showPackingModal, setShowPackingModal] = useState(false);
+  const [catalogItems, setCatalogItems] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogCategory, setCatalogCategory] = useState('all');
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [selectedCatalogIds, setSelectedCatalogIds] = useState(new Set());
+  const [catalogItemQuantities, setCatalogItemQuantities] = useState({});
+  const [customPackingName, setCustomPackingName] = useState('');
+  const [customPackingCategory, setCustomPackingCategory] = useState('clothing');
+  const [customPackingQty, setCustomPackingQty] = useState(1);
+  const [savingPacking, setSavingPacking] = useState(false);
+
+  const openPackingCatalogModal = async () => {
+    setShowPackingModal(true);
+    setSelectedCatalogIds(new Set());
+    setCatalogItemQuantities({});
+    setCustomPackingName('');
+    if (catalogItems.length === 0) {
+      setCatalogLoading(true);
+      try {
+        const cat = await itineraryService.getPackingCatalog();
+        if (Array.isArray(cat)) {
+          setCatalogItems(cat);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch catalog:', err);
+      } finally {
+        setCatalogLoading(false);
+      }
+    }
+  };
+
+  const toggleSelectCatalogItem = (itemId) => {
+    setSelectedCatalogIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  };
+
+  const setCatalogQty = (itemId, delta) => {
+    setCatalogItemQuantities((prev) => {
+      const current = prev[itemId] || 1;
+      const next = Math.max(1, current + delta);
+      return { ...prev, [itemId]: next };
+    });
+  };
+
+  const handleSelectAllInCatalogCategory = (select) => {
+    const existingNames = new Set(packingItems.map((p) => (p.itemName || p.name || '').toLowerCase().trim()));
+    const matching = catalogItems.filter((item) => {
+      const matchesCategory = catalogCategory === 'all' || item.category === catalogCategory;
+      const matchesSearch = !catalogSearch || item.name.toLowerCase().includes(catalogSearch.toLowerCase());
+      const alreadyAdded = existingNames.has(item.name.toLowerCase().trim());
+      return matchesCategory && matchesSearch && !alreadyAdded;
+    });
+
+    setSelectedCatalogIds((prev) => {
+      const next = new Set(prev);
+      matching.forEach((item) => {
+        if (select) next.add(item.id);
+        else next.delete(item.id);
+      });
+      return next;
+    });
+  };
+
+  const handleAddSelectedPackingItems = async () => {
+    const selectedList = catalogItems.filter((item) => selectedCatalogIds.has(item.id));
+    const hasCustom = Boolean(customPackingName.trim());
+    if (selectedList.length === 0 && !hasCustom) {
+      setToast('Vui lòng chọn ít nhất một món đồ.');
+      setTimeout(() => setToast(''), 2000);
+      return;
+    }
+
+    setSavingPacking(true);
+    const addedItems = [];
+
+    // 1. Add selected catalog items
+    for (const item of selectedList) {
+      const qty = catalogItemQuantities[item.id] || item.defaultQuantity || 1;
+      const payload = {
+        itemName: item.name,
+        category: item.category || 'other',
+        quantity: qty,
+        notes: item.notes || null,
+        isPacked: false
+      };
+      try {
+        if (/^\d+$/.test(String(trip?.id))) {
+          const res = await itineraryService.addPackingItem(trip.id, payload);
+          if (res && res.id) {
+            addedItems.push(res);
+          } else {
+            addedItems.push({ id: `pack_${Date.now()}_${Math.random()}`, ...payload });
+          }
+        } else {
+          addedItems.push({ id: `pack_${Date.now()}_${Math.random()}`, ...payload });
+        }
+      } catch (e) {
+        console.warn('Failed to add packing item to backend:', e);
+        addedItems.push({ id: `pack_${Date.now()}_${Math.random()}`, ...payload });
+      }
+    }
+
+    // 2. Add custom item if entered
+    if (hasCustom) {
+      const customPayload = {
+        itemName: customPackingName.trim(),
+        category: customPackingCategory || 'other',
+        quantity: Math.max(1, Number(customPackingQty) || 1),
+        notes: null,
+        isPacked: false
+      };
+      try {
+        if (/^\d+$/.test(String(trip?.id))) {
+          const res = await itineraryService.addPackingItem(trip.id, customPayload);
+          if (res && res.id) {
+            addedItems.push(res);
+          } else {
+            addedItems.push({ id: `pack_${Date.now()}_custom`, ...customPayload });
+          }
+        } else {
+          addedItems.push({ id: `pack_${Date.now()}_custom`, ...customPayload });
+        }
+      } catch (e) {
+        addedItems.push({ id: `pack_${Date.now()}_custom`, ...customPayload });
+      }
+    }
+
+    const nextPacking = [...packingItems, ...addedItems];
+    setPackingItems(nextPacking);
+    if (trip?.id) {
+      updateTrip(trip.id, { packingItems: nextPacking });
+    }
+    setSavingPacking(false);
+    setShowPackingModal(false);
+    setToast(`Đã thêm thành công ${addedItems.length} món đồ vào danh sách.`);
+    setTimeout(() => setToast(''), 2500);
+  };
+
+  const handleRemovePacking = async (e, packingItemId) => {
+    e.stopPropagation();
+    const nextPacking = packingItems.filter((p) => String(p.id) !== String(packingItemId));
+    setPackingItems(nextPacking);
+    if (trip?.id) {
+      updateTrip(trip.id, { packingItems: nextPacking });
+    }
+    try {
+      if (/^\d+$/.test(String(packingItemId)) && /^\d+$/.test(String(trip?.id))) {
+        await itineraryService.removePackingItem(trip.id, packingItemId);
+      }
+    } catch (e) {
+      console.warn('Failed to remove packing item:', e);
     }
   };
 
@@ -764,10 +940,18 @@ const TripDetails = () => {
 
             {/* Packing Checklist Card */}
             <div className="card trip-details-packing-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                   <Briefcase size={18} color="var(--primary)" /> Đồ cần mang theo ({packingItems.filter(p => p.isPacked).length}/{packingItems.length})
                 </h3>
+                <button
+                  type="button"
+                  onClick={openPackingCatalogModal}
+                  className="btn btn-outline"
+                  style={{ padding: '0.25rem 0.55rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                >
+                  <Plus size={14} /> Thêm đồ dùng
+                </button>
               </div>
 
               {packingItems.length > 0 ? (
@@ -802,12 +986,30 @@ const TripDetails = () => {
                         <span style={{ fontSize: '0.75rem', background: '#f1f5f9', padding: '0.15rem 0.4rem', borderRadius: 4, fontWeight: 600 }}>
                           x{item.quantity || 1}
                         </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleRemovePacking(e, item.id)}
+                          className="trip-details-packing-delete-btn"
+                          title="Xóa món đồ này"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     ))}
                   </div>
                 </>
               ) : (
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Chưa có danh sách đồ chuẩn bị cho chuyến đi này.</p>
+                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Chưa có danh sách đồ chuẩn bị cho chuyến đi này.</p>
+                  <button
+                    type="button"
+                    onClick={openPackingCatalogModal}
+                    className="btn btn-outline"
+                    style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <Plus size={14} /> Chọn từ danh mục mẫu
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1010,6 +1212,218 @@ const TripDetails = () => {
                   <button onClick={() => setShowGroupModal(false)} className="btn btn-outline trip-details-modal-btn">
                     Đóng
                   </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Packing Items Catalog Selector Modal */}
+        <AnimatePresence>
+          {showPackingModal && (
+            <div className="trip-details-modal-overlay">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="card trip-details-modal-card trip-details-packing-catalog-modal"
+              >
+                <div className="trip-details-modal-header">
+                  <div>
+                    <h2 className="trip-details-modal-title" style={{ fontSize: '1.25rem' }}>Danh mục đồ dùng cần thiết</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 4 }}>
+                      Chọn nhanh các vật dụng cần chuẩn bị có sẵn trong hệ thống hoặc tự thêm món mới
+                    </p>
+                  </div>
+                  <button onClick={() => setShowPackingModal(false)} className="trip-details-modal-close"><X size={20} /></button>
+                </div>
+
+                <div className="trip-details-modal-body" style={{ textAlign: 'left', padding: '1rem' }}>
+                  {/* Category filters */}
+                  <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+                    {PACKING_CATEGORIES.map(cat => (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        className={`btn ${catalogCategory === cat.key ? 'btn-primary' : 'btn-outline'}`}
+                        style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                        onClick={() => setCatalogCategory(cat.key)}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search and Quick Select */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                    <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+                      <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        value={catalogSearch}
+                        onChange={(e) => setCatalogSearch(e.target.value)}
+                        placeholder="Tìm kiếm đồ dùng..."
+                        style={{ width: '100%', padding: '0.35rem 0.5rem 0.35rem 1.8rem', fontSize: '0.85rem', border: '1px solid #cbd5e1', borderRadius: 6 }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectAllInCatalogCategory(true)}
+                        className="btn btn-outline"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                      >
+                        Chọn tất cả
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectAllInCatalogCategory(false)}
+                        className="btn btn-outline"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                      >
+                        Bỏ chọn
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Catalog items list */}
+                  {catalogLoading ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <Loader2 className="animate-spin" size={24} style={{ margin: '0 auto 0.5rem' }} />
+                      <p style={{ fontSize: '0.85rem' }}>Đang nạp danh mục vật dụng...</p>
+                    </div>
+                  ) : (
+                    <div className="trip-details-packing-catalog-grid">
+                      {catalogItems
+                        .filter(item => {
+                          const matchesCat = catalogCategory === 'all' || item.category === catalogCategory;
+                          const matchesSearch = !catalogSearch || item.name.toLowerCase().includes(catalogSearch.toLowerCase());
+                          return matchesCat && matchesSearch;
+                        })
+                        .map(item => {
+                          const existingNames = new Set(packingItems.map(p => (p.itemName || p.name || '').toLowerCase().trim()));
+                          const alreadyInTrip = existingNames.has(item.name.toLowerCase().trim());
+                          const isSelected = selectedCatalogIds.has(item.id);
+                          const currentQty = catalogItemQuantities[item.id] || item.defaultQuantity || 1;
+
+                          return (
+                            <div
+                              key={item.id}
+                              className={`trip-details-packing-catalog-item ${alreadyInTrip ? 'disabled' : (isSelected ? 'selected' : '')}`}
+                              onClick={() => {
+                                if (!alreadyInTrip) toggleSelectCatalogItem(item.id);
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1 }}>
+                                {alreadyInTrip ? (
+                                  <Check size={16} color="#16a34a" />
+                                ) : isSelected ? (
+                                  <CheckSquare size={16} color="var(--primary)" />
+                                ) : (
+                                  <Square size={16} color="var(--text-muted)" />
+                                )}
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: alreadyInTrip ? '#16a34a' : 'inherit' }}>
+                                    {item.name}
+                                  </div>
+                                  {item.notes && (
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {item.notes}
+                                    </div>
+                                  )}
+                                  {alreadyInTrip && (
+                                    <div style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 600 }}>
+                                      ✓ Đã có trong chuyến
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {!alreadyInTrip && isSelected && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginLeft: '0.5rem' }} onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCatalogQty(item.id, -1)}
+                                    style={{ border: '1px solid #cbd5e1', background: '#f8fafc', borderRadius: 4, padding: '0.1rem 0.35rem', cursor: 'pointer' }}
+                                  >
+                                    -
+                                  </button>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: 700, minWidth: 16, textAlign: 'center' }}>
+                                    {currentQty}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCatalogQty(item.id, 1)}
+                                    style={{ border: '1px solid #cbd5e1', background: '#f8fafc', borderRadius: 4, padding: '0.1rem 0.35rem', cursor: 'pointer' }}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+
+                  {/* Custom item quick add row */}
+                  <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>Tự thêm món khác:</span>
+                    <input
+                      type="text"
+                      value={customPackingName}
+                      onChange={(e) => setCustomPackingName(e.target.value)}
+                      placeholder="Tên đồ dùng..."
+                      style={{ flex: 1, minWidth: 140, fontSize: '0.8rem', padding: '0.3rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: 4 }}
+                    />
+                    <select
+                      value={customPackingCategory}
+                      onChange={(e) => setCustomPackingCategory(e.target.value)}
+                      style={{ fontSize: '0.8rem', padding: '0.3rem', border: '1px solid #cbd5e1', borderRadius: 4 }}
+                    >
+                      <option value="clothing">Quần áo</option>
+                      <option value="devices">Thiết bị</option>
+                      <option value="tools">Đồ cá nhân</option>
+                      <option value="accessories">Phụ kiện</option>
+                      <option value="documents">Giấy tờ & Tiền</option>
+                      <option value="medical">Y tế & Thuốc</option>
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={customPackingQty}
+                      onChange={(e) => setCustomPackingQty(Math.max(1, Number(e.target.value) || 1))}
+                      style={{ width: 50, fontSize: '0.8rem', padding: '0.3rem', border: '1px solid #cbd5e1', borderRadius: 4 }}
+                    />
+                  </div>
+                </div>
+
+                <div className="trip-details-modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Đã chọn: <strong>{selectedCatalogIds.size + (customPackingName.trim() ? 1 : 0)}</strong> món
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowPackingModal(false)}
+                      className="btn btn-outline trip-details-modal-btn"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddSelectedPackingItems}
+                      disabled={savingPacking || (selectedCatalogIds.size === 0 && !customPackingName.trim())}
+                      className="btn btn-primary trip-details-modal-btn"
+                    >
+                      {savingPacking ? (
+                        <><Loader2 className="animate-spin" size={14} style={{ marginRight: 4 }} /> Đang thêm...</>
+                      ) : (
+                        `Thêm vào chuyến đi (${selectedCatalogIds.size + (customPackingName.trim() ? 1 : 0)})`
+                      )}
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </div>

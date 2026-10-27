@@ -553,11 +553,13 @@ function serializeItinerary(it) {
     const rawTotalCost = Number(it.total_cost || 0);
     const rawBudget = it.budget ? Number(it.budget) : 0;
     const resolvedTotalCost = rawTotalCost > 0 ? rawTotalCost : rawBudget;
+    const items = it.itinerary_items?.map(serializeItem) || [];
 
     return {
         id: it.id?.toString(),
         userId: it.user_id?.toString(),
         name: it.name,
+        title: it.name,
         destination: it.destination,
         startLocation: it.start_location,
         endLocation: it.end_location,
@@ -565,7 +567,7 @@ function serializeItinerary(it) {
         startDate: it.start_time,
         endDate: it.end_time,
         totalDays: it.total_days,
-        budget: it.budget ? Number(it.budget) : null,
+        budget: it.budget ? Number(it.budget) : (resolvedTotalCost || 0),
         travelerCount: it.traveler_count ?? 1,
         transportMode: it.transport_mode ?? null,
         costScope: it.cost_scope ?? "PERSON",
@@ -588,7 +590,8 @@ function serializeItinerary(it) {
             email: it.users.email,
             avatar: it.users.avatar_url
         } : undefined,
-        items: it.itinerary_items?.map(serializeItem) || [],
+        items,
+        locations: items,
         packingItems: it.packing_items?.map(p => ({
             id: p.id?.toString(),
             itemName: p.item_name,

@@ -923,6 +923,40 @@ const TripPlanner = () => {
                 ))}
               </div>
 
+              {/* Quick toggle all */}
+              <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPackingList(prev => prev.map(p => {
+                      if (packingCategoryFilter === 'all' || p.category === packingCategoryFilter) {
+                        return { ...p, selected: true };
+                      }
+                      return p;
+                    }));
+                  }}
+                  className="btn btn-outline"
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                >
+                  Chọn tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPackingList(prev => prev.map(p => {
+                      if (packingCategoryFilter === 'all' || p.category === packingCategoryFilter) {
+                        return { ...p, selected: false };
+                      }
+                      return p;
+                    }));
+                  }}
+                  className="btn btn-outline"
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                >
+                  Bỏ chọn
+                </button>
+              </div>
+
               {/* Add Custom Packing Item Bar */}
               <div className="trip-planner-packing-add-bar">
                 <input
