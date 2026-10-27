@@ -94,12 +94,13 @@ const serializeLocation = (loc) => {
 export async function listLocations(req, res) {
     const { region, category, tag, limit = 100, offset = 0 } = req.query;
 
-    let sql = "SELECT * FROM locations WHERE country = 'Vietnam'";
+    let sql = "SELECT * FROM locations WHERE (country = 'Vietnam' OR country IS NULL)";
     const params = [];
 
     if (region) {
-        sql += " AND (region = ? OR city = ? OR province = ?)";
-        params.push(region, region, region);
+        sql += " AND (region LIKE ? OR city LIKE ? OR province LIKE ? OR name LIKE ? OR address LIKE ?)";
+        const pattern = `%${region}%`;
+        params.push(pattern, pattern, pattern, pattern, pattern);
     }
 
     if (category) {
@@ -273,7 +274,7 @@ export async function getDestinationStats(_req, res) {
 
 export async function getHotLocations(req, res) {
     const limit = Math.min(Number(req.query.limit || 10), 50);
-    const rows = await prisma.$queryRaw`
+    let rows = await prisma.$queryRaw`
         SELECT l.*,
                COALESCE(pc.plan_count, 0) AS plan_count
         FROM locations l
@@ -288,23 +289,52 @@ export async function getHotLocations(req, res) {
         LIMIT ${limit}
     `;
 
-    res.json(rows.map(serializeLocation));
+    if (!rows || rows.length === 0) {
+        rows = await prisma.$queryRaw`
+            SELECT l.*,
+                   COALESCE(pc.plan_count, 0) AS plan_count
+            FROM locations l
+            LEFT JOIN (
+                SELECT location_id, COUNT(*) AS plan_count
+                FROM itinerary_items
+                WHERE location_id IS NOT NULL
+                GROUP BY location_id
+            ) pc ON pc.location_id = l.id
+            ORDER BY plan_count DESC, l.updated_at DESC
+            LIMIT ${limit}
+        `;
+    }
+
+    res.json((rows || []).map(serializeLocation));
 }
 
 export async function getLocationById(req, res) {
-    if (!/^\d+$/.test(String(req.params.id))) {
+    const rawId = String(req.params.id || "").trim();
+    if (!rawId) {
         throw { status: 400, message: "Invalid location id" };
     }
 
-    const rows = await prisma.$queryRaw`
-        SELECT id, name, address, country, province, city, district, region, category,
-               latitude, longitude, estimated_cost, suggested_duration, image_url, rating, tags, raw_json
-        FROM locations
-        WHERE id = ${BigInt(req.params.id)}
-        LIMIT 1
-    `;
+    let loc = null;
+    if (/^\d+$/.test(rawId)) {
+        const rows = await prisma.$queryRaw`
+            SELECT id, name, address, country, province, city, district, region, category,
+                   latitude, longitude, estimated_cost, suggested_duration, image_url, rating, tags, raw_json
+            FROM locations
+            WHERE id = ${BigInt(rawId)}
+            LIMIT 1
+        `;
+        loc = rows?.[0];
+    } else {
+        const rows = await prisma.$queryRaw`
+            SELECT id, name, address, country, province, city, district, region, category,
+                   latitude, longitude, estimated_cost, suggested_duration, image_url, rating, tags, raw_json
+            FROM locations
+            WHERE external_id = ${rawId}
+            LIMIT 1
+        `;
+        loc = rows?.[0];
+    }
 
-    const loc = rows?.[0];
     if (!loc) {
         throw { status: 404, message: "Location not found" };
     }

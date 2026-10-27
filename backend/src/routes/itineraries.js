@@ -1,14 +1,14 @@
 import express from "express";
 import * as itineraryController from "../controllers/itineraryController.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
-import { authenticate } from "../middleware/authMiddleware.js";
+import { authenticate, optionalAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.use(authenticate);
+// Packing catalog (accessible as reference catalog, must be before /:id)
+router.get("/packing-catalog", optionalAuth, asyncHandler(itineraryController.getPackingCatalog));
 
-// Packing catalog (must be before /:id)
-router.get("/packing-catalog", asyncHandler(itineraryController.getPackingCatalog));
+router.use(authenticate);
 
 // Itinerary CRUD
 router.post("/", asyncHandler(itineraryController.createItinerary));

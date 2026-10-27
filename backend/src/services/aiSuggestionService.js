@@ -179,16 +179,26 @@ export async function generateAutoPlan({ region, days, budget, preferences, sele
 // ===== INTERNAL HELPERS =====
 
 async function getLocationsFromDB(region) {
-    const rows = await prisma.$queryRawUnsafe(
+    const searchPattern = `%${region || ''}%`;
+    let rows = await prisma.$queryRawUnsafe(
         `SELECT * FROM locations 
-         WHERE country = 'Vietnam' 
-         AND (region LIKE ? OR city LIKE ? OR province LIKE ? OR name LIKE ?)
+         WHERE (country = 'Vietnam' OR country IS NULL) 
+         AND (region LIKE ? OR city LIKE ? OR province LIKE ? OR name LIKE ? OR address LIKE ?)
          ORDER BY rating DESC, updated_at DESC 
          LIMIT 100`,
-        `%${region}%`, `%${region}%`, `%${region}%`, `%${region}%`
+        searchPattern, searchPattern, searchPattern, searchPattern, searchPattern
     );
 
-    return rows.map(serializeLocation);
+    if ((!rows || rows.length === 0) && region) {
+        rows = await prisma.$queryRawUnsafe(
+            `SELECT * FROM locations 
+             WHERE (country = 'Vietnam' OR country IS NULL)
+             ORDER BY rating DESC, updated_at DESC 
+             LIMIT 30`
+        );
+    }
+
+    return (rows || []).map(serializeLocation);
 }
 
 async function fetchAndCacheFromGeoapify(region) {
@@ -315,7 +325,7 @@ function calculateBasicScore(location, preferences) {
 }
 
 function generateRuleBasedPlan(locations, totalDays) {
-    const itemsPerDay = Math.ceil(locations.length / totalDays);
+    const itemsPerDay = Math.max(1, Math.ceil(locations.length / (totalDays || 1)));
     const days = [];
 
     for (let d = 0; d < totalDays; d++) {
