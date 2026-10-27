@@ -11,6 +11,18 @@ function serializeMessage(msg) {
     };
 }
 
+function serializeItineraryMessage(msg) {
+    return {
+        id: msg.id.toString(),
+        itineraryId: msg.itinerary_id.toString(),
+        senderId: msg.sender_id.toString(),
+        senderName: msg.sender?.full_name || "Thành viên",
+        senderAvatar: msg.sender?.avatar_url || null,
+        content: msg.content,
+        createdAt: msg.created_at
+    };
+}
+
 export async function getMessages(userId, friendId) {
     const user1 = BigInt(userId);
     const user2 = BigInt(friendId);
@@ -79,8 +91,6 @@ export async function markAsRead(userId, friendId) {
 export async function getRecentChats(userId) {
     const currentUserId = BigInt(userId);
     
-    // Get latest message for each friend
-    // Since Prisma doesn't have a simple DISTINCT ON, we'll do this in raw SQL or JS.
     const messages = await prisma.user_messages.findMany({
         where: {
             OR: [
@@ -128,4 +138,161 @@ export async function getRecentChats(userId) {
     }
 
     return Array.from(recentChatsMap.values());
+}
+
+/**
+ * Lấy danh sách nhóm chat chuyến đi mà user tham gia (chủ sở hữu hoặc cộng tác viên)
+ */
+export async function getTripGroups(userId) {
+    const currentUserId = BigInt(userId);
+
+    const itineraries = await prisma.itineraries.findMany({
+        where: {
+            OR: [
+                { user_id: currentUserId },
+                {
+                    collaborators: {
+                        some: { user_id: currentUserId }
+                    }
+                }
+            ]
+        },
+        include: {
+            users: {
+                select: { id: true, full_name: true, avatar_url: true }
+            },
+            collaborators: {
+                include: {
+                    users: {
+                        select: { id: true, full_name: true, avatar_url: true }
+                    }
+                }
+            },
+            messages: {
+                orderBy: { created_at: "desc" },
+                take: 1,
+                include: {
+                    sender: {
+                        select: { id: true, full_name: true }
+                    }
+                }
+            }
+        },
+        orderBy: { updated_at: "desc" }
+    });
+
+    return itineraries.map((it) => {
+        const owner = {
+            id: it.users.id.toString(),
+            name: it.users.full_name,
+            avatar: it.users.avatar_url,
+            isOwner: true
+        };
+        const collaborators = it.collaborators.map((c) => ({
+            id: c.users.id.toString(),
+            name: c.users.full_name,
+            avatar: c.users.avatar_url,
+            permission: c.permission,
+            isOwner: false
+        }));
+        const members = [owner, ...collaborators];
+        const lastMsg = it.messages?.[0];
+
+        return {
+            id: it.id.toString(),
+            tripId: it.id.toString(),
+            name: it.name,
+            destination: it.destination,
+            memberCount: members.length,
+            members,
+            lastMessage: lastMsg ? lastMsg.content : "Nhóm chat chuyến đi đã được tạo",
+            lastMessageSender: lastMsg?.sender?.full_name || null,
+            lastMessageAt: lastMsg ? lastMsg.created_at : it.created_at,
+            isOwner: it.user_id === currentUserId
+        };
+    });
+}
+
+/**
+ * Lấy lịch sử tin nhắn trong nhóm chat chuyến đi
+ */
+export async function getTripGroupMessages(itineraryId, userId) {
+    const itId = BigInt(itineraryId);
+    const uId = BigInt(userId);
+
+    const it = await prisma.itineraries.findUnique({
+        where: { id: itId },
+        include: {
+            collaborators: {
+                where: { user_id: uId }
+            }
+        }
+    });
+
+    if (!it) {
+        throw { status: 404, message: "Không tìm thấy chuyến đi." };
+    }
+
+    const isMember = it.user_id === uId || it.collaborators.length > 0;
+    if (!isMember) {
+        throw { status: 403, message: "Bạn không có quyền truy cập nhóm chat này." };
+    }
+
+    const messages = await prisma.itinerary_messages.findMany({
+        where: { itinerary_id: itId },
+        include: {
+            sender: {
+                select: { id: true, full_name: true, avatar_url: true }
+            }
+        },
+        orderBy: { created_at: "asc" },
+        take: 200
+    });
+
+    return messages.map(serializeItineraryMessage);
+}
+
+/**
+ * Gửi tin nhắn vào nhóm chat chuyến đi
+ */
+export async function sendTripGroupMessage(itineraryId, userId, content) {
+    if (!content || !content.trim()) {
+        throw { status: 400, message: "Nội dung tin nhắn không được để trống." };
+    }
+
+    const itId = BigInt(itineraryId);
+    const uId = BigInt(userId);
+
+    const it = await prisma.itineraries.findUnique({
+        where: { id: itId },
+        include: {
+            collaborators: {
+                where: { user_id: uId }
+            }
+        }
+    });
+
+    if (!it) {
+        throw { status: 404, message: "Không tìm thấy chuyến đi." };
+    }
+
+    const isMember = it.user_id === uId || it.collaborators.length > 0;
+    if (!isMember) {
+        throw { status: 403, message: "Bạn không có quyền gửi tin nhắn trong nhóm này." };
+    }
+
+    const created = await prisma.itinerary_messages.create({
+        data: {
+            itinerary_id: itId,
+            sender_id: uId,
+            content: content.trim()
+        },
+        include: {
+            sender: {
+                select: { id: true, full_name: true, avatar_url: true }
+            }
+        }
+    });
+
+    return serializeItineraryMessage(created);
 }

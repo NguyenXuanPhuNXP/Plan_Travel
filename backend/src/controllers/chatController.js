@@ -26,3 +26,22 @@ export async function getRecentChats(req, res) {
     const result = await chatService.getRecentChats(req.user.id);
     res.json(result);
 }
+
+export async function getTripGroups(req, res) {
+    const result = await chatService.getTripGroups(req.user.id);
+    res.json(result);
+}
+
+export async function getTripGroupMessages(req, res) {
+    const result = await chatService.getTripGroupMessages(req.params.itineraryId, req.user.id);
+    res.json(result);
+}
+
+export async function sendTripGroupMessage(req, res) {
+    const result = await chatService.sendTripGroupMessage(
+        req.params.itineraryId,
+        req.user.id,
+        req.body.content
+    );
+    res.status(201).json(result);
+}

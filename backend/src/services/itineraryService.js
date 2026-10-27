@@ -22,10 +22,14 @@ export async function getPackingCatalog() {
 export async function createItinerary(userId, data) {
     const items = Array.isArray(data.items) ? data.items : [];
     const packingItems = Array.isArray(data.packingItems) ? data.packingItems : [];
+    const collaboratorIds = Array.isArray(data.collaboratorIds) ? data.collaboratorIds : [];
 
     const itinerary = await prisma.$transaction(async (tx) => {
         const created = await tx.itineraries.create({
-            data: buildItineraryData(userId, data)
+            data: {
+                ...buildItineraryData(userId, data),
+                visibility: collaboratorIds.length > 0 ? "shared" : (data.visibility || "private")
+            }
         });
 
         for (let index = 0; index < items.length; index++) {
@@ -52,6 +56,28 @@ export async function createItinerary(userId, data) {
             }
         }
 
+        // Thêm bạn bè làm cộng tác viên
+        for (const cId of collaboratorIds) {
+            if (cId && String(cId) !== String(userId)) {
+                await tx.itinerary_collaborators.create({
+                    data: {
+                        itinerary_id: created.id,
+                        user_id: BigInt(cId),
+                        permission: "edit"
+                    }
+                });
+            }
+        }
+
+        // Khởi tạo tin nhắn chào mừng trong nhóm chat chuyến đi
+        await tx.itinerary_messages.create({
+            data: {
+                itinerary_id: created.id,
+                sender_id: BigInt(userId),
+                content: `[Hệ thống] Nhóm chat cho chuyến đi "${created.name}" đã được tạo. Hãy cùng các thành viên thảo luận và lên lịch trình nhé!`
+            }
+        });
+
         return tx.itineraries.findUnique({
             where: { id: created.id },
             include: {
@@ -61,6 +87,13 @@ export async function createItinerary(userId, data) {
                 },
                 packing_items: {
                     orderBy: { id: "asc" }
+                },
+                collaborators: {
+                    include: {
+                        users: {
+                            select: { id: true, full_name: true, email: true, avatar_url: true }
+                        }
+                    }
                 }
             }
         });

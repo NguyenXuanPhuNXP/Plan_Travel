@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { locationService } from '../services/locationService';
 import { itineraryService } from '../services/itineraryService';
+import { friendService } from '../services/friendService';
 import { useTrips } from '../context/TripContext';
 import DestinationPicker from './DestinationPicker';
 import TimelineEditor from './TimelineEditor';
@@ -94,6 +95,18 @@ const PlannerWizard = () => {
   const [showPackingAccordion, setShowPackingAccordion] = useState(false);
   const [packingList, setPackingList] = useState([]);
   const [packingCategoryFilter, setPackingCategoryFilter] = useState('all');
+  const [friendsList, setFriendsList] = useState([]);
+  const [selectedFriendIds, setSelectedFriendIds] = useState([]);
+
+  useEffect(() => {
+    friendService.getFriends().then(f => setFriendsList(f || [])).catch(() => {});
+  }, []);
+
+  const toggleSelectFriend = (friendId) => {
+    setSelectedFriendIds(prev =>
+      prev.includes(friendId) ? prev.filter(id => id !== friendId) : [...prev, friendId]
+    );
+  };
 
   useEffect(() => {
     async function loadCatalog() {
@@ -348,6 +361,7 @@ const PlannerWizard = () => {
       totalCost: getEffectiveBudget(),
       preferences: tripInfo.preferences,
       packingItems: selectedPacking,
+      collaboratorIds: selectedFriendIds,
       description: null,
       items: selectedLocations
         .filter((loc) => loc?.id)

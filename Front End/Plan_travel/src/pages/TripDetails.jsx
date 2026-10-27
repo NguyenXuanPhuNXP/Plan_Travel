@@ -28,7 +28,8 @@ import {
   Briefcase,
   CheckSquare,
   Square,
-  Car
+  Car,
+  MessageCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { sharingService } from '../services/sharingService';
@@ -611,6 +612,17 @@ const TripDetails = () => {
                 <button onClick={openGroupModal} className="btn btn-outline">
                   <Users size={18} /> Nhóm kế hoạch
                 </button>
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('open-trip-chat', {
+                      detail: { itineraryId: trip.id, tripName: trip.title || trip.name }
+                    }));
+                  }}
+                  className="btn btn-primary"
+                  style={{ gap: 6 }}
+                >
+                  <MessageCircle size={18} /> Nhóm chat
+                </button>
               </div>
             </div>
           </div>
@@ -982,7 +994,19 @@ const TripDetails = () => {
                     </div>
                   )}
                 </div>
-                <div className="trip-details-modal-footer">
+                <div className="trip-details-modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button
+                    onClick={() => {
+                      setShowGroupModal(false);
+                      window.dispatchEvent(new CustomEvent('open-trip-chat', {
+                        detail: { itineraryId: trip.id, tripName: trip.title || trip.name }
+                      }));
+                    }}
+                    className="btn btn-primary"
+                    style={{ gap: 6 }}
+                  >
+                    <MessageCircle size={16} /> Mở nhóm chat
+                  </button>
                   <button onClick={() => setShowGroupModal(false)} className="btn btn-outline trip-details-modal-btn">
                     Đóng
                   </button>

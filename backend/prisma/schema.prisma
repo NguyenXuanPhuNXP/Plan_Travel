@@ -89,6 +89,7 @@ model itineraries {
   itinerary_items    itinerary_items[]
   collaborators      itinerary_collaborators[]
   packing_items      itinerary_packing_items[]
+  messages           itinerary_messages[]
 
   @@index([user_id], map: "idx_itineraries_user")
   @@index([share_token], map: "idx_itineraries_share_token")
@@ -163,32 +164,32 @@ model location_seed_jobs {
 }
 
 model locations {
-  id                 BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
-  external_id        String            @unique(map: "uq_locations_external_id") @db.VarChar(255)
-  source             String            @default("geoapify") @db.VarChar(50)
-  name               String            @db.VarChar(255)
-  address            String?           @db.Text
-  country            String?           @db.VarChar(100)
-  country_code       String?           @db.VarChar(10)
-  province           String?           @db.VarChar(100)
-  city               String?           @db.VarChar(100)
-  district           String?           @db.VarChar(100)
-  region             String?           @db.VarChar(100)
-  category           String?           @db.VarChar(100)
-  subcategory        String?           @db.VarChar(150)
-  description        String?           @db.Text
-  latitude           Decimal           @db.Decimal(10, 7)
-  longitude          Decimal           @db.Decimal(10, 7)
+  id                 BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  external_id        String               @unique(map: "uq_locations_external_id") @db.VarChar(255)
+  source             String               @default("geoapify") @db.VarChar(50)
+  name               String               @db.VarChar(255)
+  address            String?              @db.Text
+  country            String?              @db.VarChar(100)
+  country_code       String?              @db.VarChar(10)
+  province           String?              @db.VarChar(100)
+  city               String?              @db.VarChar(100)
+  district           String?              @db.VarChar(100)
+  region             String?              @db.VarChar(100)
+  category           String?              @db.VarChar(100)
+  subcategory        String?              @db.VarChar(150)
+  description        String?              @db.Text
+  latitude           Decimal              @db.Decimal(10, 7)
+  longitude          Decimal              @db.Decimal(10, 7)
   geo_point          Unsupported("point")
-  estimated_cost     Int               @default(0)
-  suggested_duration String?           @db.VarChar(50)
-  image_url          String?           @db.Text
-  rating             Decimal?          @db.Decimal(3, 2)
+  estimated_cost     Int                  @default(0)
+  suggested_duration String?              @db.VarChar(50)
+  image_url          String?              @db.Text
+  rating             Decimal?             @db.Decimal(3, 2)
   tags               Json?
   raw_json           Json?
   embedding          Json?
-  created_at         DateTime          @default(now()) @db.Timestamp(0)
-  updated_at         DateTime          @default(now()) @db.Timestamp(0)
+  created_at         DateTime             @default(now()) @db.Timestamp(0)
+  updated_at         DateTime             @default(now()) @db.Timestamp(0)
   itinerary_items    itinerary_items[]
   reviews            reviews[]
   visit_history      visit_history[]
@@ -266,6 +267,7 @@ model users {
   user_notifications  user_notifications[]
   sent_messages       user_messages[]           @relation("sent_messages")
   received_messages   user_messages[]           @relation("received_messages")
+  itinerary_messages  itinerary_messages[]
 }
 
 model itinerary_collaborators {
@@ -374,4 +376,17 @@ model user_messages {
 
   @@index([sender_id], map: "idx_user_messages_sender")
   @@index([receiver_id], map: "idx_user_messages_receiver")
+}
+
+model itinerary_messages {
+  id           BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  itinerary_id BigInt      @db.UnsignedBigInt
+  sender_id    BigInt      @db.UnsignedBigInt
+  content      String      @db.Text
+  created_at   DateTime    @default(now()) @db.Timestamp(0)
+  itinerary    itineraries @relation(fields: [itinerary_id], references: [id], onDelete: Cascade)
+  sender       users       @relation(fields: [sender_id], references: [id], onDelete: Cascade)
+
+  @@index([itinerary_id], map: "idx_itinerary_messages_itinerary")
+  @@index([sender_id], map: "idx_itinerary_messages_sender")
 }

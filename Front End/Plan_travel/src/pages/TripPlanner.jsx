@@ -5,6 +5,7 @@ import { useTrips } from '../context/TripContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { itineraryService } from '../services/itineraryService';
 import { locationService } from '../services/locationService';
+import { friendService } from '../services/friendService';
 import { motion, Reorder } from 'framer-motion';
 import {
   Save,
@@ -80,6 +81,19 @@ const TripPlanner = () => {
 
   // 2. Cost Breakdown
   const [showCostAccordion, setShowCostAccordion] = useState(false);
+  const [friendsList, setFriendsList] = useState([]);
+  const [selectedFriendIds, setSelectedFriendIds] = useState([]);
+
+  useEffect(() => {
+    friendService.getFriends().then(f => setFriendsList(f || [])).catch(() => {});
+  }, []);
+
+  const toggleSelectFriend = (friendId) => {
+    setSelectedFriendIds(prev =>
+      prev.includes(friendId) ? prev.filter(id => id !== friendId) : [...prev, friendId]
+    );
+  };
+
   const [costBreakdown, setCostBreakdown] = useState({
     scope: 'PERSON', // 'PERSON' or 'GROUP'
     transport: 500000,
@@ -319,7 +333,8 @@ const TripPlanner = () => {
           travelMinutes: Number(item.travelMinutes) || null,
           note: item.note || null
         })),
-        packingItems: selectedPackingToSave
+        packingItems: selectedPackingToSave,
+        collaboratorIds: selectedFriendIds
       };
 
       // 2. Call backend API to save to MySQL through Prisma
@@ -651,6 +666,52 @@ const TripPlanner = () => {
                   </div>
                 </div>
               )}
+            </div>
+
+            
+            {/* Friends / Collaborators Selection */}
+            <div className="trip-planner-friends-section">
+              <label className="trip-planner-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Users size={16} color="var(--primary)" /> Mời bạn bè cùng lập kế hoạch
+                </span>
+                {selectedFriendIds.length > 0 && (
+                  <span className="trip-planner-friend-count-badge">
+                    Đã chọn {selectedFriendIds.length} người
+                  </span>
+                )}
+              </label>
+
+              {friendsList.length > 0 ? (
+                <div className="trip-planner-friends-list">
+                  {friendsList.map((friend) => {
+                    const isSelected = selectedFriendIds.includes(String(friend.id));
+                    return (
+                      <button
+                        key={friend.id}
+                        type="button"
+                        onClick={() => toggleSelectFriend(String(friend.id))}
+                        className={`trip-planner-friend-chip ${isSelected ? 'selected' : ''}`}
+                      >
+                        <img
+                          src={friend.avatar || '/avatars/traveler.svg'}
+                          alt={friend.name}
+                          className="trip-planner-friend-avatar"
+                        />
+                        <span className="trip-planner-friend-name">{friend.name}</span>
+                        {isSelected ? <CheckSquare size={14} color="var(--primary)" /> : <Square size={14} color="#94a3b8" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="trip-planner-friends-empty">
+                  Chưa có bạn bè trong danh sách. Bạn vẫn có thể tạo link mời sau khi lưu chuyến đi.
+                </p>
+              )}
+              <p className="trip-planner-friends-hint">
+                💡 Khi lưu, bạn bè được chọn sẽ tự động được thêm vào nhóm cùng lập kế hoạch và tham gia nhóm chat chung của chuyến đi.
+              </p>
             </div>
 
             {/* Notes */}

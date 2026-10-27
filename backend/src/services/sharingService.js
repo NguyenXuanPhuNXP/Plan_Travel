@@ -138,6 +138,18 @@ export async function joinGroupByInvite(inviteToken, userId) {
                 permission: "view"
             }
         });
+
+        // Tin nhắn hệ thống vào nhóm chat
+        try {
+            const joiningUser = await prisma.users.findUnique({ where: { id: BigInt(userId) } });
+            await prisma.itinerary_messages.create({
+                data: {
+                    itinerary_id: itinerary.id,
+                    sender_id: BigInt(userId),
+                    content: `[Hệ thống] ${joiningUser?.full_name || 'Thành viên mới'} đã tham gia nhóm qua link mời!`
+                }
+            });
+        } catch (e) {}
     }
 
     const updated = await prisma.itineraries.findUnique({
@@ -203,9 +215,12 @@ export async function getSharedItinerary(shareToken) {
 /**
  * Thêm collaborator vào itinerary
  */
-export async function addCollaborator(itineraryId, ownerId, { email, permission }) {
+export async function addCollaborator(itineraryId, ownerId, { email, userId, friendId, permission }) {
     const itinerary = await prisma.itineraries.findUnique({
-        where: { id: BigInt(itineraryId) }
+        where: { id: BigInt(itineraryId) },
+        include: {
+            users: { select: { id: true, full_name: true } }
+        }
     });
 
     if (!itinerary) throw { status: 404, message: "Không tìm thấy lịch trình." };
@@ -213,8 +228,15 @@ export async function addCollaborator(itineraryId, ownerId, { email, permission 
         throw { status: 403, message: "Chỉ chủ sở hữu mới có thể mời." };
     }
 
-    const targetUser = await prisma.users.findUnique({ where: { email } });
-    if (!targetUser) throw { status: 404, message: "Không tìm thấy người dùng với email này." };
+    const targetId = userId || friendId;
+    let targetUser = null;
+    if (targetId) {
+        targetUser = await prisma.users.findUnique({ where: { id: BigInt(targetId) } });
+    } else if (email) {
+        targetUser = await prisma.users.findUnique({ where: { email } });
+    }
+
+    if (!targetUser) throw { status: 404, message: "Không tìm thấy người dùng." };
     if (targetUser.id === BigInt(ownerId)) {
         throw { status: 400, message: "Không thể mời chính mình." };
     }
@@ -240,6 +262,33 @@ export async function addCollaborator(itineraryId, ownerId, { email, permission 
                 permission: permission || "view"
             }
         });
+
+        // Tự động tạo tin nhắn hệ thống vào nhóm chat chuyến đi
+        try {
+            await prisma.itinerary_messages.create({
+                data: {
+                    itinerary_id: BigInt(itineraryId),
+                    sender_id: BigInt(ownerId),
+                    content: `[Hệ thống] ${targetUser.full_name || 'Thành viên mới'} đã được thêm vào nhóm cùng lập kế hoạch!`
+                }
+            });
+        } catch (msgErr) {
+            console.error("Failed to create welcome message in group chat:", msgErr);
+        }
+
+        // Tạo thông báo cho bạn bè được mời
+        try {
+            await prisma.user_notifications.create({
+                data: {
+                    user_id: targetUser.id,
+                    type: "group_invite",
+                    title: "Thêm vào nhóm lập kế hoạch",
+                    message: `${itinerary.users?.full_name || 'Bạn bè'} đã thêm bạn vào cùng lập kế hoạch chuyến đi "${itinerary.name}". Hãy vào nhóm chat để cùng thảo luận!`
+                }
+            });
+        } catch (notifErr) {
+            console.error("Failed to create invite notification:", notifErr);
+        }
     }
 
     // Ensure visibility is at least "shared"
