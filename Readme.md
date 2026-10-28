@@ -148,13 +148,9 @@ JWT_SECRET=travel_planner_secret_jwt_key_2026
 
 ### 2.2. Cơ chế Tự Động Khởi Tạo (Auto-Migration & Seeding)
 
-Hệ thống đã được tích hợp **cơ chế tự động 100%**:
-* Khi bạn khởi động Backend (`npm start`), server sẽ tự động kiểm tra kết nối tới MySQL.
-* Nếu database `travel_planner` chưa có bảng, server sẽ **tự động tạo các bảng**:
-  * `users`: Lưu thông tin tài khoản người dùng (hỗ trợ cả Email/Mật khẩu và Google OAuth).
-  * `categories`: Danh mục địa điểm (Di tích, Thắng cảnh, Ẩm thực...).
-  * `locations`: Tọa độ địa lý kinh độ, vĩ độ và điểm không gian `geo_point`.
-* Tự động **chèn dữ liệu mẫu (Seeding)** các danh lam thắng cảnh tiêu biểu (Hồ Hoàn Kiếm, Văn Miếu, Lăng Bác...).
+Sau khi cấu hình `backend/.env` và bật MySQL local, chạy `npm run db:init` tại thư mục gốc. Lệnh tạo DB nếu thiếu, áp dụng Prisma migrations và seed tài khoản, địa điểm demo. Chạy lại không xóa dữ liệu hay đổi mật khẩu hiện có.
+
+Backend không tự tạo toàn bộ DB khi `npm start`. Xem [hướng dẫn DB và tài khoản demo](backend/database/README.md).
 
 ---
 
@@ -180,22 +176,17 @@ Dự án đã có sẵn file `backend/compose.yml` chuẩn:
    ```
 2. Lệnh trên sẽ tự động:
    * Chạy container **MySQL 8.0** trên cổng `3306`.
-   * Tự động nạp cấu trúc database từ file `backend/database/schema.sql`.
+   * Sau khi MySQL sẵn sàng, chạy `npm run db:init` để áp dụng cấu trúc và dữ liệu hiện tại.
    * Chạy **phpMyAdmin** tại `http://localhost:8080` (Tài khoản: `root`, Mật khẩu: `123456`) để bạn xem và quản lý bảng trực quan trên web.
 
-#### 👉 Cách 3: Nạp thủ công bằng file SQL (MySQL Workbench / XAMPP / Laragon)
-Nếu bạn muốn tự tạo thủ công:
-* Toàn bộ câu lệnh DDL và dữ liệu mẫu đã được lưu tại: [`backend/database/schema.sql`](backend/database/schema.sql).
-* Mở **MySQL Workbench** hoặc **phpMyAdmin** ➔ Mở file `schema.sql` và nhấn **Execute**.
+#### 👉 Cách 3: Dùng MySQL của XAMPP / Laragon
+Cập nhật `DATABASE_URL` trong `backend/.env`, rồi chạy `npm run db:init`. File `backend/database/schema.sql` thuộc cấu trúc cũ, chỉ dùng tham khảo; không import vào DB của API mới.
 
 ---
 
-### 2.4. Cơ Chế Dự Phòng Thông Minh (In-Memory Fallback)
+### 2.4. Đăng nhập và kết nối DB
 
-Nếu bạn chưa bật MySQL hoặc MySQL bị lỗi mật khẩu:
-* Backend **sẽ không bị crash** (không văng lỗi 500).
-* Hệ thống tự động chuyển sang chế độ **Bộ nhớ đệm (In-Memory Fallback)** để lưu session tạm thời.
-* Bạn vẫn có thể trải nghiệm toàn bộ giao diện, lập kế hoạch, test chức năng đăng nhập thường và Đăng nhập bằng Google bình thường mà không bị gián đoạn.
+Đăng nhập cần API và MySQL hoạt động. Khi kết nối lỗi, ứng dụng báo lỗi thay vì tạo phiên đăng nhập giả. Google cần OAuth Client ID thật, giống nhau trong frontend và backend; giá trị mẫu không dùng để đăng nhập được.
 
 ---
 

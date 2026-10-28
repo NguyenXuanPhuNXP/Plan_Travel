@@ -171,7 +171,7 @@ export async function getItineraryById(itineraryId, userId = null) {
     if (!itinerary) return null;
 
     // Check access permission
-    if (itinerary.visibility === "private") {
+    if (["private", "shared"].includes(itinerary.visibility)) {
         if (!userId) return null;
         const isOwner = itinerary.user_id === BigInt(userId);
         const isCollaborator = itinerary.collaborators.some(

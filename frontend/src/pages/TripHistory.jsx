@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../Components/Layout/Layout';
 import { useTrips } from '../context/TripContext';
 import { useAuth } from '../context/AuthContext';
+import TripMembersModal from '../Components/Layout/TripMembersModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -25,10 +26,17 @@ const TripHistory = () => {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? '--/--/----' : format(date, 'dd/MM/yyyy');
   };
-  const { trips, deleteTrip, fetchTrips, loading } = useTrips();
+  const { trips, deleteTrip, fetchTrips, loading, error } = useTrips();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [actionError, setActionError] = useState('');
+  const handleDelete = async id => {
+    if (!window.confirm('Xóa kế hoạch này?')) return;
+    try { await deleteTrip(id); }
+    catch (err) { setActionError(err.response?.data?.message || 'Không thể xóa kế hoạch.'); }
+  };
 
   useEffect(() => {
     fetchTrips();
@@ -70,6 +78,7 @@ const TripHistory = () => {
           </Link>
         </div>
 
+        {(error || actionError) && <p role="alert">{actionError || error}</p>}
         {/* Filters */}
         <div className="trip-history-filters">
           <div className="trip-history-search">
@@ -142,9 +151,9 @@ const TripHistory = () => {
                 <div className="trip-history-content">
                   <div className="trip-history-card-header">
                     <h3 className="trip-history-card-title">{tripTitle}</h3>
-                    <button onClick={() => deleteTrip(trip.id)} className="trip-history-delete-btn" title="Xóa">
+                    {String(trip.userId || trip.owner?.id) === String(user?.id) && <button onClick={() => handleDelete(trip.id)} className="trip-history-delete-btn" title="Xóa">
                       <Trash2 size={18} />
-                    </button>
+                    </button>}
                   </div>
 
                   <div className="trip-history-meta">
@@ -159,6 +168,9 @@ const TripHistory = () => {
                   </div>
 
                   <div className="trip-history-footer">
+                    <button type="button" className="btn btn-outline" onClick={() => setSelectedTrip(trip)}>
+                      {String(trip.userId || trip.owner?.id) === String(user?.id) ? 'Thêm thành viên' : 'Thành viên'}
+                    </button>
                     <div className="trip-history-budget">
                       <span>Ngân sách: </span>
                       {budgetVal.toLocaleString()}đ
@@ -177,6 +189,7 @@ const TripHistory = () => {
             )}
           </AnimatePresence>
         </div>
+        {selectedTrip && <TripMembersModal key={selectedTrip.id} trip={selectedTrip} userId={user?.id} onClose={() => setSelectedTrip(null)} onUpdated={fetchTrips} />}
       </div>
     </Layout>
   );

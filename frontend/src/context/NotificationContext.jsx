@@ -6,12 +6,10 @@ import { friendService } from '../services/friendService';
 import '../pages/Notifications.css';
 
 const NotificationContext = createContext();
-const STORAGE_KEY = 'travel_notifications';
-const ENABLED_KEY = 'travel_notifications_enabled';
 
-const readStored = () => {
+const readStored = (key) => {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    return JSON.parse(localStorage.getItem(key) || '[]');
   } catch {
     return [];
   }
@@ -34,7 +32,9 @@ const dayDiff = (target) => {
 export const NotificationProvider = ({ children }) => {
   const { trips } = useTrips();
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState(readStored);
+  const STORAGE_KEY = 'travel_notifications:' + (user?.id || 'guest');
+  const ENABLED_KEY = 'travel_notifications_enabled:' + (user?.id || 'guest');
+  const [notifications, setNotifications] = useState(() => user?.id ? readStored(STORAGE_KEY) : []);
   const [enabled, setEnabled] = useState(localStorage.getItem(ENABLED_KEY) !== 'false');
   const [toast, setToast] = useState(null);
   const seenUpdates = useRef(new Map());
@@ -73,15 +73,17 @@ export const NotificationProvider = ({ children }) => {
       setToast(item);
       setTimeout(() => setToast(null), 4200);
     }
-  }, [enabled]);
+  }, [enabled, STORAGE_KEY]);
 
   useEffect(() => {
-    localStorage.setItem(ENABLED_KEY, String(enabled));
-  }, [enabled]);
+    if (user?.id) localStorage.setItem(ENABLED_KEY, String(enabled));
+  }, [enabled, ENABLED_KEY, user?.id]);
 
   useEffect(() => {
+    let active = true;
     if (user?.id) {
-      friendService.getNotifications().then(data => {
+      const refresh = () => friendService.getNotifications().then(data => {
+        if (!active) return;
         if (data && data.notifications) {
           data.notifications.forEach(n => {
             pushNotification({
@@ -94,25 +96,19 @@ export const NotificationProvider = ({ children }) => {
             }, false);
           });
         }
-        if (data && data.friendRequests) {
-          data.friendRequests.forEach(req => {
-            pushNotification({
-              id: `req_${req.id}`,
-              type: 'friend_request',
-              title: 'Lời mời kết bạn mới',
-              message: `${req.user.name} đã gửi lời mời kết bạn.`,
-              read: false,
-              createdAt: req.createdAt
-            }, false);
-          });
-        }
       }).catch(err => {
         console.error("Failed to fetch notifications:", err);
       });
+      refresh();
+      const timer = setInterval(refresh, 30000);
+      window.addEventListener('friends:updated', refresh);
+      return () => { active = false; clearInterval(timer); window.removeEventListener('friends:updated', refresh); };
     }
+    return () => { active = false; };
   }, [user?.id, pushNotification]);
 
   useEffect(() => {
+    if (!user?.id) return;
     trips.forEach((trip) => {
       const diff = dayDiff(trip.startDate);
       if (diff === 1) {

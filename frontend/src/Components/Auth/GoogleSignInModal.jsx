@@ -1,4 +1,4 @@
-import { GoogleLogin } from '@react-oauth/google';
+import GoogleOneTap from './GoogleOneTap';
 export const GoogleLogo = () => (
   <svg className="btn-google-icon" viewBox="0 0 24 24">
     <path
@@ -24,9 +24,9 @@ export const GoogleLogo = () => (
 export const GoogleSignInModal = ({ isOpen, onClose, onSelectAccount }) => {
   if (!isOpen) return null;
   return <div className="google-modal-backdrop" onClick={onClose}>
-    <div className="google-modal-container" role="dialog" aria-modal="true" aria-label="??ng nh?p Google" onClick={e => e.stopPropagation()}>
-      <button type="button" onClick={onClose} aria-label="??ng">?</button>
-      {import.meta.env.VITE_GOOGLE_CLIENT_ID ? <GoogleLogin onSuccess={response => { onSelectAccount({ credential: response.credential }); onClose(); }} onError={() => onClose()} /> : <p>??ng nh?p Google ch?a ???c c?u h?nh.</p>}
+    <div className="google-modal-container" role="dialog" aria-modal="true" aria-label="Đăng nhập Google" onClick={e => e.stopPropagation()}>
+      <button type="button" onClick={onClose} aria-label="Đóng">×</button>
+      <GoogleOneTap onCredential={async data => { await onSelectAccount(data); onClose(); }} />
     </div>
   </div>;
 };

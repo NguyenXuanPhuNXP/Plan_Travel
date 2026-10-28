@@ -1,94 +1,11 @@
 import apiClient from './apiClient';
-
 export const itineraryService = {
-  getAll: async () => {
-    try {
-      const response = await apiClient.get('/itineraries');
-      return response.data;
-    } catch (err) {
-      console.warn('itineraryService.getAll fallback:', err.message);
-      const stored = localStorage.getItem('travel_trips');
-      return stored ? JSON.parse(stored) : [];
-    }
-  },
-
-  getById: async (id) => {
-    if (!id) return null;
-    // Check localStorage first if it's a local fallback ID
-    if (!/^\d+$/.test(String(id))) {
-      const stored = localStorage.getItem('travel_trips');
-      if (stored) {
-        try {
-          const trips = JSON.parse(stored);
-          const found = trips.find(t => String(t.id) === String(id));
-          if (found) return found;
-        } catch {
-          // ignore
-        }
-      }
-      return null;
-    }
-
-    try {
-      const response = await apiClient.get(`/itineraries/${id}`);
-      return response.data;
-    } catch (err) {
-      console.warn('itineraryService.getById fallback:', err.message);
-      const stored = localStorage.getItem('travel_trips');
-      if (stored) {
-        try {
-          const trips = JSON.parse(stored);
-          return trips.find(t => String(t.id) === String(id)) || null;
-        } catch {
-          return null;
-        }
-      }
-      return null;
-    }
-  },
-
-  create: async (data) => {
-    try {
-      const response = await apiClient.post('/itineraries', data);
-      return response.data;
-    } catch (err) {
-      console.warn('itineraryService.create fallback:', err.message);
-      // Fallback local object
-      const fallbackId = `itinerary_${Date.now()}`;
-      return { id: fallbackId, ...data };
-    }
-  },
-
-  update: async (id, data) => {
-    try {
-      const response = await apiClient.put(`/itineraries/${id}`, data);
-      return response.data;
-    } catch (err) {
-      console.warn('itineraryService.update fallback:', err.message);
-      return { id, ...data };
-    }
-  },
-
-  delete: async (id) => {
-    try {
-      const response = await apiClient.delete(`/itineraries/${id}`);
-      return response.data;
-    } catch (err) {
-      console.warn('itineraryService.delete fallback:', err.message);
-      return { success: true };
-    }
-  },
-
-  getPackingCatalog: async () => {
-    try {
-      const response = await apiClient.get('/itineraries/packing-catalog');
-      return response.data;
-    } catch (err) {
-      console.warn('itineraryService.getPackingCatalog fallback:', err.message);
-      return [];
-    }
-  },
-
+  getAll: async () => (await apiClient.get('/itineraries')).data,
+  getById: async id => (await apiClient.get('/itineraries/' + id)).data,
+  create: async data => (await apiClient.post('/itineraries', data)).data,
+  update: async (id, data) => (await apiClient.put('/itineraries/' + id, data)).data,
+  delete: async id => (await apiClient.delete('/itineraries/' + id)).data,
+  getPackingCatalog: async () => (await apiClient.get('/itineraries/packing-catalog')).data,
   addPackingItem: async (itineraryId, data) => {
     const response = await apiClient.post(`/itineraries/${itineraryId}/packing`, data);
     return response.data;

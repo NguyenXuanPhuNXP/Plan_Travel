@@ -233,10 +233,11 @@ export async function addCollaborator(itineraryId, ownerId, { email, userId, fri
     if (targetId) {
         targetUser = await prisma.users.findUnique({ where: { id: BigInt(targetId) } });
     } else if (email) {
-        targetUser = await prisma.users.findUnique({ where: { email } });
+        targetUser = await prisma.users.findUnique({ where: { email: String(email).trim().toLowerCase() } });
     }
 
-    if (!targetUser) throw { status: 404, message: "Không tìm thấy người dùng." };
+    if (!targetUser || !targetUser.is_active) throw { status: 404, message: "Không tìm thấy người dùng." };
+    if (permission && !['view', 'edit'].includes(permission)) throw { status: 400, message: 'Quyền truy cập không hợp lệ.' };
     if (targetUser.id === BigInt(ownerId)) {
         throw { status: 400, message: "Không thể mời chính mình." };
     }

@@ -16,8 +16,9 @@ router.get('/google/challenge', (_req, res, next) => {
 });
 router.post('/google', asyncHandler(async (req, res) => {
     // GIS callback uses JSON fetch; reject cross-origin login submissions.
-    const allowedOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
-    if (req.get('origin') !== allowedOrigin) {
+    const allowedOrigins = (process.env.FRONTEND_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173')
+        .split(',').map(value => value.trim());
+    if (!allowedOrigins.includes(req.get('origin'))) {
         throw { status: 403, message: 'Nguồn đăng nhập Google không hợp lệ.' };
     }
     res.set('Cache-Control', 'no-store').json(await googleAuth.login(req.body));
@@ -25,7 +26,6 @@ router.post('/google', asyncHandler(async (req, res) => {
 
 router.post("/register", asyncHandler(authController.register));
 router.post("/login", asyncHandler(authController.login));
-router.post("/google", asyncHandler(authController.loginWithGoogle));
 router.post("/refresh", asyncHandler(authController.refreshToken));
 router.post("/logout", asyncHandler(authController.logout));
 
