@@ -323,6 +323,8 @@ export async function addItem(itineraryId, userId, data) {
 export async function updateItem(itineraryId, itemId, userId, data) {
     const canEdit = await checkEditPermission(itineraryId, userId);
     if (!canEdit) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
+    const belongsToPlan = await prisma.itinerary_items.findFirst({ where: { id: BigInt(itemId), itinerary_id: BigInt(itineraryId) } });
+    if (!belongsToPlan) throw { status: 404, message: 'Điểm dừng không thuộc kế hoạch này.' };
 
     const updateData = {};
     if (data.customName !== undefined) updateData.custom_name = data.customName;
@@ -347,6 +349,8 @@ export async function updateItem(itineraryId, itemId, userId, data) {
 export async function removeItem(itineraryId, itemId, userId) {
     const canEdit = await checkEditPermission(itineraryId, userId);
     if (!canEdit) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
+    const belongsToPlan = await prisma.itinerary_items.findFirst({ where: { id: BigInt(itemId), itinerary_id: BigInt(itineraryId) } });
+    if (!belongsToPlan) throw { status: 404, message: 'Điểm dừng không thuộc kế hoạch này.' };
 
     await prisma.itinerary_items.delete({
         where: { id: BigInt(itemId) }
@@ -372,6 +376,11 @@ export async function removeItem(itineraryId, itemId, userId) {
 export async function reorderItems(itineraryId, userId, orderedItemIds) {
     const canEdit = await checkEditPermission(itineraryId, userId);
     if (!canEdit) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
+    const planItems = await prisma.itinerary_items.findMany({ where: { itinerary_id: BigInt(itineraryId) }, select: { id: true } });
+    const allowed = new Set(planItems.map(item => String(item.id)));
+    if (!Array.isArray(orderedItemIds) || orderedItemIds.length !== allowed.size || new Set(orderedItemIds.map(String)).size !== allowed.size || orderedItemIds.some(itemId => !allowed.has(String(itemId)))) {
+        throw { status: 400, message: 'Thứ tự điểm dừng không hợp lệ hoặc có điểm thuộc kế hoạch khác.' };
+    }
 
     await prisma.$transaction(async (tx) => {
         for (let i = 0; i < orderedItemIds.length; i++) {
@@ -420,6 +429,8 @@ export async function addPackingItem(itineraryId, userId, data) {
 export async function updatePackingItem(itineraryId, packingItemId, userId, data) {
     const canEdit = await checkEditPermission(itineraryId, userId);
     if (!canEdit) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
+    const belongsToPlan = await prisma.itinerary_packing_items.findFirst({ where: { id: BigInt(packingItemId), itinerary_id: BigInt(itineraryId) } });
+    if (!belongsToPlan) throw { status: 404, message: 'Vật dụng không thuộc kế hoạch này.' };
 
     const updateData = {};
     if (data.isPacked !== undefined) updateData.is_packed = Boolean(data.isPacked);
@@ -447,6 +458,8 @@ export async function updatePackingItem(itineraryId, packingItemId, userId, data
 export async function removePackingItem(itineraryId, packingItemId, userId) {
     const canEdit = await checkEditPermission(itineraryId, userId);
     if (!canEdit) throw { status: 403, message: "Bạn không có quyền chỉnh sửa." };
+    const belongsToPlan = await prisma.itinerary_packing_items.findFirst({ where: { id: BigInt(packingItemId), itinerary_id: BigInt(itineraryId) } });
+    if (!belongsToPlan) throw { status: 404, message: 'Vật dụng không thuộc kế hoạch này.' };
 
     await prisma.itinerary_packing_items.delete({
         where: { id: BigInt(packingItemId) }
@@ -554,7 +567,7 @@ async function checkEditPermission(itineraryId, userId) {
 function serializeItinerary(it) {
     const rawTotalCost = Number(it.total_cost || 0);
     const rawBudget = it.budget ? Number(it.budget) : 0;
-    const resolvedTotalCost = rawTotalCost > 0 ? rawTotalCost : rawBudget;
+    const resolvedTotalCost = it.total_cost != null ? rawTotalCost : rawBudget;
     const items = it.itinerary_items?.map(serializeItem) || [];
 
     return {
@@ -569,7 +582,7 @@ function serializeItinerary(it) {
         startDate: it.start_time,
         endDate: it.end_time,
         totalDays: it.total_days,
-        budget: it.budget ? Number(it.budget) : (resolvedTotalCost || 0),
+        budget: it.budget != null ? Number(it.budget) : (resolvedTotalCost || 0),
         travelerCount: it.traveler_count ?? 1,
         transportMode: it.transport_mode ?? null,
         costScope: it.cost_scope ?? "PERSON",
@@ -649,8 +662,8 @@ function serializeItem(item) {
             id: `custom_${item.id}`,
             name: item.custom_name,
             address: '',
-            latitude: 21.0285,
-            longitude: 105.8542,
+            latitude: null,
+            longitude: null,
             category: 'custom',
             imageUrl: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
             estimatedCost: 0,

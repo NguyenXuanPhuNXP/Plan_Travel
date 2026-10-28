@@ -1,5 +1,8 @@
 import apiClient from './apiClient';
 export const itineraryService = {
+  savePlan: async (id, data) => (await apiClient.put('/itineraries/' + id + '/plan', data)).data,
+  addItem: async (id, data) => (await apiClient.post('/itineraries/' + id + '/items', data)).data,
+  removeItem: async (id, itemId) => (await apiClient.delete('/itineraries/' + id + '/items/' + itemId)).data,
   getAll: async () => (await apiClient.get('/itineraries')).data,
   getById: async id => (await apiClient.get('/itineraries/' + id)).data,
   create: async data => (await apiClient.post('/itineraries', data)).data,

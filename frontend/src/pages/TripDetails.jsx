@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../Components/Layout/Layout';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
+import TripEdit from './TripEdit';
 import { useTrips } from '../context/TripContext';
 import { itineraryService } from '../services/itineraryService';
 import { useGeolocation } from '../hooks/useGeolocation';
@@ -32,9 +33,10 @@ import {
   MessageCircle,
   Plus,
   Search,
-  Check
+  Check,
+  Edit3
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { sharingService } from '../services/sharingService';
 import { friendService } from '../services/friendService';
 import { useAuth } from '../context/AuthContext';
@@ -53,6 +55,9 @@ const PACKING_CATEGORIES = [
 
 const TripDetails = () => {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showPlanEditor = searchParams.get('edit') === '1';
+  const closePlanEditor = () => setSearchParams(previous => { previous.delete('edit'); return previous; }, { replace: true });
   const { getTripById, updateTrip, fetchTrips } = useTrips();
   const { user } = useAuth();
   const { pushNotification } = useNotifications();
@@ -63,6 +68,7 @@ const TripDetails = () => {
   const trip = dbTrip || contextTrip;
   const [isLoadingTrip, setIsLoadingTrip] = useState(!trip);
   const [packingItems, setPackingItems] = useState(trip?.packingItems || []);
+  const [selectedDayTab, setSelectedDayTab] = useState('all');
 
   useEffect(() => {
     async function loadFreshTrip() {
@@ -305,20 +311,24 @@ const TripDetails = () => {
 
   const normalizeMapLoc = (loc) => {
     if (!loc) return null;
-    const lat = Number(loc.lat ?? loc.latitude);
-    const lng = Number(loc.lng ?? loc.longitude);
-    const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng);
+    const source = loc.location || loc;
+    const rawLat = source.lat ?? source.latitude;
+    const rawLng = source.lng ?? source.longitude;
+    const lat = rawLat == null ? null : Number(rawLat);
+    const lng = rawLng == null ? null : Number(rawLng);
+    const hasValidCoords = lat !== null && lng !== null && Number.isFinite(lat) && Number.isFinite(lng);
 
     return {
-      id: String(loc.id || loc.locationId || `tmp_${Date.now()}`),
-      name: loc.name || loc.customName || 'Địa điểm',
-      address: loc.address || '',
-      lat: hasValidCoords ? lat : 21.0285,
-      lng: hasValidCoords ? lng : 105.8542,
+      id: String(source.id || loc.locationId || loc.id || ''),
+      tripLocId: loc.location ? loc.id : loc.tripLocId,
+      name: loc.customName || source.name || 'Địa điểm',
+      address: source.address || '',
+      lat: hasValidCoords ? lat : null,
+      lng: hasValidCoords ? lng : null,
       hasRealCoords: hasValidCoords,
-      image: loc.image || loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
-      suggestedDuration: loc.suggestedDuration || null,
-      estimatedCost: Number(loc.estimatedCost || 0)
+      image: source.image || source.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
+      suggestedDuration: source.suggestedDuration || null,
+      estimatedCost: Number(source.estimatedCost || 0)
     };
   };
 
@@ -377,6 +387,22 @@ const TripDetails = () => {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? '--/--/----' : format(date, 'dd/MM/yyyy');
   };
+
+  const getDaysLeft = (dateStr) => {
+    try {
+      if (!dateStr) return '';
+      const diff = differenceInDays(new Date(dateStr), new Date());
+      if (diff > 0) return `Còn ${diff} ngày nữa`;
+      if (diff === 0) return 'Khởi hành hôm nay!';
+      return 'Đã kết thúc';
+    } catch {
+      return '';
+    }
+  };
+
+  const visibleDayGroups = selectedDayTab === 'all'
+    ? groupedLocationsByDay
+    : groupedLocationsByDay.filter(dg => dg.day === selectedDayTab);
 
   useEffect(() => {
     if (trip && locations.length > 0) {
@@ -706,169 +732,225 @@ const TripDetails = () => {
         )}
         {/* Header Navigation */}
         <div className="trip-details-header">
-          <Link to="/history" className="trip-details-header-link"><ArrowLeft size={14} /> Lịch sử</Link>
+          <Link to="/history" className="trip-details-header-link"><ArrowLeft size={14} /> Lịch sử chuyến đi</Link>
           <ChevronRight size={14} />
-          <span>Chi tiết chuyến đi</span>
+          <span>Chi tiết kế hoạch</span>
         </div>
 
-        {/* Hero Info */}
-        <div className="card trip-details-hero">
-          <div className="trip-details-hero-bg">
-            <MapPin size={200} />
-          </div>
-
+        {/* Hero Info - Signature Web Framing */}
+        <div className="trip-details-featured-hero">
+          <div
+            className="trip-details-hero-bg"
+            style={{
+              backgroundImage: `url(${locations[0]?.image || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=1400'})`
+            }}
+          />
+          <div className="trip-details-hero-overlay" />
           <div className="trip-details-hero-content">
-            <div>
-              <div className={`trip-details-status-badge trip-details-status-${trip.status}`}>
-                {trip.status === 'upcoming' ? 'Sắp tới' : (trip.status === 'ongoing' ? 'Đang diễn ra' : 'Đã hoàn thành')}
+            <div className="trip-details-hero-top">
+              <span className={`badge ${trip.status === 'upcoming' ? 'badge-gold' : (trip.status === 'ongoing' ? 'badge-forest' : 'badge-completed')}`}>
+                {trip.status === 'upcoming' ? 'CHUYẾN ĐI SẮP TỚI' : (trip.status === 'ongoing' ? 'ĐANG DIỄN RA' : 'ĐÃ HOÀN THÀNH')}
+              </span>
+              <div className="trip-details-hero-top-right">
+                {trip.startDate && (
+                  <span className="trip-details-hero-countdown">
+                    <Clock size={13} /> {getDaysLeft(trip.startDate)}
+                  </span>
+                )}
               </div>
-              <h1 className="trip-details-title">{trip.title || trip.name}</h1>
-              <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>
-                {trip.startLocation || 'Chưa có điểm đi'} → {displayEndLocation} · {locations.length} điểm dừng
+            </div>
+
+            <div className="trip-details-hero-main">
+              <h1 className="trip-details-hero-title">{trip.title || trip.name}</h1>
+              <p className="trip-details-hero-route">
+                <MapPin size={16} />
+                <span>{trip.startLocation || 'Chưa có điểm đi'} → {displayEndLocation} · {locations.length} điểm dừng</span>
               </p>
-              <div className="trip-details-meta">
-                <div className="trip-details-meta-item">
-                  <Calendar size={18} />
+
+              <div className="trip-details-hero-meta">
+                <div className="trip-details-hero-meta-item">
+                  <Calendar size={15} />
                   <span>{safeFormatDate(trip.startDate)} - {safeFormatDate(trip.endDate)}</span>
                 </div>
-                <div className="trip-details-meta-item">
-                  <DollarSign size={18} />
-                  <span>Ngân sách: {Number(trip.budget || trip.totalCost || 0).toLocaleString()} VNĐ</span>
+                <div className="trip-details-hero-meta-item">
+                  <DollarSign size={15} />
+                  <span>Ngân sách: {Number(trip.budget ?? trip.totalCost ?? 0).toLocaleString()} VNĐ</span>
                 </div>
-                <div className="trip-details-meta-item">
-                  <Users size={18} />
+                <div className="trip-details-hero-meta-item">
+                  <Users size={15} />
                   <span>{trip.travelerCount || 1} người tham gia</span>
                 </div>
                 {trip.transportMode && (
-                  <div className="trip-details-meta-item">
-                    <Car size={18} />
-                    <span>{trip.transportMode === 'flight' ? 'Máy bay' : (trip.transportMode === 'coach' ? 'Xe khách' : (trip.transportMode === 'train' ? 'Tàu hỏa' : (trip.transportMode === 'motorbike' ? 'Xe máy' : (trip.transportMode === 'car' ? 'Ô tô tự lái' : 'Đi bộ / Khác'))))}</span>
+                  <div className="trip-details-hero-meta-item">
+                    <Car size={15} />
+                    <span>{({ flight: 'Máy bay', coach: 'Xe khách', train: 'Tàu hỏa', motorbike: 'Xe máy', car: 'Ô tô tự lái', walk: 'Đi bộ' })[trip.transportMode] || trip.transportMode}</span>
                   </div>
                 )}
               </div>
+
               {Array.isArray(trip.preferences) && trip.preferences.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.6rem' }}>
+                <div className="trip-details-hero-prefs">
                   {trip.preferences.map((p) => (
-                    <span key={p} className="trip-details-pref-pill">#{p}</span>
+                    <span key={p} className="trip-details-hero-pref-tag">#{p}</span>
                   ))}
-                </div>
-              )}
-              {(Number(trip.costTransport) > 0 || Number(trip.costMeals) > 0 || Number(trip.costAttractions) > 0 || Number(trip.costAccommodation) > 0 || Number(trip.costContingency) > 0 || Number(trip.totalCost) > 0) && (
-                <div className="trip-details-cost-card" style={{ marginTop: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
-                      <DollarSign size={18} color="var(--primary)" /> Chi tiết dự toán chi phí
-                    </h3>
-                    <span style={{ fontSize: '0.78rem', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: 999, fontWeight: 600 }}>
-                      {trip.costScope === 'PERSON' ? `Tính theo đầu người (× ${trip.travelerCount || 1} người)` : 'Tính chung cho cả nhóm'}
-                    </span>
-                  </div>
-
-                  <div className="trip-details-cost-grid">
-                    <div className="trip-details-cost-col">
-                      <span>Di chuyển</span>
-                      <strong>{Number(trip.costTransport || 0).toLocaleString()} VNĐ</strong>
-                    </div>
-                    <div className="trip-details-cost-col">
-                      <span>Ăn uống</span>
-                      <strong>{Number(trip.costMeals || 0).toLocaleString()} VNĐ</strong>
-                    </div>
-                    <div className="trip-details-cost-col">
-                      <span>Tham quan</span>
-                      <strong>{Number(trip.costAttractions || 0).toLocaleString()} VNĐ</strong>
-                    </div>
-                    <div className="trip-details-cost-col">
-                      <span>Lưu trú</span>
-                      <strong>{Number(trip.costAccommodation || 0).toLocaleString()} VNĐ</strong>
-                    </div>
-                    <div className="trip-details-cost-col">
-                      <span>Dự phòng</span>
-                      <strong>{Number(trip.costContingency || 0).toLocaleString()} VNĐ</strong>
-                    </div>
-                  </div>
-
-                  <div className="trip-details-cost-total-bar">
-                    <span>Tổng chi phí tính toán ({trip.costScope === 'PERSON' ? `${trip.travelerCount || 1} người` : 'cả nhóm'}):</span>
-                    <span style={{ fontSize: '1.15rem', color: '#059669', fontWeight: 800 }}>
-                      {Number(trip.totalCost || trip.budget || 0).toLocaleString()} VNĐ
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {isEditingInfo && (
-                <div className="card" style={{ marginTop: '0.8rem', padding: '0.8rem' }}>
-                  <div style={{ display: 'grid', gap: '0.6rem' }}>
-                    <input className="btn-outline trip-planner-input" value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} placeholder="Tên chuyến đi" />
-                    <input className="btn-outline trip-planner-input" value={editForm.startLocation} onChange={(e) => setEditForm((p) => ({ ...p, startLocation: e.target.value }))} placeholder="Điểm đi" />
-                    <input className="btn-outline trip-planner-input" value={editForm.endLocation} onChange={(e) => setEditForm((p) => ({ ...p, endLocation: e.target.value }))} placeholder="Điểm kết thúc" />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                      <input type="date" className="btn-outline trip-planner-input" value={editForm.startDate} onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))} />
-                      <input type="date" className="btn-outline trip-planner-input" value={editForm.endDate} onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))} />
-                    </div>
-                    <input type="number" className="btn-outline trip-planner-input" value={editForm.budget} onChange={(e) => setEditForm((p) => ({ ...p, budget: e.target.value }))} placeholder="Ngân sách" />
-                    <textarea className="btn-outline trip-planner-textarea" value={editForm.notes} onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Ghi chú" />
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-primary" onClick={handleSaveInfo}>Lưu thay đổi</button>
-                      <button className="btn btn-outline" onClick={() => setIsEditingInfo(false)}>Hủy</button>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
 
-            <div className="trip-details-actions-stack">
+            <div className="trip-details-hero-actions">
               {canEditTrip && trip.status !== 'completed' && (
-                <div className="trip-details-actions">
-                  <button
-                    onClick={() => updateTrip(trip.id, { status: trip.status === 'upcoming' ? 'ongoing' : 'upcoming' })}
-                    className={`btn ${trip.status === 'upcoming' ? 'btn-primary' : 'btn-outline'}`}
-                  >
-                    {trip.status === 'upcoming' ? 'Bắt đầu chuyến đi' : 'Tạm dừng chuyến đi'}
-                  </button>
-                  <button onClick={handleVerifyLocation} className="btn btn-primary trip-details-action-finish">
-                    <CheckCircle size={18} /> Hoàn thành chuyến đi
-                  </button>
-                </div>
-              )}
-              <div className="trip-details-actions">
-                {canEditTrip && <button onClick={() => setIsEditingInfo((v) => !v)} className="btn btn-outline">
-                  {isEditingInfo ? 'Đóng chỉnh sửa' : 'Chỉnh sửa kế hoạch'}
-                </button>}
-                <button onClick={openGroupModal} className="btn btn-outline">
-                  <Users size={18} /> Nhóm kế hoạch
-                </button>
                 <button
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent('open-trip-chat', {
-                      detail: { itineraryId: trip.id, tripName: trip.title || trip.name }
-                    }));
-                  }}
-                  className="btn btn-primary"
-                  style={{ gap: 6 }}
+                  onClick={() => updateTrip(trip.id, { status: trip.status === 'upcoming' ? 'ongoing' : 'upcoming' })}
+                  className={`btn ${trip.status === 'upcoming' ? 'btn-primary' : 'btn-outline trip-details-glass-btn'}`}
                 >
-                  <MessageCircle size={18} /> Nhóm chat
+                  {trip.status === 'upcoming' ? 'Bắt đầu chuyến đi' : 'Tạm dừng chuyến đi'}
                 </button>
-              </div>
+              )}
+              {canEditTrip && trip.status !== 'completed' && (
+                <button onClick={handleVerifyLocation} className="btn trip-details-action-finish">
+                  <CheckCircle size={16} /> Hoàn thành chuyến đi
+                </button>
+              )}
+              {canEditTrip && (
+                <button type="button" onClick={() => { setSearchParams(previous => { previous.set('edit', '1'); return previous; }); }} className="btn btn-outline trip-details-glass-btn">
+                  <Edit3 size={16} /> Chỉnh sửa kế hoạch
+                </button>
+              )}
+              <button onClick={openGroupModal} className="btn btn-outline trip-details-glass-btn">
+                <Users size={16} /> Nhóm kế hoạch
+              </button>
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('open-trip-chat', {
+                    detail: { itineraryId: trip.id, tripName: trip.title || trip.name }
+                  }));
+                }}
+                className="btn btn-primary"
+                style={{ gap: 6 }}
+              >
+                <MessageCircle size={16} /> Nhóm chat
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="trip-details-grid">
-          {/* Timeline */}
-          <div className="card">
-            <h3 className="trip-details-timeline-title">
-              <Clock size={20} color="var(--primary)" /> Lịch trình chi tiết
+        {/* Edit Info Form Card */}
+        {showPlanEditor && canEditTrip && <div className="card trip-details-edit-form-card" id="plan-editor">
+          <TripEdit embedded onCancel={closePlanEditor} onSaved={updated => { setDbTrip(updated); setPackingItems(updated.packingItems || []); setGroupMembers(null); closePlanEditor(); }} />
+        </div>}
+        {isEditingInfo && (
+          <div className="card trip-details-edit-form-card">
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Edit3 size={18} color="var(--primary)" /> Sửa thông tin kế hoạch
             </h3>
-
-            <div className="trip-details-edit-map card" style={{ marginBottom: '1rem', padding: '0.75rem' }}>
-              {isEditingInfo && (
-                <div className="trip-details-actions" style={{ marginBottom: '0.75rem' }}>
-                  <button className="btn btn-primary" onClick={handleSaveTimeline}>Lưu lịch trình</button>
-                  <button className="btn btn-outline" onClick={() => setEditingLocations(locations.map(normalizeMapLoc))}>Khôi phục</button>
+            <div className="trip-details-edit-grid">
+              <div>
+                <label className="trip-details-input-label">Tên chuyến đi</label>
+                <input className="trip-planner-input" value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} placeholder="Tên chuyến đi" />
+              </div>
+              <div className="trip-details-edit-row">
+                <div>
+                  <label className="trip-details-input-label">Điểm khởi hành</label>
+                  <input className="trip-planner-input" value={editForm.startLocation} onChange={(e) => setEditForm((p) => ({ ...p, startLocation: e.target.value }))} placeholder="Điểm đi" />
                 </div>
-              )}
-              <div style={{ height: 340, borderRadius: '10px', overflow: 'hidden' }}>
+                <div>
+                  <label className="trip-details-input-label">Điểm kết thúc</label>
+                  <input className="trip-planner-input" value={editForm.endLocation} onChange={(e) => setEditForm((p) => ({ ...p, endLocation: e.target.value }))} placeholder="Điểm kết thúc" />
+                </div>
+              </div>
+              <div className="trip-details-edit-row">
+                <div>
+                  <label className="trip-details-input-label">Ngày bắt đầu</label>
+                  <input type="date" className="trip-planner-input" value={editForm.startDate} onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="trip-details-input-label">Ngày kết thúc</label>
+                  <input type="date" className="trip-planner-input" value={editForm.endDate} onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <label className="trip-details-input-label">Ngân sách dự kiến (VNĐ)</label>
+                <input type="number" className="trip-planner-input" value={editForm.budget} onChange={(e) => setEditForm((p) => ({ ...p, budget: e.target.value }))} placeholder="Ngân sách" />
+              </div>
+              <div>
+                <label className="trip-details-input-label">Ghi chú chuyến đi</label>
+                <textarea className="trip-planner-textarea" rows={3} value={editForm.notes} onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Ghi chú thêm..." />
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button className="btn btn-primary" onClick={handleSaveInfo}>Lưu thay đổi</button>
+                <button className="btn btn-outline" onClick={() => setIsEditingInfo(false)}>Hủy</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cost Breakdown Card */}
+        {(Number(trip.costTransport) > 0 || Number(trip.costMeals) > 0 || Number(trip.costAttractions) > 0 || Number(trip.costAccommodation) > 0 || Number(trip.costContingency) > 0 || Number(trip.totalCost) > 0) && (
+          <div className="card trip-details-cost-card">
+            <div className="trip-details-cost-header">
+              <div>
+                <h3 className="trip-details-cost-title">
+                  <DollarSign size={18} color="var(--primary)" /> Dự toán chi phí chi tiết
+                </h3>
+                <p className="trip-details-cost-subtitle">
+                  {trip.costScope === 'PERSON'
+                    ? `Tính trên đầu người (nhân với ${trip.travelerCount || 1} người)`
+                    : 'Tổng chi phí dự tính cho toàn bộ đoàn'}
+                </p>
+              </div>
+              <div className="trip-details-cost-total-badge">
+                <span>Tổng dự kiến:</span>
+                <strong>{Number(trip.totalCost ?? trip.budget ?? 0).toLocaleString()} VNĐ</strong>
+              </div>
+            </div>
+
+            <div className="trip-details-cost-grid">
+              <div className="trip-details-cost-col">
+                <span className="cost-col-label">🚗 Di chuyển</span>
+                <strong className="cost-col-val">{Number(trip.costTransport || 0).toLocaleString()} VNĐ</strong>
+              </div>
+              <div className="trip-details-cost-col">
+                <span className="cost-col-label">🍜 Ăn uống</span>
+                <strong className="cost-col-val">{Number(trip.costMeals || 0).toLocaleString()} VNĐ</strong>
+              </div>
+              <div className="trip-details-cost-col">
+                <span className="cost-col-label">🎟️ Tham quan</span>
+                <strong className="cost-col-val">{Number(trip.costAttractions || 0).toLocaleString()} VNĐ</strong>
+              </div>
+              <div className="trip-details-cost-col">
+                <span className="cost-col-label">🏨 Lưu trú</span>
+                <strong className="cost-col-val">{Number(trip.costAccommodation || 0).toLocaleString()} VNĐ</strong>
+              </div>
+              <div className="trip-details-cost-col">
+                <span className="cost-col-label">🛡️ Dự phòng</span>
+                <strong className="cost-col-val">{Number(trip.costContingency || 0).toLocaleString()} VNĐ</strong>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="trip-details-grid">
+          {/* Main Itinerary Column */}
+          <div className="trip-details-main-column">
+            {/* Interactive Route Map */}
+            <div className="card trip-details-map-card">
+              <div className="trip-details-map-header">
+                <div>
+                  <h3 className="trip-details-map-title">
+                    <MapPin size={18} color="var(--primary)" /> Bản đồ lộ trình ({locations.length} điểm dừng)
+                  </h3>
+                  <p className="trip-details-map-subtitle">
+                    {isEditingInfo ? 'Chế độ chỉnh sửa: Bấm lên bản đồ để thêm hoặc xóa điểm đến.' : 'Theo dõi tuyến đường di chuyển trực quan.'}
+                  </p>
+                </div>
+                {isEditingInfo && (
+                  <div className="trip-details-map-actions">
+                    <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.825rem' }} onClick={handleSaveTimeline}>Lưu lịch trình</button>
+                    <button className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', fontSize: '0.825rem' }} onClick={() => setEditingLocations(locations.map(normalizeMapLoc))}>Khôi phục</button>
+                  </div>
+                )}
+              </div>
+              <div className="trip-details-map-view">
                 <MapComponent
                   selectedLocations={(isEditingInfo ? editingLocations : locations).map(normalizeMapLoc)}
                   onLocationAdd={isEditingInfo ? handleAddEditLocation : undefined}
@@ -877,75 +959,166 @@ const TripDetails = () => {
               </div>
             </div>
 
-            <div className="trip-details-timeline">
-              {/* Vertical line */}
-              <div className="trip-details-timeline-line"></div>
-
-              {groupedLocationsByDay.map((dayGroup, dayGroupIndex) => (
-                <div key={`day_${dayGroup.day}`}>
-                  <div style={{ fontWeight: 700, margin: '0.5rem 0 0.75rem', color: 'var(--primary)' }}>
-                    Ngày {dayGroup.day}
-                  </div>
-                  {dayGroup.items.map(({ loc, idx, note, rawItem }, itemIndex) => (
-                    <div
-                      key={`${dayGroup.day}_${loc.tripLocId || loc.id}_${idx}`}
-                      className={`trip-details-timeline-item ${activeWeatherLoc === loc.id ? 'active' : ''}`}
-                      onClick={() => fetchWeather(loc.id, loc.lat, loc.lng)}
-                    >
-                      <div className="trip-details-timeline-number">
-                        {itemIndex + 1}
-                      </div>
-
-                      <div className="trip-details-timeline-content">
-                        <img src={loc.image} alt={loc.name} className="trip-details-timeline-img" />
-                        <div className="trip-details-timeline-info">
-                          <h4 className="trip-details-timeline-name">{rawItem?.customName || loc.name}</h4>
-                          <p className="trip-details-timeline-address">{loc.address}</p>
-                          {(rawItem?.startTime || loc.startTime) && (
-                            <div style={{ fontSize: '0.8rem', color: '#4338ca', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                              <span><Clock size={13} style={{ verticalAlign: 'middle', marginRight: 2 }} /> Khởi hành: {rawItem?.startTime ? (String(rawItem.startTime).includes('T') ? String(rawItem.startTime).split('T')[1].slice(0, 5) : String(rawItem.startTime).slice(0, 5)) : loc.startTime}</span>
-                              {rawItem?.durationMinutes ? <span style={{ background: '#e0e7ff', padding: '0.1rem 0.4rem', borderRadius: 4 }}>Thời lượng: {rawItem.durationMinutes}p</span> : null}
-                              {rawItem?.travelMinutes ? <span style={{ background: '#fef3c7', color: '#b45309', padding: '0.1rem 0.4rem', borderRadius: 4 }}>Di chuyển: {rawItem.travelMinutes}p</span> : null}
-                            </div>
-                          )}
-                          {note ? (
-                            <p className="trip-details-timeline-address" style={{ marginTop: 4 }}>
-                              {note}
-                            </p>
-                          ) : null}
-                          <div className="trip-details-timeline-tags">
-                            <span className="trip-details-tag-duration">Gợi ý: {loc.suggestedDuration || '2 giờ'}</span>
-                            <span className="trip-details-tag-cost">Phí: {loc.estimatedCost?.toLocaleString() || 'Miễn phí'}</span>
-                          </div>
-                          {isEditingInfo && (
-                            <div className="trip-details-actions" style={{ marginTop: '0.5rem', gap: '0.5rem' }}>
-                              <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx - 1); }}>Lên</button>
-                              <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx + 1); }}>Xuống</button>
-                              <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); handleRemoveEditLocation(loc.id); }}>Xóa điểm</button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {dayGroupIndex === groupedLocationsByDay.length - 1 && itemIndex === dayGroup.items.length - 1 && (
-                        <div className="trip-details-timeline-end">
-                          <MapPin size={16} /> Đểm cuối
-                        </div>
-                      )}
-                    </div>
-                  ))}
+            {/* Timeline Section */}
+            <div className="card trip-details-timeline-card-wrapper">
+              <div className="trip-details-timeline-header">
+                <div>
+                  <h3 className="trip-details-timeline-title">
+                    <Clock size={20} color="var(--primary)" /> Lịch trình chi tiết
+                  </h3>
+                  <p className="trip-details-timeline-subtitle">
+                    Bấm vào từng điểm dừng để xem dự báo thời tiết và chi tiết hoạt động
+                  </p>
                 </div>
-              ))}
+                {groupedLocationsByDay.length > 1 && (
+                  <div className="trip-details-day-tabs">
+                    <button
+                      type="button"
+                      className={`trip-details-day-tab ${selectedDayTab === 'all' ? 'active' : ''}`}
+                      onClick={() => setSelectedDayTab('all')}
+                    >
+                      Tất cả ngày ({locations.length})
+                    </button>
+                    {groupedLocationsByDay.map((dg) => (
+                      <button
+                        key={dg.day}
+                        type="button"
+                        className={`trip-details-day-tab ${selectedDayTab === dg.day ? 'active' : ''}`}
+                        onClick={() => setSelectedDayTab(dg.day)}
+                      >
+                        Ngày {dg.day} ({dg.items.length})
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="trip-details-timeline">
+                <div className="trip-details-timeline-line" />
+                {visibleDayGroups.map((dayGroup) => (
+                  <div key={`day_${dayGroup.day}`} className="trip-details-day-group">
+                    <div className="trip-details-day-heading">
+                      <span className="trip-details-day-tag">Ngày {dayGroup.day}</span>
+                      <span className="trip-details-day-meta">
+                        {dayGroup.items.length} điểm dừng
+                      </span>
+                    </div>
+
+                    <div className="trip-details-day-items">
+                      {dayGroup.items.map(({ loc, idx, note, rawItem }, itemIndex) => {
+                        const isStopActive = String(activeWeatherLoc) === String(loc.id);
+                        return (
+                          <div
+                            key={`${dayGroup.day}_${loc.tripLocId || loc.id}_${idx}`}
+                            className={`trip-details-timeline-item ${isStopActive ? 'active' : ''}`}
+                            onClick={() => fetchWeather(loc.id, loc.lat, loc.lng)}
+                          >
+                            <div className="trip-details-timeline-badge">
+                              {itemIndex + 1}
+                            </div>
+
+                            <div className="trip-details-timeline-body">
+                              <div className="trip-details-timeline-thumb-box">
+                                <img
+                                  src={loc.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'}
+                                  alt={loc.name}
+                                  className="trip-details-timeline-img"
+                                  onError={(e) => {
+                                    e.target.src = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1';
+                                  }}
+                                />
+                              </div>
+
+                              <div className="trip-details-timeline-info">
+                                <div className="trip-details-timeline-title-row">
+                                  <h4 className="trip-details-timeline-name">
+                                    {rawItem?.customName || loc.name}
+                                  </h4>
+                                  <button
+                                    type="button"
+                                    className={`trip-details-weather-trigger ${isStopActive ? 'active' : ''}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      fetchWeather(loc.id, loc.lat, loc.lng);
+                                    }}
+                                    title="Xem thời tiết điểm dừng này"
+                                  >
+                                    <Thermometer size={13} /> {isStopActive ? 'Đang xem' : 'Thời tiết'}
+                                  </button>
+                                </div>
+
+                                <p className="trip-details-timeline-address">
+                                  <MapPin size={13} /> {loc.address || 'Chưa có địa chỉ chi tiết'}
+                                </p>
+
+                                {(rawItem?.startTime || rawItem?.endTime || loc.startTime || rawItem?.durationMinutes || rawItem?.travelMinutes) && (
+                                  <div className="trip-details-schedule-chips">
+                                    {(rawItem?.startTime || loc.startTime) && (
+                                      <span className="chip chip-time">
+                                        <Clock size={12} />
+                                        Bắt đầu: {rawItem?.startTime ? format(new Date(rawItem.startTime), 'HH:mm') : loc.startTime}
+                                      </span>
+                                    )}
+                                    {rawItem?.endTime && <span className="chip chip-time"><Clock size={12} /> Kết thúc: {format(new Date(rawItem.endTime), 'HH:mm')}</span>}
+                                    {rawItem?.durationMinutes ? (
+                                      <span className="chip chip-duration">
+                                        Thời lượng: {rawItem.durationMinutes} phút
+                                      </span>
+                                    ) : null}
+                                    {rawItem?.travelMinutes ? (
+                                      <span className="chip chip-travel">
+                                        <Car size={12} /> Di chuyển: {rawItem.travelMinutes} phút
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                )}
+
+                                {note && (
+                                  <div className="trip-details-timeline-note">
+                                    <StickyNote size={13} />
+                                    <span>{note}</span>
+                                  </div>
+                                )}
+
+                                <div className="trip-details-timeline-tags">
+                                  <span className="trip-details-tag-duration">
+                                    <Clock size={11} /> Gợi ý: {loc.suggestedDuration || '2 giờ'}
+                                  </span>
+                                  <span className="trip-details-tag-cost">
+                                    <DollarSign size={11} /> Phí: {loc.estimatedCost ? `${Number(loc.estimatedCost).toLocaleString()} VNĐ` : 'Miễn phí'}
+                                  </span>
+                                </div>
+
+                                {isEditingInfo && (
+                                  <div className="trip-details-actions" style={{ marginTop: '0.6rem', gap: '0.4rem' }}>
+                                    <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }} onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx - 1); }}>Lên</button>
+                                    <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }} onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx + 1); }}>Xuống</button>
+                                    <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: 'var(--accent-danger)' }} onClick={(e) => { e.stopPropagation(); handleRemoveEditLocation(loc.id); }}>Xóa điểm</button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Sidebar: Weather & Packing & Notes */}
           <div className="trip-details-sidebar">
             {/* Weather Card */}
-            <div className="card trip-details-weather-card">
-              <h3 className="trip-details-weather-title">
-                <Thermometer size={18} /> Thời tiết hiện tại
-              </h3>
+            <div className="trip-details-weather-card">
+              <div className="trip-details-weather-header">
+                <div className="trip-details-weather-title-box">
+                  <Thermometer size={18} className="trip-details-weather-icon" />
+                  <h3 className="trip-details-weather-title">Thời tiết hiện tại</h3>
+                </div>
+                <span className="trip-details-weather-badge">Trực tiếp</span>
+              </div>
 
               <AnimatePresence mode="wait">
                 {activeWeatherLoc && weatherData[activeWeatherLoc] ? (
@@ -954,23 +1127,35 @@ const TripDetails = () => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
+                    className="trip-details-weather-content"
                   >
+                    <div className="trip-details-weather-loc-name">
+                      <MapPin size={13} />
+                      <span>
+                        {(() => {
+                          const flat = locations.find(l => String(l.id) === String(activeWeatherLoc));
+                          return flat?.name || 'Điểm dừng đã chọn';
+                        })()}
+                      </span>
+                    </div>
+
                     <div className="trip-details-weather-main">
                       <div className="trip-details-weather-temp">{weatherData[activeWeatherLoc].temp}</div>
                       <div className="trip-details-weather-cond">{weatherData[activeWeatherLoc].condition}</div>
                     </div>
+
                     <div className="trip-details-weather-grid">
                       <div className="trip-details-weather-stat">
                         <div className="trip-details-weather-label">Lượng mưa</div>
                         <div className="trip-details-weather-val">{weatherData[activeWeatherLoc].rain_mm} mm</div>
                       </div>
                       <div className="trip-details-weather-stat">
-                        <div className="trip-details-weather-label">Điểm dừng</div>
+                        <div className="trip-details-weather-label">Vị trí điểm dừng</div>
                         <div className="trip-details-weather-val">
                           {(() => {
                             for (const dg of groupedLocationsByDay) {
                               const found = dg.items.find(({ loc }) => String(loc.id) === String(activeWeatherLoc));
-                              if (found) return `Ngày ${dg.day} #${dg.items.indexOf(found) + 1}`;
+                              if (found) return `Ngày ${dg.day} · #${dg.items.indexOf(found) + 1}`;
                             }
                             const flatIdx = locations.findIndex(l => String(l.id) === String(activeWeatherLoc));
                             return flatIdx >= 0 ? `#${flatIdx + 1}` : '--';
@@ -981,8 +1166,16 @@ const TripDetails = () => {
                   </motion.div>
                 ) : (
                   <div className="trip-details-weather-loading">
-                    <Loader2 className="animate-spin" size={24} />
-                    <p>Đang tải...</p>
+                    {geoLoading ? (
+                      <>
+                        <Loader2 className="animate-spin" size={24} style={{ margin: '0 auto 0.5rem' }} />
+                        <p style={{ margin: 0, fontSize: '0.85rem' }}>Đang nạp dữ liệu thời tiết...</p>
+                      </>
+                    ) : (
+                      <p style={{ fontSize: '0.85rem', margin: 0 }}>
+                        Bấm vào bất kỳ điểm dừng nào trên lịch trình để cập nhật thời tiết.
+                      </p>
+                    )}
                   </div>
                 )}
               </AnimatePresence>
@@ -990,8 +1183,8 @@ const TripDetails = () => {
 
             {/* Packing Checklist Card */}
             <div className="card trip-details-packing-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+              <div className="trip-details-sidebar-card-header">
+                <h3 className="trip-details-sidebar-card-title">
                   <Briefcase size={18} color="var(--primary)" /> Đồ cần mang theo ({packingItems.filter(p => p.isPacked).length}/{packingItems.length})
                 </h3>
                 <button
@@ -1000,19 +1193,17 @@ const TripDetails = () => {
                   className="btn btn-outline"
                   style={{ padding: '0.25rem 0.55rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                 >
-                  <Plus size={14} /> Thêm đồ dùng
+                  <Plus size={13} /> Thêm đồ
                 </button>
               </div>
 
               {packingItems.length > 0 ? (
                 <>
-                  <div style={{ background: '#e2e8f0', borderRadius: 999, height: 6, overflow: 'hidden', marginBottom: '0.75rem' }}>
+                  <div className="trip-details-packing-progress-track">
                     <div
+                      className="trip-details-packing-progress-fill"
                       style={{
-                        height: '100%',
-                        background: 'var(--primary)',
-                        width: `${Math.round((packingItems.filter(p => p.isPacked).length / Math.max(1, packingItems.length)) * 100)}%`,
-                        transition: 'width 0.3s ease'
+                        width: `${Math.round((packingItems.filter(p => p.isPacked).length / Math.max(1, packingItems.length)) * 100)}%`
                       }}
                     />
                   </div>
@@ -1021,19 +1212,19 @@ const TripDetails = () => {
                     {packingItems.map((item) => (
                       <div
                         key={item.id}
-                        className="trip-details-packing-item-row"
+                        className={`trip-details-packing-item-row ${item.isPacked ? 'packed' : ''}`}
                         onClick={() => handleTogglePacking(item.id)}
                       >
                         {item.isPacked ? (
-                          <CheckSquare size={16} color="var(--primary)" />
+                          <CheckSquare size={16} className="packing-check-icon checked" />
                         ) : (
-                          <Square size={16} color="var(--text-muted)" />
+                          <Square size={16} className="packing-check-icon" />
                         )}
-                        <div style={{ flex: 1, minWidth: 0, textDecoration: item.isPacked ? 'line-through' : 'none', color: item.isPacked ? 'var(--text-muted)' : 'inherit' }}>
-                          <span style={{ fontWeight: 500, fontSize: '0.85rem' }}>{item.itemName || item.name}</span>
-                          {item.notes && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 6 }}>({item.notes})</span>}
+                        <div className="packing-item-text">
+                          <span className="packing-item-name">{item.itemName || item.name}</span>
+                          {item.notes && <span className="packing-item-note">({item.notes})</span>}
                         </div>
-                        <span style={{ fontSize: '0.75rem', background: '#f1f5f9', padding: '0.15rem 0.4rem', borderRadius: 4, fontWeight: 600 }}>
+                        <span className="packing-item-qty">
                           x{item.quantity || 1}
                         </span>
                         <button
@@ -1049,28 +1240,30 @@ const TripDetails = () => {
                   </div>
                 </>
               ) : (
-                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Chưa có danh sách đồ chuẩn bị cho chuyến đi này.</p>
+                <div className="trip-details-packing-empty">
+                  <p>Chưa có danh sách đồ chuẩn bị cho chuyến đi này.</p>
                   <button
                     type="button"
                     onClick={openPackingCatalogModal}
                     className="btn btn-outline"
                     style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
                   >
-                    <Plus size={14} /> Chọn từ danh mục mẫu
+                    <Plus size={13} /> Chọn từ danh mục mẫu
                   </button>
                 </div>
               )}
             </div>
 
             {/* Notes Card */}
-            <div className="card">
-              <h3 className="trip-details-notes-title">
-                <StickyNote size={18} color="var(--primary)" /> Ghi chú
+            <div className="card trip-details-notes-card">
+              <h3 className="trip-details-sidebar-card-title">
+                <StickyNote size={18} color="var(--primary)" /> Ghi chú chuyến đi
               </h3>
-              <p className="trip-details-notes-content">
-                {trip.notes || 'Không có ghi chú nào cho chuyến đi này.'}
-              </p>
+              <div className="trip-details-notes-box">
+                <p className="trip-details-notes-content">
+                  {trip.notes || 'Không có ghi chú nào cho chuyến đi này.'}
+                </p>
+              </div>
             </div>
           </div>
         </div>

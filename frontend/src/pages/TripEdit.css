@@ -1,0 +1,47 @@
+.plan-editor { max-width: 1080px; margin: 0 auto; padding: 32px 24px 100px; }
+.plan-editor-embedded { max-width: none; padding: 0; margin: 0; }
+.plan-edit-inline-heading h3 { margin: 0 0 8px; font-size: 1.1rem; }
+.plan-edit-inline-heading p { color: var(--text-muted); margin-bottom: 18px; }
+.plan-edit-inline-section { border-top: 1px solid var(--border-color, #ddd); }
+.plan-edit-inline-section > summary { padding: 16px 0; cursor: pointer; font-weight: 600; color: var(--text-main); }
+.plan-edit-inline-section > div { padding: 4px 0 20px; }
+.plan-editor-embedded .plan-edit-savebar { position: static; box-shadow: none; border: 0; padding: 16px 0 0; border-top: 1px solid var(--border-color, #ddd); border-radius: 0; background: transparent; }
+.plan-editor-embedded .plan-edit-panel h2 { font-size: 1rem; }
+.plan-editor-embedded .plan-edit-grid { gap: 12px 20px; }
+.plan-edit-heading { display: flex; align-items: center; gap: 24px; margin-bottom: 28px; }
+.plan-edit-heading h1 { font-size: 1.9rem; margin: 0 0 6px; letter-spacing: -.04em; }
+.plan-edit-heading p, .plan-edit-help { color: var(--text-muted); line-height: 1.6; }
+.plan-edit-tabs { display: flex; gap: 8px; overflow-x: auto; border-bottom: 1px solid var(--border-color, #ddd); margin-bottom: 24px; }
+.plan-edit-tabs button { white-space: nowrap; padding: 14px 16px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--text-muted); font: inherit; cursor: pointer; }
+.plan-edit-tabs button[aria-current="page"] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; }
+.plan-edit-panel { min-width: 0; border: 0; padding: 0; margin: 0; }
+.plan-edit-panel h2 { font-size: 1.3rem; margin: 12px 0 18px; }
+.plan-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
+.plan-edit-field { display: flex; flex-direction: column; gap: 8px; margin: 0 0 18px; color: var(--text-main); font-size: .88rem; font-weight: 600; }
+.plan-editor input, .plan-editor select, .plan-editor textarea { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid var(--border-color, #cbd5e1); border-radius: 8px; color: var(--text-main); background: var(--bg-card, #fff); font: inherit; font-weight: 400; }
+.plan-editor textarea { resize: vertical; }
+.plan-editor input:focus-visible, .plan-editor select:focus-visible, .plan-editor textarea:focus-visible, .plan-editor button:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.plan-edit-search { display: flex; gap: 12px; margin: 18px 0; }
+.plan-edit-search input, .plan-edit-search select { flex: 1; }
+.plan-edit-search button { flex-shrink: 0; }
+.plan-edit-results { display: flex; flex-wrap: wrap; gap: 8px; max-height: 220px; overflow: auto; margin: 16px 0; }
+.plan-edit-results button { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-color, #ddd); padding: 8px 12px; background: transparent; border-radius: 8px; color: var(--text-main); cursor: pointer; }
+.plan-edit-row { border-top: 1px solid var(--border-color, #ddd); padding: 22px 0 8px; margin-top: 22px; }
+.plan-edit-row-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.plan-edit-row-heading h3 { font-size: 1rem; margin: 0; }
+.plan-edit-row-heading button, .plan-edit-member button { padding: 8px; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; }
+.plan-editor button:disabled { opacity: .45; cursor: not-allowed; }
+.plan-edit-check { display: flex; gap: 10px; align-items: center; font-size: .9rem; }
+.plan-edit-check input { width: 18px; height: 18px; accent-color: var(--primary); }
+.plan-edit-estimate { border-left: 4px solid var(--primary); padding: 16px 22px; margin-top: 20px; background: var(--bg-card, #fff); }
+.plan-edit-estimate strong { display: block; font-size: 1.8rem; margin-top: 8px; }
+.plan-edit-estimate p, .plan-edit-error { color: var(--accent-danger, #b42318); }
+.plan-edit-error { padding: 16px; border: 1px solid currentColor; border-radius: 8px; }
+.plan-edit-member { display: flex; align-items: center; gap: 18px; padding: 18px 0; border-bottom: 1px solid var(--border-color, #ddd); }
+.plan-edit-member span { flex: 1; overflow-wrap: anywhere; }
+.plan-edit-member small { display: block; color: var(--text-muted); margin-top: 6px; }
+.plan-edit-member select { width: auto; }
+.plan-edit-savebar { position: sticky; bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; margin-top: 32px; background: var(--bg-card, #fff); border: 1px solid var(--border-color, #ddd); border-radius: 12px; box-shadow: 0 5px 24px #0000000d; z-index: 5; }
+.plan-edit-savebar span, .plan-edit-savebar div { display: flex; align-items: center; gap: 12px; }
+@media (max-width: 680px) { .plan-editor { padding: 24px 14px 80px; } .plan-edit-heading { align-items: flex-start; gap: 12px; flex-direction: column; } .plan-edit-heading h1 { font-size: 1.5rem; } .plan-edit-grid { grid-template-columns: 1fr; gap: 0; } .plan-edit-savebar { flex-direction: column; padding: 12px; } .plan-edit-savebar div { width: 100%; } .plan-edit-savebar button { flex: 1; } .plan-edit-member { flex-wrap: wrap; } .plan-edit-search { flex-direction: column; } }
+@media (max-width: 680px) { .plan-editor-embedded { padding: 0; } }

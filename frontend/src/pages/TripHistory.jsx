@@ -122,6 +122,8 @@ const TripHistory = () => {
               const firstLocName = (locations[0]?.name || locations[0]?.customName || 'Chưa có điểm').split(',')[0];
               const budgetVal = Number(trip.budget != null ? trip.budget : (trip.totalCost != null ? trip.totalCost : 0));
 
+              const tripImage = locations[0]?.image || locations[0]?.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800';
+
               return (
               <motion.div
                 key={trip.id}
@@ -131,18 +133,21 @@ const TripHistory = () => {
                 exit={{ opacity: 0, scale: 0.9 }}
                 className="card trip-history-card"
               >
-                <div className="trip-history-status-row">
+                <div className="trip-history-img-wrapper">
+                  <img
+                    src={tripImage}
+                    alt={tripTitle}
+                    className="trip-history-img"
+                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800'; }}
+                  />
                   <div
-                    className="trip-history-badge"
+                    className="trip-history-img-badge"
                     style={{ color: getStatusColor(trip.status) }}
                   >
-                    {tabs.find(t => t.id === trip.status)?.label || trip.status}
+                    {tabs.find(t => t.id === trip.status)?.label || (trip.status === 'upcoming' ? 'Sắp tới' : (trip.status === 'ongoing' ? 'Đang đi' : 'Đã đi'))}
                   </div>
                   {trip.owner && String(trip.owner.id) !== String(user?.id) && (
-                    <div
-                      className="trip-history-badge trip-history-badge-shared"
-                      title="Chuyến đi chung"
-                    >
+                    <div className="trip-history-badge-shared-float">
                       Nhóm của {trip.owner.name}
                     </div>
                   )}
@@ -168,6 +173,7 @@ const TripHistory = () => {
                   </div>
 
                   <div className="trip-history-footer">
+                    {(String(trip.userId || trip.owner?.id) === String(user?.id) || trip.collaborators?.some(member => String(member.userId) === String(user?.id) && member.permission === 'edit')) && <Link to={`/trip/${trip.id}?edit=1`} className="btn btn-outline">Chỉnh sửa</Link>}
                     <button type="button" className="btn btn-outline" onClick={() => setSelectedTrip(trip)}>
                       {String(trip.userId || trip.owner?.id) === String(user?.id) ? 'Thêm thành viên' : 'Thành viên'}
                     </button>

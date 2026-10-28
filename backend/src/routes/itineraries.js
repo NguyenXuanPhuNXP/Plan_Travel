@@ -2,6 +2,7 @@ import express from "express";
 import * as itineraryController from "../controllers/itineraryController.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authenticate, optionalAuth } from "../middleware/authMiddleware.js";
+import { savePlan } from '../services/planEditingService.js';
 
 const router = express.Router();
 
@@ -15,6 +16,9 @@ router.post("/", asyncHandler(itineraryController.createItinerary));
 router.get("/", asyncHandler(itineraryController.getUserItineraries));
 router.get("/:id", asyncHandler(itineraryController.getItineraryById));
 router.put("/:id", asyncHandler(itineraryController.updateItinerary));
+router.put('/:id/plan', asyncHandler(async (req, res) => {
+    res.json(await savePlan(req.params.id, req.user.id, req.body));
+}));
 router.delete("/:id", asyncHandler(itineraryController.deleteItinerary));
 
 // Item routes
