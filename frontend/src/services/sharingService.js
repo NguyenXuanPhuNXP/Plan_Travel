@@ -57,15 +57,15 @@ export const sharingService = {
   },
 
   /**
-   * Mời collaborator
+   * Mời collaborator (hỗ trợ email hoặc userId)
    */
-  addCollaborator: async (itineraryId, { email, permission }) => {
-    const response = await apiClient.post(`/sharing/${itineraryId}/collaborators`, { email, permission });
+  addCollaborator: async (itineraryId, { email, userId, permission }) => {
+    const response = await apiClient.post(`/sharing/${itineraryId}/collaborators`, { email, userId, permission });
     return response.data;
   },
 
   /**
-   * Xóa collaborator
+   * Lấy danh sách thành viên nhóm
    */
   getGroupMembers: async (itineraryId) => {
     const response = await apiClient.get(`/sharing/${itineraryId}/collaborators`);
@@ -80,6 +80,31 @@ export const sharingService = {
   removeCollaborator: async (itineraryId, userId) => {
     const response = await apiClient.delete(`/sharing/${itineraryId}/collaborators/${userId}`);
     return response.data;
+  },
+
+  // Aliases for compatibility
+  getTripGroup: async (itineraryId) => {
+    return sharingService.getGroupMembers(itineraryId);
+  },
+
+  createGroupInvite: async (itineraryId, _permission = 'view') => {
+    return sharingService.createInviteLink(itineraryId);
+  },
+
+  inviteFriendToGroup: async (itineraryId, friendId, permission = 'edit') => {
+    const response = await apiClient.post(`/sharing/${itineraryId}/collaborators`, {
+      userId: friendId,
+      permission
+    });
+    return response.data;
+  },
+
+  updateMemberPermission: async (itineraryId, userId, permission) => {
+    return sharingService.updateCollaboratorPermission(itineraryId, userId, permission);
+  },
+
+  removeMember: async (itineraryId, userId) => {
+    return sharingService.removeCollaborator(itineraryId, userId);
   },
 
   /**

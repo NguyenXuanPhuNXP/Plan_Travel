@@ -14,11 +14,18 @@ function serializeUser(user, isFriend = false, requestStatus = null) {
 }
 
 export async function getFriends(userId) {
+    let currentUserId = 0n;
+    try {
+        currentUserId = BigInt(userId);
+    } catch {
+        return [];
+    }
+
     const friendRelations = await prisma.user_friends.findMany({
         where: {
             OR: [
-                { user_id: BigInt(userId), status: "accepted" },
-                { friend_id: BigInt(userId), status: "accepted" }
+                { user_id: currentUserId, status: "accepted" },
+                { friend_id: currentUserId, status: "accepted" }
             ]
         },
         include: {
@@ -28,41 +35,62 @@ export async function getFriends(userId) {
     });
 
     return friendRelations.map(rel => {
-        const isUserRequester = rel.user_id === BigInt(userId);
+        const isUserRequester = rel.user_id === currentUserId;
         const friendUser = isUserRequester ? rel.friend : rel.user;
         return serializeUser(friendUser, true, "accepted");
     });
 }
 
-export async function searchUsers(userId, query) {
+export async function searchUsers(userId, query = "") {
     const search = String(query || "").trim();
-    if (search.length < 2) return [];
 
-    const likeQuery = `%${search.toLowerCase()}%`;
-    const users = await prisma.$queryRaw`
-        SELECT id, full_name, email, avatar_url
-        FROM users
-        WHERE id <> ${BigInt(userId)}
-          AND is_active = 1
-          AND (LOWER(email) LIKE ${likeQuery} OR LOWER(full_name) LIKE ${likeQuery})
-        LIMIT 12
-    `;
+    let currentUserId = 0n;
+    try {
+        currentUserId = BigInt(userId);
+    } catch {
+        currentUserId = 0n;
+    }
 
-    const relations = await prisma.user_friends.findMany({
-        where: {
-            OR: [
-                { user_id: BigInt(userId) },
-                { friend_id: BigInt(userId) }
-            ]
-        }
+    const where = {
+        is_active: true,
+        ...(currentUserId > 0n ? { NOT: { id: currentUserId } } : {})
+    };
+
+    if (search.length >= 1) {
+        where.OR = [
+            { email: { contains: search } },
+            { full_name: { contains: search } }
+        ];
+    }
+
+    const users = await prisma.users.findMany({
+        where,
+        select: {
+            id: true,
+            full_name: true,
+            email: true,
+            avatar_url: true
+        },
+        orderBy: { created_at: "desc" },
+        take: 30
     });
 
+    const relations = currentUserId > 0n ? await prisma.user_friends.findMany({
+        where: {
+            OR: [
+                { user_id: currentUserId },
+                { friend_id: currentUserId }
+            ]
+        }
+    }) : [];
+
     return users.map(u => {
-        const rel = relations.find(r => r.user_id === u.id || r.friend_id === u.id);
+        const uIdStr = u.id?.toString();
+        const rel = relations.find(r => r.user_id?.toString() === uIdStr || r.friend_id?.toString() === uIdStr);
         let status = null;
         if (rel) {
             if (rel.status === "accepted") status = "accepted";
-            else if (rel.user_id === BigInt(userId)) status = "sent";
+            else if (rel.user_id?.toString() === currentUserId.toString()) status = "sent";
             else status = "received";
         }
         return serializeUser(u, status === "accepted", status);
@@ -116,7 +144,7 @@ export async function sendFriendRequest(userId, { email, userId: targetUserId })
             user_id: target.id,
             type: "friend_request",
             title: "Lời mời kết bạn",
-            message: `${requester.full_name} đã gửi cho bạn một lời mời kết bạn.`
+            message: `${requester?.full_name || "Một người dùng"} đã gửi cho bạn một lời mời kết bạn.`
         }
     });
 
@@ -146,7 +174,7 @@ export async function acceptFriendRequest(userId, friendId) {
             user_id: targetId,
             type: "friend_accept",
             title: "Đã chấp nhận kết bạn",
-            message: `${receiver.full_name} đã chấp nhận lời mời kết bạn của bạn.`
+            message: `${receiver?.full_name || "Bạn của bạn"} đã chấp nhận lời mời kết bạn của bạn.`
         }
     });
 
@@ -181,16 +209,23 @@ export async function removeFriend(userId, friendId) {
 }
 
 export async function getNotifications(userId) {
+    let currentUserId = 0n;
+    try {
+        currentUserId = BigInt(userId);
+    } catch {
+        return { notifications: [], friendRequests: [] };
+    }
+
     // Get db notifications
     const dbNotifs = await prisma.user_notifications.findMany({
-        where: { user_id: BigInt(userId) },
+        where: { user_id: currentUserId },
         orderBy: { created_at: "desc" },
         take: 30
     });
 
     // Also get pending friend requests to show in UI
     const pendingRequests = await prisma.user_friends.findMany({
-        where: { friend_id: BigInt(userId), status: "pending" },
+        where: { friend_id: currentUserId, status: "pending" },
         include: { user: true },
         orderBy: { created_at: "desc" }
     });
@@ -213,8 +248,15 @@ export async function getNotifications(userId) {
 }
 
 export async function markNotificationsRead(userId) {
+    let currentUserId = 0n;
+    try {
+        currentUserId = BigInt(userId);
+    } catch {
+        return;
+    }
+
     await prisma.user_notifications.updateMany({
-        where: { user_id: BigInt(userId), is_read: false },
+        where: { user_id: currentUserId, is_read: false },
         data: { is_read: true }
     });
 }

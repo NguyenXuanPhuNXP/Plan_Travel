@@ -1,22 +1,25 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Mail, Lock, Eye, EyeOff, Loader2, UserPlus, Phone } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Compass } from 'lucide-react';
 import { motion } from 'framer-motion';
+import GoogleOneTap from '../Components/Auth/GoogleOneTap';
 import './Auth.css';
+
+const HERO_BG = 'https://images.unsplash.com/photo-1559592443-7f87a79f6528?auto=format&fit=crop&q=80&w=1600';
 
 const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
     password: '',
     confirmPassword: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { register } = useAuth();
+
+  const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -43,132 +46,180 @@ const Register = () => {
       await register(formData);
       navigate('/');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Đăng ký không thành công');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (account) => {
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await loginWithGoogle(account);
+      navigate('/');
+    } catch (err) {
+      setError(err.message || 'Lỗi đăng ký Google');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="auth-container">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="card shadow-lg auth-card auth-card-wide" 
+    <div className="auth-split-wrapper">
+      {/* Left Column: Visual Showcase */}
+      <div
+        className="auth-hero-panel"
+        style={{ backgroundImage: `url(${HERO_BG})` }}
       >
-        <div className="auth-header">
-          <h2 className="auth-title">Tạo tài khoản</h2>
-          <p className="auth-subtitle">Bắt đầu lên kế hoạch cho những chuyến đi mơ ước</p>
+        <div className="auth-hero-overlay" />
+
+        <div className="auth-hero-content">
+          <div className="auth-brand-logo">
+            <div className="auth-brand-icon">
+              <Compass size={22} />
+            </div>
+            <span className="auth-brand-title">PlanTravel</span>
+          </div>
+
+          <div className="auth-hero-middle">
+            <h2 className="auth-hero-heading">
+              Khám phá và kết nối những điểm đến mơ ước
+            </h2>
+            <p className="auth-hero-desc">
+              Tạo tài khoản miễn phí để lưu trữ và quản lý tất cả chuyến đi của bạn.
+            </p>
+          </div>
+
+          <div className="auth-hero-footer">
+            <span>© 2026 PlanTravel</span>
+          </div>
         </div>
+      </div>
 
-        {error && (
-          <div className="auth-error">
-            {error}
+      {/* Right Column: Register Form */}
+      <div className="auth-form-panel">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="auth-card-box"
+        >
+          <div className="auth-header">
+            <h1 className="auth-title">Đăng ký tài khoản</h1>
+            <p className="auth-subtitle">Bắt đầu lên lịch trình cho chuyến đi của bạn</p>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div>
-            <label className="auth-label">Họ và tên</label>
-            <div className="auth-input-group">
-              <User size={18} className="auth-icon" />
-              <input
-                name="name"
-                type="text"
-                required
-                className="btn-outline auth-input"
-                placeholder="Nguyễn Văn A"
-                value={formData.name}
-                onChange={handleChange}
-              />
+          {error && (
+            <div className="auth-error-banner">
+              <span>{error}</span>
             </div>
+          )}
+
+          {/* Google Sign-in */}
+          <div className="auth-social-wrap"><GoogleOneTap onCredential={handleGoogleSuccess} onError={setError} disabled={isSubmitting} /></div>
+
+          <div className="auth-divider">
+            <span>hoặc điền thông tin bên dưới</span>
           </div>
 
-          <div>
-            <label className="auth-label">Email</label>
-            <div className="auth-input-group">
-              <Mail size={18} className="auth-icon" />
-              <input
-                name="email"
-                type="email"
-                required
-                className="btn-outline auth-input"
-                placeholder="you@example.com"
-                value={formData.email}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="auth-label">Số điện thoại (Không bắt buộc)</label>
-            <div className="auth-input-group">
-              <Phone size={18} className="auth-icon" />
-              <input
-                name="phone"
-                type="tel"
-                className="btn-outline auth-input"
-                placeholder="0987654321"
-                value={formData.phone}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div className="auth-grid">
-            <div>
-              <label className="auth-label">Mật khẩu</label>
-              <div className="auth-input-group">
-                <Lock size={18} className="auth-icon" />
+          <form onSubmit={handleSubmit} className="auth-form">
+            <div className="auth-field">
+              <label className="auth-label">Họ và tên</label>
+              <div className="auth-input-wrapper">
+                <User size={18} className="auth-field-icon" />
                 <input
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type="text"
+                  name="name"
                   required
-                  className="btn-outline auth-input"
-                  placeholder="••••••••"
-                  value={formData.password}
+                  className="auth-input"
+                  placeholder="Nguyễn Văn A"
+                  value={formData.name}
                   onChange={handleChange}
                 />
               </div>
             </div>
-            <div>
-              <label className="auth-label">Xác nhận</label>
-              <div className="auth-input-group">
-                <Lock size={18} className="auth-icon" />
+
+            <div className="auth-field">
+              <label className="auth-label">Email</label>
+              <div className="auth-input-wrapper">
+                <Mail size={18} className="auth-field-icon" />
                 <input
-                  name="confirmPassword"
-                  type={showPassword ? 'text' : 'password'}
+                  type="email"
+                  name="email"
                   required
-                  className="btn-outline auth-input"
+                  className="auth-input"
+                  placeholder="name@example.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Mật khẩu (tối thiểu 6 ký tự)</label>
+              <div className="auth-input-wrapper">
+                <Lock size={18} className="auth-field-icon" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  required
+                  className="auth-input auth-input-password"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="auth-toggle-pwd"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Xác nhận mật khẩu</label>
+              <div className="auth-input-wrapper">
+                <Lock size={18} className="auth-field-icon" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  required
+                  className="auth-input auth-input-password"
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                 />
               </div>
             </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn btn-primary auth-submit-btn"
+            >
+              {isSubmitting ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                <>
+                  <span>Đăng ký</span>
+                  <ArrowRight size={17} />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="auth-footer">
+            Đã có tài khoản?
+            <Link to="/login" className="auth-footer-link">
+              Đăng nhập
+            </Link>
           </div>
-
-          <div className="auth-checkbox-group">
-            <input type="checkbox" id="show-pass" checked={showPassword} onChange={() => setShowPassword(!showPassword)} />
-            <label htmlFor="show-pass" className="auth-checkbox-label">Hiện mật khẩu</label>
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={isSubmitting}
-            className="btn btn-primary auth-submit-btn"
-          >
-            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : (
-              <>Đăng ký tài khoản <UserPlus size={18} /></>
-            )}
-          </button>
-        </form>
-
-        <div className="auth-footer">
-          <span className="auth-footer-text">Đã có tài khoản? </span>
-          <Link to="/login" className="auth-footer-link">Đăng nhập</Link>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 };

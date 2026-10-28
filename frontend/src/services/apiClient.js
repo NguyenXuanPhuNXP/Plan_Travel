@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const apiClient = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: API_BASE,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -9,7 +11,7 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem('access_token') || localStorage.getItem('travel_token');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -26,7 +28,7 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
 
     // Prevent infinite loops if the refresh token call fails
-    if (originalRequest.url.includes('/auth/refresh')) {
+    if (!originalRequest || originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/login')) {
       return Promise.reject(error);
     }
 
@@ -36,27 +38,29 @@ apiClient.interceptors.response.use(
 
       if (refreshToken) {
         try {
-          const response = await axios.post('http://localhost:5000/api/auth/refresh', {
+          const response = await axios.post(`${API_BASE}/auth/refresh`, {
             refreshToken
           });
 
           const { token, refreshToken: newRefreshToken } = response.data;
-          
-          localStorage.setItem('access_token', token);
+
+          if (token) {
+            localStorage.setItem('access_token', token);
+            localStorage.setItem('travel_token', token);
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            originalRequest.headers['Authorization'] = `Bearer ${token}`;
+          }
           if (newRefreshToken) {
             localStorage.setItem('refresh_token', newRefreshToken);
           }
 
-          apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          originalRequest.headers['Authorization'] = `Bearer ${token}`;
-
           return apiClient(originalRequest);
         } catch (refreshError) {
-          // Refresh token failed, clean up and redirect to login
+          // Refresh token failed, clean up
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
-          // Optionally redirect or dispatch an event
-          window.location.href = '/login';
+          localStorage.removeItem('travel_token');
+          localStorage.removeItem('travel_user');
           return Promise.reject(refreshError);
         }
       }

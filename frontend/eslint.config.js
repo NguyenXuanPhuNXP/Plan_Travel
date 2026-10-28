@@ -23,7 +23,8 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]|^motion$', argsIgnorePattern: '^[A-Z_]', caughtErrorsIgnorePattern: '^_' }],
     },
   },
+  { files: ['src/context/*.jsx', 'src/Components/Auth/GoogleSignInModal.jsx'], rules: { 'react-refresh/only-export-components': 'off' } },
 ])

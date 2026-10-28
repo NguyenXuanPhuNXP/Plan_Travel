@@ -10,6 +10,11 @@ export async function login(req, res) {
     res.status(200).json(response);
 }
 
+export async function loginWithGoogle(req, res) {
+    const response = await authService.loginWithGoogle(req.body);
+    res.status(200).json(response);
+}
+
 export async function refreshToken(req, res) {
     if (!req.body.refreshToken) {
         throw { status: 400, message: "Thiếu refresh token." };

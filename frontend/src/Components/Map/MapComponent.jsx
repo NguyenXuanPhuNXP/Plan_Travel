@@ -1,17 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   MapContainer, 
   TileLayer, 
   Marker, 
   Popup, 
-  useMapEvents,
-  useMap,
-  Polyline,
-  ZoomControl
+  useMapEvents, 
+  Polyline, 
+  ZoomControl 
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, MapPin, Loader2, Thermometer, CloudRain, Plus, Check } from 'lucide-react';
+import { Search, Loader2, Thermometer, CloudRain } from 'lucide-react';
 import { WeatherService } from '../../services/WeatherService';
 
 // Fix Leaflet icon issue
@@ -30,81 +29,44 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Custom icons for different marker types
-const createCustomIcon = (color, label) => {
-  return L.divIcon({
-    className: 'custom-marker',
-    html: `<div style="
-      width: 32px; height: 32px; border-radius: 50%;
-      background: ${color}; color: white;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      border: 3px solid white;
-    ">${label || ''}</div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -32]
-  });
-};
-
-const selectedIcon = (idx) => createCustomIcon('#ef4444', idx + 1);
-const suggestedIcon = () => createCustomIcon('#6366f1', '★');
-
 const MapEventsHandler = ({ onMapClick }) => {
   useMapEvents({
     click: (e) => {
-      onMapClick(e.latlng);
+      if (typeof onMapClick === 'function' && e && e.latlng) {
+        onMapClick(e.latlng);
+      }
     },
   });
   return null;
 };
 
-// Auto fit bounds when locations change
-const FitBoundsHandler = ({ locations }) => {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (locations && locations.length > 0) {
-      const validLocs = locations
-        .map((l) => ({ ...l, _lat: Number(l.lat), _lng: Number(l.lng) }))
-        .filter((l) => Number.isFinite(l._lat) && Number.isFinite(l._lng));
-      if (validLocs.length > 0) {
-        const bounds = L.latLngBounds(validLocs.map(l => [l._lat, l._lng]));
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
-      }
-    }
-  }, [locations, map]);
-
-  return null;
-};
-
-const MapComponent = ({ 
-  selectedLocations = [], 
-  suggestedLocations = [],
-  onLocationAdd, 
-  onLocationRemove, 
-  showRoute = true,
-  onMapClick
-}) => {
+const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove, showRoute = true }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [weatherData, setWeatherData] = useState({});
-  const center = [16.0544, 108.2022]; // Vietnam center (Da Nang)
 
-  // All locations for fit bounds
-  const allLocations = [
-    ...selectedLocations,
-    ...(suggestedLocations || []).filter(l => Number.isFinite(Number(l.lat)) && Number.isFinite(Number(l.lng)))
-  ];
+  // Filter only valid locations with finite lat/lng to prevent Leaflet LatLng crash
+  const validLocations = (Array.isArray(selectedLocations) ? selectedLocations : [])
+    .filter((loc) => loc && (loc.lat ?? loc.latitude) != null && (loc.lng ?? loc.longitude) != null && Number.isFinite(Number(loc.lat ?? loc.latitude)) && Number.isFinite(Number(loc.lng ?? loc.longitude)))
+    .map((loc) => ({
+      ...loc,
+      id: loc.tripLocId || loc.id,
+      image: loc.image || loc.imageUrl,
+      lat: Number(loc.lat ?? loc.latitude),
+      lng: Number(loc.lng ?? loc.longitude)
+    }));
+
+  const center = validLocations.length > 0
+    ? [validLocations[0].lat, validLocations[0].lng]
+    : [21.0285, 105.8542]; // Default to Hanoi
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!searchQuery || !onLocationAdd) return;
+    if (!searchQuery.trim() || typeof onLocationAdd !== 'function') return;
     
     setIsSearching(true);
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${searchQuery}&limit=1`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`);
       const data = await response.json();
       if (data && data.length > 0) {
         const { lat, lon, display_name } = data[0];
@@ -126,56 +88,61 @@ const MapComponent = ({
   };
 
   const fetchWeatherForLocation = async (id, lat, lng) => {
-    if (weatherData[id]) return;
-    const data = await WeatherService.getWeather(lat, lng);
-    setWeatherData(prev => ({ ...prev, [id]: data }));
+    if (!id || !Number.isFinite(lat) || !Number.isFinite(lng) || weatherData[id]) return;
+    try {
+      const data = await WeatherService.getWeather(lat, lng);
+      setWeatherData(prev => ({ ...prev, [id]: data }));
+    } catch {
+      // silent
+    }
   };
 
   const [routeGeometry, setRouteGeometry] = useState([]);
 
+  // Depend on coordinate values, not a new array allocated on every render.
+  const routeCoordinates = validLocations.map(loc => `${loc.lng},${loc.lat}`).join(';');
+
   useEffect(() => {
-    if (selectedLocations.length < 2) {
-      setRouteGeometry([]);
-      return;
-    }
+    const controller = new AbortController();
+    setRouteGeometry(previous => previous.length ? [] : previous);
+    if (!showRoute || !routeCoordinates.includes(';')) return;
 
     const fetchRoute = async () => {
-      const coords = selectedLocations.map(loc => `${loc.lng},${loc.lat}`).join(';');
-      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+      const url = `https://router.project-osrm.org/route/v1/driving/${routeCoordinates}?overview=full&geometries=geojson`;
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) return;
         const data = await response.json();
-        if (data.routes && data.routes[0]) {
-          const coordsGeo = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-          setRouteGeometry(coordsGeo);
+        if (!controller.signal.aborted && data.routes?.[0]?.geometry?.coordinates) {
+          setRouteGeometry(data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]));
         }
       } catch (err) {
-        console.error('Lỗi khi lấy lộ trình:', err);
+        if (err.name !== 'AbortError') console.warn('Lỗi khi lấy lộ trình:', err);
       }
     };
 
     fetchRoute();
-  }, [selectedLocations]);
+    return () => controller.abort();
+  }, [routeCoordinates, showRoute]);
 
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       {/* Search Overlay */}
-      {onLocationAdd && (
+      {typeof onLocationAdd === 'function' && (
         <div style={{ 
           position: 'absolute', 
           top: '20px', 
           left: '50%', 
           transform: 'translateX(-50%)', 
-          zIndex: 1000,
-          width: '90%',
-          maxWidth: '500px'
+          zIndex: 1000, 
+          width: '90%', 
+          maxWidth: '500px' 
         }}>
           <form onSubmit={handleSearch} className="glass" style={{ 
             display: 'flex', 
             padding: '0.5rem', 
-            borderRadius: 'var(--radius-lg)',
-            boxShadow: 'var(--shadow-lg)'
+            borderRadius: 'var(--radius-lg)', 
+            boxShadow: 'var(--shadow-lg)' 
           }}>
             <input 
               type="text" 
@@ -186,8 +153,8 @@ const MapComponent = ({
                 flex: 1, 
                 border: 'none', 
                 background: 'transparent', 
-                padding: '0.5rem 1rem',
-                fontSize: '0.9rem'
+                padding: '0.5rem 1rem', 
+                fontSize: '0.9rem' 
               }}
             />
             <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)' }}>
@@ -197,36 +164,9 @@ const MapComponent = ({
         </div>
       )}
 
-      {/* Legend */}
-      {suggestedLocations.length > 0 && (
-        <div style={{
-          position: 'absolute',
-          bottom: '60px',
-          left: '10px',
-          zIndex: 1000,
-          padding: '0.5rem 0.75rem',
-          borderRadius: '8px',
-          background: 'rgba(255,255,255,0.95)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-          fontSize: '0.75rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '4px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#ef4444' }} />
-            <span>Đã chọn ({selectedLocations.length})</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#6366f1' }} />
-            <span>Gợi ý ({suggestedLocations.filter(l => l.isSuggested).length})</span>
-          </div>
-        </div>
-      )}
-
       <MapContainer 
         center={center} 
-        zoom={6} 
+        zoom={13} 
         zoomControl={false}
         style={{ height: '100%', width: '100%' }}
       >
@@ -236,11 +176,8 @@ const MapComponent = ({
         />
         
         <ZoomControl position="bottomright" />
-        
-        <FitBoundsHandler locations={allLocations} />
-
-        {onLocationAdd && (
-          <MapEventsHandler onMapClick={(latlng) => {
+        <MapEventsHandler onMapClick={(latlng) => {
+          if (typeof onLocationAdd === 'function') {
             onLocationAdd({
               id: `click_${Date.now()}`,
               name: `Địa điểm mới (${latlng.lat.toFixed(4)})`,
@@ -249,72 +186,20 @@ const MapComponent = ({
               lng: latlng.lng,
               image: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800'
             });
-          }} />
-        )}
+          }
+        }} />
 
-        {/* Suggested location markers (blue) */}
-        {suggestedLocations
-          .filter(l => l.isSuggested && Number.isFinite(Number(l.lat)) && Number.isFinite(Number(l.lng)))
-          .map((loc) => (
+        {validLocations.map((loc, idx) => (
           <Marker 
-            key={`suggested_${loc.id}`} 
-            position={[Number(loc.lat), Number(loc.lng)]}
-            icon={suggestedIcon()}
-          >
-            <Popup>
-              <div style={{ padding: '0.5rem', minWidth: '180px' }}>
-                <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.9rem' }}>{loc.name}</h4>
-                <p style={{ fontSize: '0.75rem', color: '#666', margin: '0 0 0.5rem 0' }}>{loc.address}</p>
-                <button 
-                  onClick={() => onLocationAdd?.({
-                    id: loc.id,
-                    name: loc.name,
-                    address: loc.address,
-                    lat: loc.lat,
-                    lng: loc.lng,
-                    image: loc.image
-                  })}
-                  style={{ 
-                    width: '100%', 
-                    padding: '0.4rem', 
-                    background: '#6366f1', 
-                    color: 'white', 
-                    fontSize: '0.75rem', 
-                    fontWeight: 600,
-                    borderRadius: '4px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <span>＋</span> Thêm vào lịch trình
-                </button>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-
-        {/* Selected location markers (red, numbered) */}
-        {selectedLocations
-          .map((loc) => ({ ...loc, _lat: Number(loc.lat), _lng: Number(loc.lng) }))
-          .filter((loc) => Number.isFinite(loc._lat) && Number.isFinite(loc._lng))
-          .map((loc, idx) => (
-          <Marker 
-            key={loc.id} 
-            position={[loc._lat, loc._lng]}
-            icon={selectedIcon(idx)}
+            key={loc.id || `loc_${idx}`} 
+            position={[loc.lat, loc.lng]}
             eventHandlers={{
-              click: () => fetchWeatherForLocation(loc.id, loc._lat, loc._lng)
+              click: () => fetchWeatherForLocation(loc.id, loc.lat, loc.lng)
             }}
           >
             <Popup>
               <div style={{ padding: '0.5rem' }}>
-                {loc.image && (
-                  <img src={loc.image} alt={loc.name} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '4px', marginBottom: '0.5rem' }} />
-                )}
+                <img src={loc.image} alt={loc.name} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '4px', marginBottom: '0.5rem' }} />
                 <h4 style={{ margin: '0 0 0.25rem 0' }}>{loc.name}</h4>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 0.5rem 0' }}>{loc.address}</p>
                 
@@ -325,9 +210,9 @@ const MapComponent = ({
                     gap: '1rem', 
                     padding: '0.5rem', 
                     background: '#f8fafc', 
-                    borderRadius: '4px',
-                    marginBottom: '0.5rem',
-                    fontSize: '0.8rem'
+                    borderRadius: '4px', 
+                    marginBottom: '0.5rem', 
+                    fontSize: '0.8rem' 
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       <Thermometer size={14} color="var(--accent)" />
@@ -340,22 +225,22 @@ const MapComponent = ({
                   </div>
                 )}
                 
-                <button 
-                  onClick={() => onLocationRemove(loc.id)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '0.4rem', 
-                    background: '#fee2e2', 
-                    color: '#dc2626', 
-                    fontSize: '0.75rem', 
-                    fontWeight: 600,
-                    borderRadius: '4px',
-                    border: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Xóa khỏi lịch trình
-                </button>
+                {typeof onLocationRemove === 'function' && (
+                  <button 
+                    onClick={() => onLocationRemove(loc.id)}
+                    style={{ 
+                      width: '100%', 
+                      padding: '0.4rem', 
+                      background: '#fee2e2', 
+                      color: '#dc2626', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 600, 
+                      borderRadius: '4px' 
+                    }}
+                  >
+                    Xóa khỏi lịch trình
+                  </button>
+                )}
               </div>
             </Popup>
           </Marker>

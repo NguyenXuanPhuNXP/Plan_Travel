@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useCallback } from 'react';
-import { LogOut, User, Bell, Search, MapPin, Sparkles, Loader2, Users, ChevronDown } from 'lucide-react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { LogOut, User, Bell, Search, MapPin, Sparkles, Loader2, Users, ChevronDown, Compass, Shield } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -11,24 +11,23 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [searchResults, setSearchResults] = React.useState([]);
-  const [isSearching, setIsSearching] = React.useState(false);
-  const [showDropdown, setShowDropdown] = React.useState(false);
-  const [showUserDropdown, setShowUserDropdown] = React.useState(false);
-  const [showFriendModal, setShowFriendModal] = React.useState(false);
-  const userName = user?.fullName || user?.name || 'Người dùng';
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showFriendModal, setShowFriendModal] = useState(false);
+  const userName = user?.fullName || user?.name || 'Lữ khách';
   const userAvatar = user?.avatarUrl || user?.avatar || '/avatars/traveler.svg';
-  const [avatarSrc, setAvatarSrc] = React.useState(userAvatar);
+  const [avatarSrc, setAvatarSrc] = useState(userAvatar);
 
   const userDropdownRef = useRef(null);
   const searchDropdownRef = useRef(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setAvatarSrc(userAvatar);
   }, [userAvatar]);
 
-  // Close dropdowns when clicking outside
   const handleClickOutside = useCallback((e) => {
     if (userDropdownRef.current && !userDropdownRef.current.contains(e.target)) {
       setShowUserDropdown(false);
@@ -43,17 +42,23 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [handleClickOutside]);
 
-  // Debounced search
-  React.useEffect(() => {
+  useEffect(() => {
     const timer = setTimeout(async () => {
-      if (searchQuery.trim().length > 2) {
+      if (searchQuery.trim().length > 1) {
         setIsSearching(true);
         try {
-          const results = await locationService.searchDestinations(searchQuery, 5);
-          setSearchResults(results);
+          if (locationService?.searchDestinations) {
+            const results = await locationService.searchDestinations(searchQuery, 5);
+            setSearchResults(results);
+          } else {
+            // fallback search
+            const all = await locationService.getAll();
+            const filtered = (all || []).filter(l => l.name?.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5);
+            setSearchResults(filtered);
+          }
           setShowDropdown(true);
         } catch (err) {
-          console.error("Global search error:", err);
+          console.error('Search error:', err);
           setSearchResults([]);
         } finally {
           setIsSearching(false);
@@ -62,7 +67,7 @@ const Navbar = () => {
         setSearchResults([]);
         setShowDropdown(false);
       }
-    }, 500);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -70,12 +75,7 @@ const Navbar = () => {
   const handleResultClick = (loc) => {
     setSearchQuery('');
     setShowDropdown(false);
-    const params = new URLSearchParams({
-      q: loc.name || searchQuery,
-      locationId: String(loc.primaryLocationId || loc.locationId || loc.id),
-      region: loc.region || loc.city || loc.province || loc.name || ''
-    });
-    navigate(`/explore?${params.toString()}`);
+    navigate(`/explore?q=${encodeURIComponent(loc.name)}`);
   };
 
   const handleOpenFriendModal = () => {
@@ -88,61 +88,66 @@ const Navbar = () => {
     navigate('/profile');
   };
 
+  const handleGoToAdmin = () => {
+    setShowUserDropdown(false);
+    navigate('/admin');
+  };
+
   const handleLogout = () => {
     setShowUserDropdown(false);
     logout();
   };
+
+  const isAdmin = user?.role === 1 || user?.role === 'admin';
 
   return (
     <>
       <header className="glass navbar-header">
         <div className="navbar-left">
           <Link to="/" className="navbar-brand">
-            Travel<span className="navbar-brand-text">Plan</span>
+            <div className="navbar-brand-badge">
+              <Compass size={20} />
+            </div>
+            <span className="navbar-brand-name">PlanTravel</span>
           </Link>
 
           <div className="navbar-search-container" ref={searchDropdownRef}>
-            <Search size={18} className="navbar-search-icon" />
+            <Search size={16} className="navbar-search-icon" />
             <input
               type="text"
-              placeholder="Tìm kiếm địa điểm..."
+              placeholder="Tìm kiếm điểm đến..."
               className="navbar-search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => searchQuery.length > 2 && setShowDropdown(true)}
+              onFocus={() => searchQuery.length > 1 && setShowDropdown(true)}
             />
 
-            {/* Dropdown Results */}
             {showDropdown && (
               <div className="navbar-search-dropdown glass">
                 {isSearching ? (
                   <div className="navbar-search-loading">
                     <Loader2 size={16} className="animate-spin" />
-                    <span>AI đang tìm kiếm...</span>
+                    <span>Đang tìm kiếm...</span>
                   </div>
                 ) : searchResults.length > 0 ? (
                   <div className="navbar-search-results">
-                    <div className="navbar-search-header">
-                      <Sparkles size={12} />
-                      Gợi ý thông minh
-                    </div>
                     {searchResults.map(loc => (
                       <div
-                        key={loc.id}
+                        key={loc.id || loc.name}
                         className="navbar-search-item"
                         onClick={() => handleResultClick(loc)}
                       >
                         <MapPin size={14} className="navbar-search-item-icon" />
                         <div className="navbar-search-item-info">
                           <div className="navbar-search-item-name">{loc.name}</div>
-                          <div className="navbar-search-item-region">{loc.region || loc.city || loc.province}</div>
+                          <div className="navbar-search-item-region">{loc.region || loc.address || 'Việt Nam'}</div>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="navbar-search-no-results">
-                    Không tìm thấy địa điểm phù hợp
+                    Không tìm thấy điểm đến phù hợp
                   </div>
                 )}
               </div>
@@ -151,12 +156,22 @@ const Navbar = () => {
         </div>
 
         <div className="navbar-right">
-          {/* <Link to="/notifications" className="navbar-bell" title="Thông báo">
-            <Bell size={20} />
+          {/* Admin quick entry */}
+          {isAdmin && (
+            <Link to="/admin" className="navbar-bell" title="Quản trị hệ thống (Admin Console)" style={{ color: 'var(--primary)' }}>
+              <Shield size={18} />
+            </Link>
+          )}
+
+          {/* Notification Bell */}
+          <Link to="/notifications" className="navbar-bell" title="Thông báo">
+            <Bell size={18} />
             {unreadCount > 0 && (
-              <span className="navbar-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              <span className="navbar-bell-badge">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
             )}
-          </Link> */}
+          </Link>
 
           {user ? (
             <div className="navbar-user" ref={userDropdownRef}>
@@ -166,28 +181,32 @@ const Navbar = () => {
               >
                 <div className="navbar-user-info">
                   <div className="navbar-user-name">{userName}</div>
-                  <div className="navbar-user-role">Pro Traveler</div>
                 </div>
                 <img
                   src={avatarSrc}
                   alt={userName}
                   className="navbar-user-avatar"
-                  onError={() => setAvatarSrc('/avatars/traveler.svg')}
+                  onError={() => setAvatarSrc('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200')}
                 />
-                <ChevronDown size={16} className={`navbar-chevron ${showUserDropdown ? 'open' : ''}`} />
+                <ChevronDown size={15} className={`navbar-chevron ${showUserDropdown ? 'open' : ''}`} />
               </div>
 
               {showUserDropdown && (
                 <div className="navbar-user-dropdown glass">
                   <div className="navbar-user-dropdown-item" onClick={handleGoToProfile}>
-                    <User size={16} /> <span>Trang cá nhân</span>
+                    <User size={15} /> <span>Trang cá nhân</span>
                   </div>
                   <div className="navbar-user-dropdown-item" onClick={handleOpenFriendModal}>
-                    <Users size={16} /> <span>Bạn bè & Lời mời</span>
+                    <Users size={15} /> <span>Bạn bè & Lời mời</span>
                   </div>
+                  {isAdmin && (
+                    <div className="navbar-user-dropdown-item" onClick={handleGoToAdmin}>
+                      <Shield size={15} /> <span>Quản trị hệ thống</span>
+                    </div>
+                  )}
                   <div className="navbar-user-dropdown-divider" />
                   <div className="navbar-user-dropdown-item navbar-user-dropdown-logout" onClick={handleLogout}>
-                    <LogOut size={16} /> <span>Đăng xuất</span>
+                    <LogOut size={15} /> <span>Đăng xuất</span>
                   </div>
                 </div>
               )}
@@ -201,7 +220,7 @@ const Navbar = () => {
         </div>
       </header>
 
-      {/* FriendModal rendered OUTSIDE header to avoid z-index conflicts */}
+      {/* Friend & Group Modal */}
       <FriendModal isOpen={showFriendModal} onClose={() => setShowFriendModal(false)} />
     </>
   );

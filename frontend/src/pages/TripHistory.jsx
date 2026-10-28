@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../Components/Layout/Layout';
 import { useTrips } from '../context/TripContext';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Search, 
-  MapPin, 
-  Calendar, 
-  ChevronRight, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle2, 
+import {
+  Search,
+  MapPin,
+  Calendar,
+  ChevronRight,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
   CalendarDays,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -24,13 +25,18 @@ const TripHistory = () => {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? '--/--/----' : format(date, 'dd/MM/yyyy');
   };
-  const { trips, deleteTrip } = useTrips();
+  const { trips, deleteTrip, fetchTrips, loading } = useTrips();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  useEffect(() => {
+    fetchTrips();
+  }, [fetchTrips]);
+
   const filteredTrips = trips.filter(trip => {
-    const matchesSearch = (trip.title || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const title = trip.title || trip.name || '';
+    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab = activeTab === 'all' || trip.status === activeTab;
     return matchesSearch && matchesTab;
   });
@@ -68,15 +74,15 @@ const TripHistory = () => {
         <div className="trip-history-filters">
           <div className="trip-history-search">
             <Search size={18} className="trip-history-search-icon" />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm chuyến đi..." 
+            <input
+              type="text"
+              placeholder="Tìm kiếm chuyến đi..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="trip-history-search-input"
             />
           </div>
-          
+
           <div className="trip-history-tabs">
             {tabs.map((tab) => (
               <button
@@ -94,8 +100,19 @@ const TripHistory = () => {
         {/* Trips Grid */}
         <div className="trip-history-grid">
           <AnimatePresence>
-            {filteredTrips.length > 0 ? filteredTrips.map((trip) => {
-              const locations = Array.isArray(trip.locations) ? trip.locations : [];
+            {loading && trips.length === 0 ? (
+              <div className="trip-history-empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                <Loader2 className="animate-spin" size={20} />
+                <span>Đang tải danh sách chuyến đi...</span>
+              </div>
+            ) : filteredTrips.length > 0 ? filteredTrips.map((trip) => {
+              const tripTitle = trip.title || trip.name || 'Chuyến đi chưa đặt tên';
+              const locations = Array.isArray(trip.locations) && trip.locations.length > 0
+                ? trip.locations
+                : (Array.isArray(trip.items) ? trip.items : []);
+              const firstLocName = (locations[0]?.name || locations[0]?.customName || 'Chưa có điểm').split(',')[0];
+              const budgetVal = Number(trip.budget != null ? trip.budget : (trip.totalCost != null ? trip.totalCost : 0));
+
               return (
               <motion.div
                 key={trip.id}
@@ -106,14 +123,14 @@ const TripHistory = () => {
                 className="card trip-history-card"
               >
                 <div className="trip-history-status-row">
-                  <div 
+                  <div
                     className="trip-history-badge"
                     style={{ color: getStatusColor(trip.status) }}
                   >
                     {tabs.find(t => t.id === trip.status)?.label || trip.status}
                   </div>
                   {trip.owner && String(trip.owner.id) !== String(user?.id) && (
-                    <div 
+                    <div
                       className="trip-history-badge trip-history-badge-shared"
                       title="Chuyến đi chung"
                     >
@@ -121,15 +138,15 @@ const TripHistory = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="trip-history-content">
                   <div className="trip-history-card-header">
-                    <h3 className="trip-history-card-title">{trip.title}</h3>
+                    <h3 className="trip-history-card-title">{tripTitle}</h3>
                     <button onClick={() => deleteTrip(trip.id)} className="trip-history-delete-btn" title="Xóa">
                       <Trash2 size={18} />
                     </button>
                   </div>
-                  
+
                   <div className="trip-history-meta">
                     <div className="trip-history-meta-item">
                       <Calendar size={16} />
@@ -137,14 +154,14 @@ const TripHistory = () => {
                     </div>
                     <div className="trip-history-meta-item">
                       <MapPin size={16} />
-                      <span>{locations.length} điểm đến · {(locations[0]?.name || 'Chưa có điểm').split(',')[0]}...</span>
+                      <span>{locations.length} điểm đến · {firstLocName}...</span>
                     </div>
                   </div>
 
                   <div className="trip-history-footer">
                     <div className="trip-history-budget">
                       <span>Ngân sách: </span>
-                      {Number(trip.budget).toLocaleString()}đ
+                      {budgetVal.toLocaleString()}đ
                     </div>
                     <Link to={`/trip/${trip.id}`} className="trip-history-detail-link">
                       Chi tiết <ChevronRight size={16} />
