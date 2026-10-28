@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  # MySQL Database Server
+  mysql:
+    image: mysql:8.0
+    container_name: plan_travel_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: '123456'
+      MYSQL_DATABASE: 'travel_planner'
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./Back End/Database/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --default-authentication-plugin=mysql_native_password
+
+  # phpMyAdmin (Giao diện web trực quan quản lý CSDL)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: plan_travel_phpmyadmin
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: '123456'
+    depends_on:
+      - mysql
+
+volumes:
+  mysql_data:

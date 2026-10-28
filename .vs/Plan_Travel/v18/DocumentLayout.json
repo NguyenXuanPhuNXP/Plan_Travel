@@ -1,0 +1,115 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "D:\\MyVsCode\\Duan\\Plan_Travel\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{44C2E45C-75A8-6280-D620-6C5DEB294D48}|TravelPlanner.API\\TravelPlanner.API.csproj|d:\\myvscode\\duan\\plan_travel\\travelplanner.api\\data\\travelplannerdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{44C2E45C-75A8-6280-D620-6C5DEB294D48}|TravelPlanner.API\\TravelPlanner.API.csproj|solutionrelative:travelplanner.api\\data\\travelplannerdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{44C2E45C-75A8-6280-D620-6C5DEB294D48}|TravelPlanner.API\\TravelPlanner.API.csproj|d:\\myvscode\\duan\\plan_travel\\travelplanner.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{44C2E45C-75A8-6280-D620-6C5DEB294D48}|TravelPlanner.API\\TravelPlanner.API.csproj|solutionrelative:travelplanner.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{44C2E45C-75A8-6280-D620-6C5DEB294D48}|TravelPlanner.API\\TravelPlanner.API.csproj|d:\\myvscode\\duan\\plan_travel\\travelplanner.api\\dbsmoketest.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{44C2E45C-75A8-6280-D620-6C5DEB294D48}|TravelPlanner.API\\TravelPlanner.API.csproj|solutionrelative:travelplanner.api\\dbsmoketest.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 4,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{40ea2e6b-2121-4bb8-a43e-c83c04b51041}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "TravelPlannerDbContext.cs",
+              "DocumentMoniker": "D:\\MyVsCode\\Duan\\Plan_Travel\\TravelPlanner.API\\Data\\TravelPlannerDbContext.cs",
+              "RelativeDocumentMoniker": "TravelPlanner.API\\Data\\TravelPlannerDbContext.cs",
+              "ToolTip": "D:\\MyVsCode\\Duan\\Plan_Travel\\TravelPlanner.API\\Data\\TravelPlannerDbContext.cs",
+              "RelativeToolTip": "TravelPlanner.API\\Data\\TravelPlannerDbContext.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAAvAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-23T15:54:46.498Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Program.cs",
+              "DocumentMoniker": "D:\\MyVsCode\\Duan\\Plan_Travel\\TravelPlanner.API\\Program.cs",
+              "RelativeDocumentMoniker": "TravelPlanner.API\\Program.cs",
+              "ToolTip": "D:\\MyVsCode\\Duan\\Plan_Travel\\TravelPlanner.API\\Program.cs*",
+              "RelativeToolTip": "TravelPlanner.API\\Program.cs*",
+              "ViewState": "AgIAADkAAAAAAAAAAAAAAEcAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-23T15:45:30.979Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "DbSmokeTest.cs",
+              "DocumentMoniker": "D:\\MyVsCode\\Duan\\Plan_Travel\\TravelPlanner.API\\DbSmokeTest.cs",
+              "RelativeDocumentMoniker": "TravelPlanner.API\\DbSmokeTest.cs",
+              "ToolTip": "D:\\MyVsCode\\Duan\\Plan_Travel\\TravelPlanner.API\\DbSmokeTest.cs",
+              "RelativeToolTip": "TravelPlanner.API\\DbSmokeTest.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-23T15:45:29.02Z",
+              "EditorCaption": ""
+            }
+          ]
+        },
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": -1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:2:0:{d212f56b-c48a-434c-a121-1c5d80b59b9f}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:5:0:{d212f56b-c48a-434c-a121-1c5d80b59b9f}"
+            }
+          ]
+        },
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": -1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c64b9c2-e352-428e-a56d-0ace190b99a6}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,189 @@
+Using launch settings from D:\MyVsCode\ReactJs\PlanTravel\Plan_Travel\TravelPlanner.API\Properties\launchSettings.json...
+Building...
+warn: Microsoft.EntityFrameworkCore.Model.Validation[10400]
+      Sensitive data logging is enabled. Log entries and exception messages may include sensitive application data; this mode should only be enabled during development.
+info: Microsoft.EntityFrameworkCore.Migrations[20411]
+      Acquiring an exclusive lock for migration application. See https://aka.ms/efcore-docs-migrations-lock for more information if this takes too long.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT GET_LOCK('__travel_planner_EFMigrationsLock', 259200)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      CREATE TABLE IF NOT EXISTS `__EFMigrationsHistory` (
+          `MigrationId` varchar(150) CHARACTER SET utf8mb4 NOT NULL,
+          `ProductVersion` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
+          CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+      ) CHARACTER SET=utf8mb4;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='travel_planner' AND TABLE_NAME='__EFMigrationsHistory';
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `MigrationId`, `ProductVersion`
+      FROM `__EFMigrationsHistory`
+      ORDER BY `MigrationId`;
+info: Microsoft.EntityFrameworkCore.Migrations[20405]
+      No migrations were applied. The database is already up to date.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT RELEASE_LOCK('__travel_planner_EFMigrationsLock')
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5199
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\MyVsCode\ReactJs\PlanTravel\Plan_Travel\TravelPlanner.API
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
+      Failed to determine the https port for redirect.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (22ms) [Parameters=[@p0='location' (Nullable = false) (Size = 4000), @p1='smoke test' (Size = 500), @p2='TestCat-ab4379a2fb9a' (Nullable = false) (Size = 100)], CommandType='Text', CommandTimeout='30']
+      INSERT INTO `categories` (`category_type`, `description`, `name`)
+      VALUES (@p0, @p1, @p2);
+      SELECT `id`
+      FROM `categories`
+      WHERE ROW_COUNT() = 1 AND `id` = LAST_INSERT_ID();
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@p0=NULL (Size = 500), @p1='2026-04-23T15:18:04.2709534Z' (DbType = DateTime), @p2='smoke-6119aad6e57e47e68431070fa5df2759@test.local' (Nullable = false) (Size = 255), @p3='Smoke Test' (Nullable = false) (Size = 150), @p4='x' (Nullable = false) (Size = 255), @p5='0990155455' (Nullable = false) (Size = 20), @p6='2026-04-23T15:18:04.2709535Z' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      INSERT INTO `users` (`avatar_url`, `created_at`, `email`, `full_name`, `password_hash`, `phone`, `updated_at`)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+      SELECT `id`, `is_active`, `role`
+      FROM `users`
+      WHERE ROW_COUNT() = 1 AND `id` = LAST_INSERT_ID();
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@p0=NULL (Size = 4000), @p1=NULL (Size = 100), @p2=NULL (Size = 100), @p3=NULL (Size = 100), @p4=NULL (Size = 10), @p5='2026-04-23T15:18:04.3317355Z' (DbType = DateTime), @p6=NULL (Size = 4000), @p7=NULL (Size = 100), @p8='ext-de1e5a7334a7464e9c8af025d7d612ee' (Nullable = false) (Size = 255), @p9='0xE61000000101000000910F7A36AB765A409EEFA7C64B073540' (Nullable = false) (DbType = Binary), @p10=NULL (Size = 4000), @p11='21.0285', @p12='105.8542', @p13='Smoke Place' (Nullable = false) (Size = 255), @p14=NULL (Size = 100), @p15='4.5' (Nullable = true), @p16=NULL (Size = 4000), @p17=NULL (Size = 100), @p18='geoapify' (Nullable = false) (Size = 50), @p19=NULL (Size = 150), @p20=NULL (Size = 50), @p21='["smoke"]' (Size = 4000), @p22='2026-04-23T15:18:04.3317358Z' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      INSERT INTO `locations` (`address`, `category`, `city`, `country`, `country_code`, `created_at`, `description`, `district`, `external_id`, `geo_point`, `image_url`, `latitude`, `longitude`, `name`, `province`, `rating`, `raw_json`, `region`, `source`, `subcategory`, `suggested_duration`, `tags`, `updated_at`)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18, @p19, @p20, @p21, @p22);
+      SELECT `id`, `estimated_cost`
+      FROM `locations`
+      WHERE ROW_COUNT() = 1 AND `id` = LAST_INSERT_ID();
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@p0=NULL (DbType = UInt64), @p1='ok' (Size = 4000), @p2='2026-04-23T15:18:04.4312900Z' (DbType = DateTime), @p3=NULL (Size = 500), @p4='1' (Nullable = true), @p5='5', @p6='1'], CommandType='Text', CommandTimeout='30']
+      INSERT INTO `reviews` (`business_id`, `content`, `created_at`, `image_url`, `location_id`, `rating`, `user_id`)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+      SELECT `id`
+      FROM `reviews`
+      WHERE ROW_COUNT() = 1 AND `id` = LAST_INSERT_ID();
+fail: Microsoft.EntityFrameworkCore.Database.Command[20102]
+      Failed executing DbCommand (2ms) [Parameters=[@p0=NULL (DbType = UInt64), @p1='bad' (Size = 4000), @p2='2026-04-23T15:18:04.4740639Z' (DbType = DateTime), @p3=NULL (Size = 500), @p4='1' (Nullable = true), @p5='6', @p6='1'], CommandType='Text', CommandTimeout='30']
+      INSERT INTO `reviews` (`business_id`, `content`, `created_at`, `image_url`, `location_id`, `rating`, `user_id`)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+      SELECT `id`
+      FROM `reviews`
+      WHERE ROW_COUNT() = 1 AND `id` = LAST_INSERT_ID();
+fail: Microsoft.EntityFrameworkCore.Update[10000]
+      An exception occurred in the database while saving changes for context type 'TravelPlanner.API.Data.TravelPlannerDbContext'.
+      Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+       ---> MySqlConnector.MySqlException (0x80004005): Check constraint 'chk_review_rating' is violated.
+         at MySqlConnector.Core.ServerSession.ReceiveReplyAsync(IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/Core/ServerSession.cs:line 1081
+         at MySqlConnector.Core.ResultSet.ReadResultSetHeaderAsync(IOBehavior ioBehavior) in /_/src/MySqlConnector/Core/ResultSet.cs:line 37
+         at MySqlConnector.MySqlDataReader.ActivateResultSet(CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlDataReader.cs:line 131
+         at MySqlConnector.MySqlDataReader.InitAsync(CommandListPosition commandListPosition, ICommandPayloadCreator payloadCreator, IDictionary`2 cachedProcedures, IMySqlCommand command, CommandBehavior behavior, Activity activity, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlDataReader.cs:line 487
+         at MySqlConnector.Core.CommandExecutor.ExecuteReaderAsync(CommandListPosition commandListPosition, ICommandPayloadCreator payloadCreator, CommandBehavior behavior, Activity activity, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/Core/CommandExecutor.cs:line 56
+         at MySqlConnector.MySqlCommand.ExecuteReaderAsync(CommandBehavior behavior, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlCommand.cs:line 357
+         at MySqlConnector.MySqlCommand.ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlCommand.cs:line 350
+         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+         --- End of inner exception stack trace ---
+         at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.RelationalDatabase.SaveChangesAsync(IList`1 entries, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.<>c__DisplayClass30_0`2.<<ExecuteAsync>b__0>d.MoveNext()
+      --- End of stack trace from previous location ---
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+      Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+       ---> MySqlConnector.MySqlException (0x80004005): Check constraint 'chk_review_rating' is violated.
+         at MySqlConnector.Core.ServerSession.ReceiveReplyAsync(IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/Core/ServerSession.cs:line 1081
+         at MySqlConnector.Core.ResultSet.ReadResultSetHeaderAsync(IOBehavior ioBehavior) in /_/src/MySqlConnector/Core/ResultSet.cs:line 37
+         at MySqlConnector.MySqlDataReader.ActivateResultSet(CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlDataReader.cs:line 131
+         at MySqlConnector.MySqlDataReader.InitAsync(CommandListPosition commandListPosition, ICommandPayloadCreator payloadCreator, IDictionary`2 cachedProcedures, IMySqlCommand command, CommandBehavior behavior, Activity activity, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlDataReader.cs:line 487
+         at MySqlConnector.Core.CommandExecutor.ExecuteReaderAsync(CommandListPosition commandListPosition, ICommandPayloadCreator payloadCreator, CommandBehavior behavior, Activity activity, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/Core/CommandExecutor.cs:line 56
+         at MySqlConnector.MySqlCommand.ExecuteReaderAsync(CommandBehavior behavior, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlCommand.cs:line 357
+         at MySqlConnector.MySqlCommand.ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlCommand.cs:line 350
+         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+         --- End of inner exception stack trace ---
+         at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.RelationalDatabase.SaveChangesAsync(IList`1 entries, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.<>c__DisplayClass30_0`2.<<ExecuteAsync>b__0>d.MoveNext()
+      --- End of stack trace from previous location ---
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+fail: Microsoft.EntityFrameworkCore.Database.Command[20102]
+      Failed executing DbCommand (1ms) [Parameters=[@p0=NULL (DbType = UInt64), @p1=NULL (Size = 4000), @p2='2026-04-23T15:18:04.5057837Z' (DbType = DateTime), @p3=NULL (Size = 500), @p4=NULL (DbType = UInt64), @p5='3', @p6='1'], CommandType='Text', CommandTimeout='30']
+      INSERT INTO `reviews` (`business_id`, `content`, `created_at`, `image_url`, `location_id`, `rating`, `user_id`)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+      SELECT `id`
+      FROM `reviews`
+      WHERE ROW_COUNT() = 1 AND `id` = LAST_INSERT_ID();
+fail: Microsoft.EntityFrameworkCore.Update[10000]
+      An exception occurred in the database while saving changes for context type 'TravelPlanner.API.Data.TravelPlannerDbContext'.
+      Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+       ---> MySqlConnector.MySqlException (0x80004005): Check constraint 'chk_review_target' is violated.
+         at MySqlConnector.Core.ServerSession.ReceiveReplyAsync(IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/Core/ServerSession.cs:line 1081
+         at MySqlConnector.Core.ResultSet.ReadResultSetHeaderAsync(IOBehavior ioBehavior) in /_/src/MySqlConnector/Core/ResultSet.cs:line 37
+         at MySqlConnector.MySqlDataReader.ActivateResultSet(CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlDataReader.cs:line 131
+         at MySqlConnector.MySqlDataReader.InitAsync(CommandListPosition commandListPosition, ICommandPayloadCreator payloadCreator, IDictionary`2 cachedProcedures, IMySqlCommand command, CommandBehavior behavior, Activity activity, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlDataReader.cs:line 487
+         at MySqlConnector.Core.CommandExecutor.ExecuteReaderAsync(CommandListPosition commandListPosition, ICommandPayloadCreator payloadCreator, CommandBehavior behavior, Activity activity, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/Core/CommandExecutor.cs:line 56
+         at MySqlConnector.MySqlCommand.ExecuteReaderAsync(CommandBehavior behavior, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlCommand.cs:line 357
+         at MySqlConnector.MySqlCommand.ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlCommand.cs:line 350
+         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+         --- End of inner exception stack trace ---
+         at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.RelationalDatabase.SaveChangesAsync(IList`1 entries, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.<>c__DisplayClass30_0`2.<<ExecuteAsync>b__0>d.MoveNext()
+      --- End of stack trace from previous location ---
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+      Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+       ---> MySqlConnector.MySqlException (0x80004005): Check constraint 'chk_review_target' is violated.
+         at MySqlConnector.Core.ServerSession.ReceiveReplyAsync(IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/Core/ServerSession.cs:line 1081
+         at MySqlConnector.Core.ResultSet.ReadResultSetHeaderAsync(IOBehavior ioBehavior) in /_/src/MySqlConnector/Core/ResultSet.cs:line 37
+         at MySqlConnector.MySqlDataReader.ActivateResultSet(CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlDataReader.cs:line 131
+         at MySqlConnector.MySqlDataReader.InitAsync(CommandListPosition commandListPosition, ICommandPayloadCreator payloadCreator, IDictionary`2 cachedProcedures, IMySqlCommand command, CommandBehavior behavior, Activity activity, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlDataReader.cs:line 487
+         at MySqlConnector.Core.CommandExecutor.ExecuteReaderAsync(CommandListPosition commandListPosition, ICommandPayloadCreator payloadCreator, CommandBehavior behavior, Activity activity, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/Core/CommandExecutor.cs:line 56
+         at MySqlConnector.MySqlCommand.ExecuteReaderAsync(CommandBehavior behavior, IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlCommand.cs:line 357
+         at MySqlConnector.MySqlCommand.ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlCommand.cs:line 350
+         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+         --- End of inner exception stack trace ---
+         at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.RelationalDatabase.SaveChangesAsync(IList`1 entries, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.<>c__DisplayClass30_0`2.<<ExecuteAsync>b__0>d.MoveNext()
+      --- End of stack trace from previous location ---
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+         at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)

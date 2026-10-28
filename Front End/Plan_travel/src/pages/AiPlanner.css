@@ -1,0 +1,351 @@
+.ai-planner-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.ai-planner-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ai-planner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--primary-soft);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  margin-bottom: 0.5rem;
+}
+
+.ai-planner-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 0.35rem;
+}
+
+.ai-planner-subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* Card & Form */
+.ai-planner-card {
+  padding: 2rem;
+}
+
+.ai-planner-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ai-form-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.25rem;
+}
+
+.ai-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ai-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.ai-input, .ai-select {
+  width: 100%;
+  height: 46px;
+  padding: 0 1rem;
+  background: #FFFFFF;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 0.925rem;
+  transition: var(--transition-fast);
+}
+
+.ai-input:focus, .ai-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.ai-dest-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.ai-suggest-chip {
+  padding: 0.25rem 0.65rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  font-size: 0.775rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: var(--transition-fast);
+}
+
+.ai-suggest-chip:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: rgba(200, 90, 50, 0.3);
+}
+
+/* Style Grid */
+.ai-style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.ai-style-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: var(--transition-fast);
+}
+
+.ai-style-card:hover {
+  border-color: #CFC5B2;
+  background: var(--bg-subtle);
+}
+
+.ai-style-card.active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.ai-style-icon {
+  flex-shrink: 0;
+}
+
+/* Budget Grid */
+.ai-budget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.ai-budget-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem 1rem;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: var(--transition-fast);
+}
+
+.ai-budget-card:hover {
+  border-color: #CFC5B2;
+}
+
+.ai-budget-card.active {
+  background: var(--forest-soft);
+  border-color: var(--forest);
+}
+
+.ai-budget-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+.ai-budget-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.ai-submit-btn {
+  width: 100%;
+  height: 48px;
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+}
+
+/* AI Result Section */
+.ai-result-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ai-result-header {
+  padding: 1.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.ai-result-info {
+  flex: 1;
+  min-width: 280px;
+}
+
+.ai-result-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0.5rem 0 0.35rem;
+  color: var(--text-main);
+}
+
+.ai-result-summary {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.85rem;
+  line-height: 1.5;
+}
+
+.ai-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.ai-meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--forest);
+}
+
+.ai-save-btn {
+  padding: 0.8rem 1.6rem;
+  font-size: 0.925rem;
+}
+
+/* Day by Day Cards */
+.ai-days-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ai-day-card {
+  padding: 1.5rem;
+}
+
+.ai-day-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ai-day-pill {
+  padding: 0.25rem 0.65rem;
+  background: var(--forest);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.ai-day-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.ai-day-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  position: relative;
+  padding-left: 0.5rem;
+}
+
+.ai-timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  position: relative;
+}
+
+.ai-timeline-time {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  width: 75px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.ai-timeline-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--primary);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.ai-timeline-content {
+  flex: 1;
+}
+
+.ai-spot-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.2rem;
+}
+
+.ai-spot-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+@media (max-width: 768px) {
+  .ai-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .ai-result-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .ai-save-btn {
+    width: 100%;
+  }
+}
