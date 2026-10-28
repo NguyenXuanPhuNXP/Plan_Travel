@@ -19,7 +19,12 @@ test('Editor keeps all five sections as a draft, survives save failure and sends
             savePlan: async (_id, payload) => {
                 fixture.calls.push(payload);
                 if (fixture.fail) throw { response: { data: { message: 'Controlled save error' } } };
-                return { ...payload, id: '5', userId: '1' };
+                return {
+                    ...payload, id: '5', userId: '1',
+                    items: payload.items.map((item, index) => ({ ...item, id: item.id || String(100 + index) })),
+                    packingItems: payload.packingItems.map((item, index) => ({ ...item, id: item.id || String(200 + index) })),
+                    collaborators: payload.collaborators.map((member, index) => ({ ...member, userId: member.userId || String(300 + index), user: { name: member.name || member.email, email: member.email } }))
+                };
             }
         },
         navigate: path => { fixture.path = path; }, addTrip: value => { fixture.updated = value; }
@@ -64,6 +69,7 @@ test('Editor keeps all five sections as a draft, survives save failure and sends
         await click('Thành viên');
         await change('Hoặc email tài khoản', 'friend@example.com');
         await click('Thêm vào danh sách');
+        assert.equal(fixture.calls.length, 0, 'Changing fields, packing and members must not save automatically');
         await click('Lưu toàn bộ thay đổi');
         assert.equal(fixture.path, null);
         assert.ok(root().findAllByProps({ role: 'alert' }).some(node => node.children.join('').includes('Controlled save error')));
@@ -81,13 +87,33 @@ test('Editor keeps all five sections as a draft, survives save failure and sends
         assert.equal(payload.collaborators[0].permission, 'view');
         fixture.path = null;
         let inlineSaved;
-        await act(async () => { renderer.update(React.createElement(Editor, { embedded: true, onSaved: updated => { inlineSaved = updated; } })); });
+        const editorRef = { current: null };
+        await act(async () => { renderer.update(React.createElement(Editor, { embedded: true, editorRef, onSaved: updated => { inlineSaved = updated; } })); });
         assert.equal(root().findAllByType('nav').length, 0, 'Inline editor must keep the original page layout without tab navigation');
-        assert.equal(root().findAllByType('details').length, 5);
+        assert.equal(root().findAllByType('details').length, 3, 'Schedule and packing belong in the existing lower cards, not duplicate top sections');
+        assert.deepEqual(root().findAllByType('summary').map(node => node.children.join('')), ['Thông tin', 'Chi phí', 'Thành viên']);
         await change('Tên kế hoạch', 'Saved inline');
+        await act(async () => { editorRef.current.togglePacking('20'); });
+        await act(async () => { editorRef.current.setPackingQuantity('20', '4'); });
+        await act(async () => { editorRef.current.addStop({ id: 'map-result', name: 'Map stop', lat: 21.03, lng: 105.84, address: 'Hà Nội' }, 2); });
+        await act(async () => { editorRef.current.addPacking({ itemName: 'Added in sidebar', quantity: 3 }); });
+        assert.equal(fixture.calls.length, 2, 'Sidebar checklist changes must remain drafts');
         await click('Lưu toàn bộ thay đổi');
         assert.equal(inlineSaved.name, 'Saved inline');
+        assert.equal(fixture.calls.at(-1).packingItems.find(item => item.id === '20').quantity, '4');
+        assert.equal(fixture.calls.at(-1).items.at(-1).manualLocation.latitude, 21.03);
+        assert.equal(fixture.calls.at(-1).items.at(-1).day, 2);
+        assert.equal(fixture.calls.at(-1).packingItems.at(-1).itemName, 'Added in sidebar');
         assert.equal(fixture.path, null, 'Saving inline must not navigate away from trip details');
+        assert.equal(field('Tên kế hoạch').props.value, 'Saved inline');
+        globalThis.window.confirm = () => true;
+        await change('Tên kế hoạch', 'Unsaved name');
+        await click('Bỏ thay đổi');
+        assert.equal(field('Tên kế hoạch').props.value, 'Saved inline');
+        assert.equal(fixture.calls.length, 3, 'Discard must not send another save');
+        await change('Tên kế hoạch', 'Second inline save');
+        await click('Lưu toàn bộ thay đổi');
+        assert.equal(inlineSaved.name, 'Second inline save');
     } finally {
         if (renderer) await act(async () => renderer.unmount());
         globalThis.__planEditor = previous.fixture;

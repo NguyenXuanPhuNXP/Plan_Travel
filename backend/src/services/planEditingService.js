@@ -1,5 +1,6 @@
 import prisma from '../config/db.js';
 import { getItineraryById } from './itineraryService.js';
+import { createHash } from 'node:crypto';
 
 const fail = message => { throw { status: 400, message }; };
 const text = (value, limit, label, required = false) => {
@@ -80,7 +81,22 @@ export async function savePlan(itineraryId, userId, draft) {
         for (const item of draft.items) {
             if (item.id && (!itemIds.has(String(item.id)) || keepItems.has(String(item.id)))) fail('Điểm dừng không thuộc kế hoạch hoặc bị trùng.');
             if (item.id) keepItems.add(String(item.id));
-            const locationId = item.locationId ? id(item.locationId) : null;
+            let locationId = item.locationId ? id(item.locationId) : null;
+            if (!locationId && item.manualLocation) {
+                const point = item.manualLocation;
+                const latitude = Number(point.latitude ?? point.lat);
+                const longitude = Number(point.longitude ?? point.lng);
+                if ((point.latitude ?? point.lat) == null || (point.longitude ?? point.lng) == null || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) fail('Tọa độ điểm đã chọn không hợp lệ.');
+                const name = text(point.name || item.customName, 255, 'Tên địa điểm', true);
+                const address = text(point.address, 2000, 'Địa chỉ');
+                const image = text(point.imageUrl || point.image, 2000, 'Ảnh địa điểm');
+                const externalId = 'manual_plan_' + createHash('sha256').update(`${name}|${latitude}|${longitude}`).digest('hex');
+                await tx.$executeRaw`INSERT INTO locations (external_id, source, name, address, latitude, longitude, geo_point, category, image_url)
+                    VALUES (${externalId}, 'manual', ${name}, ${address}, ${latitude}, ${longitude}, ST_SRID(POINT(${longitude}, ${latitude}), 4326), 'manual', ${image})
+                    ON DUPLICATE KEY UPDATE external_id = VALUES(external_id)`;
+                const points = await tx.$queryRaw`SELECT id FROM locations WHERE external_id = ${externalId}`;
+                locationId = points[0].id;
+            }
             const businessId = item.businessId ? id(item.businessId) : null;
             const customName = text(item.customName, 255, 'Tên điểm dừng');
             if (!locationId && !businessId && !customName) fail('Mỗi điểm dừng cần có tên hoặc địa điểm.');

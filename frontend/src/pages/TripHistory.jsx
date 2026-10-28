@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../Components/Layout/Layout';
 import { useTrips } from '../context/TripContext';
 import { useAuth } from '../context/AuthContext';
-import TripMembersModal from '../Components/Layout/TripMembersModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -30,7 +29,6 @@ const TripHistory = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTrip, setSelectedTrip] = useState(null);
   const [actionError, setActionError] = useState('');
   const handleDelete = async id => {
     if (!window.confirm('Xóa kế hoạch này?')) return;
@@ -173,10 +171,9 @@ const TripHistory = () => {
                   </div>
 
                   <div className="trip-history-footer">
-                    {(String(trip.userId || trip.owner?.id) === String(user?.id) || trip.collaborators?.some(member => String(member.userId) === String(user?.id) && member.permission === 'edit')) && <Link to={`/trip/${trip.id}?edit=1`} className="btn btn-outline">Chỉnh sửa</Link>}
-                    <button type="button" className="btn btn-outline" onClick={() => setSelectedTrip(trip)}>
+                    <Link className="btn btn-outline" to={`/trip/${trip.id}#plan-editor-members`}>
                       {String(trip.userId || trip.owner?.id) === String(user?.id) ? 'Thêm thành viên' : 'Thành viên'}
-                    </button>
+                    </Link>
                     <div className="trip-history-budget">
                       <span>Ngân sách: </span>
                       {budgetVal.toLocaleString()}đ
@@ -195,7 +192,6 @@ const TripHistory = () => {
             )}
           </AnimatePresence>
         </div>
-        {selectedTrip && <TripMembersModal key={selectedTrip.id} trip={selectedTrip} userId={user?.id} onClose={() => setSelectedTrip(null)} onUpdated={fetchTrips} />}
       </div>
     </Layout>
   );

@@ -6,7 +6,7 @@ import { savePlan } from '../src/services/planEditingService.js';
 
 const draftOf = trip => ({
     ...trip, name: trip.name, startDate: trip.startDate, endDate: trip.endDate,
-    status: 'draft', costScope: trip.costScope || 'PERSON', travelerCount: trip.travelerCount || 1,
+    status: 'draft', costScope: trip.costScope || 'PERSON', travelerCount: trip.travelerCount || 1, preferences: trip.preferences || [],
     items: trip.items.map(item => ({ ...item, day: Number(item.note?.match(/\[DAY:(\d+)\]/)?.[1] || 1) })),
     packingItems: trip.packingItems, collaborators: trip.collaborators
 });
@@ -108,5 +108,33 @@ test('Invalid dates, negative costs and foreign item IDs leave plan data intact'
         }
     } finally {
         await deleteItinerary(trip.id, owner.id); await deleteItinerary(other.id, owner.id); await prisma.$disconnect();
+    }
+});
+
+test('A map-selected location is persisted with its coordinates only as part of a successful plan save', async () => {
+    const owner = await prisma.users.findFirst();
+    const trip = await createItinerary(owner.id, { name: 'Map selection fixture', totalDays: 2 });
+    let locationId;
+    const pointName = `Map fixture ${Date.now()}`;
+    try {
+        const draft = draftOf(trip);
+        draft.items = [{ customName: pointName, day: 1, manualLocation: { name: pointName, address: 'Hà Nội', latitude: 21.033, longitude: 105.842 } }];
+        assert.equal(await prisma.locations.count({ where: { name: pointName } }), 0);
+        const saved = await savePlan(trip.id, owner.id, draft);
+        locationId = BigInt(saved.items[0].locationId);
+        assert.equal(saved.items[0].location.latitude, 21.033);
+        assert.equal(saved.items[0].location.longitude, 105.842);
+        assert.equal(saved.items[0].location.address, 'Hà Nội');
+        const invalid = draftOf(saved);
+        const invalidPoint = `${pointName} rolled back`;
+        invalid.items.push({ customName: invalidPoint, day: 1, manualLocation: { name: invalidPoint, latitude: 21, longitude: 105 } });
+        invalid.packingItems = [{ itemName: 'Invalid packing quantity', quantity: 0 }];
+        await assert.rejects(() => savePlan(trip.id, owner.id, invalid), error => error.status === 400);
+        assert.equal(await prisma.locations.count({ where: { name: invalidPoint } }), 0);
+        assert.equal((await getItineraryById(trip.id, owner.id)).items.length, 1);
+    } finally {
+        await deleteItinerary(trip.id, owner.id);
+        if (locationId) await prisma.locations.delete({ where: { id: locationId } });
+        await prisma.$disconnect();
     }
 });
