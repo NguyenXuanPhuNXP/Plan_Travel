@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import apiClient from '../services/apiClient';
 
 const AuthContext = createContext();
 
@@ -11,6 +12,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+    const syncSession = () => {
+      if (!active) return;
+      const currentToken = localStorage.getItem('access_token');
+      setToken(currentToken);
+      if (!currentToken) setUser(null);
+    };
+    window.addEventListener('auth:updated', syncSession);
     // Check localStorage for existing session
     const storedUser = localStorage.getItem('travel_user');
     const storedToken = localStorage.getItem('access_token') || localStorage.getItem('travel_token');
@@ -28,7 +37,23 @@ export const AuthProvider = ({ children }) => {
         console.error('Lỗi phân tích dữ liệu user:', e);
       }
     }
-    setLoading(false);
+    if (storedToken) {
+      apiClient.get('/auth/me').then(({ data }) => {
+        if (!active) return;
+        setUser(data);
+        setToken(localStorage.getItem('access_token'));
+        localStorage.setItem('travel_user', JSON.stringify(data));
+      }).catch(error => {
+        if (active && [401, 403, 404].includes(error.response?.status)) {
+          ['access_token', 'travel_token', 'refresh_token', 'travel_user'].forEach(key => localStorage.removeItem(key));
+          setUser(null);
+          setToken(null);
+        }
+      }).finally(() => { if (active) setLoading(false); });
+    } else {
+      setLoading(false);
+    }
+    return () => { active = false; window.removeEventListener('auth:updated', syncSession); };
   }, []);
 
   const saveSession = (userData, userToken, refreshToken = null) => {
@@ -51,7 +76,7 @@ export const AuthProvider = ({ children }) => {
       saveSession(data.user, data.token, data.refreshToken);
       return data.user;
     } catch (err) {
-      throw new Error(err.response?.data?.message || 'Kh?ng th? x?c th?c. Vui l?ng ki?m tra k?t n?i v? th? l?i.');
+      throw new Error(err.response?.data?.message || 'Không thể xác thực. Vui lòng kiểm tra kết nối và thử lại.');
     }
   };
   const login = (email, password) => authenticate('login', { email, password });
@@ -68,10 +93,20 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('refresh_token');
   };
 
-  const updateProfile = (newData) => {
-    const updatedUser = { ...user, ...newData };
-    setUser(updatedUser);
-    localStorage.setItem('travel_user', JSON.stringify(updatedUser));
+  const updateProfile = async (newData) => {
+    const accountId = String(user?.id);
+    const { data: updatedUser } = await apiClient.patch('/auth/profile', {
+      fullName: newData.fullName || newData.name || user?.fullName,
+      email: newData.email || user?.email,
+      phone: newData.phone ?? user?.phone,
+      avatarUrl: newData.avatarUrl ?? user?.avatarUrl
+    });
+    const activeUser = JSON.parse(localStorage.getItem('travel_user') || 'null');
+    if (String(activeUser?.id) === accountId) {
+      setUser(updatedUser);
+      localStorage.setItem('travel_user', JSON.stringify(updatedUser));
+    }
+    return updatedUser;
   };
 
   return (

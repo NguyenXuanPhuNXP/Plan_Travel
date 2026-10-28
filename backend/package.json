@@ -12,7 +12,9 @@
     "init:seed-jobs": "node src/scripts/initVietnamSeedJobs.js",
     "cache:vietnam": "npm run init:seed-jobs && npm run seed:vietnam",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate deploy"
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "node src/scripts/seedDemo.js",
+    "db:init": "node src/scripts/initDatabase.js"
   },
   "dependencies": {
     "@google/genai": "^2.8.0",

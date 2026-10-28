@@ -1,5 +1,13 @@
 -- Make legacy name column nullable to avoid constraint conflicts
-ALTER TABLE `users` MODIFY COLUMN `name` VARCHAR(255) NULL DEFAULT NULL;
+SET @legacy_name_sql = IF(
+    EXISTS(SELECT 1 FROM information_schema.columns
+           WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'name'),
+    'ALTER TABLE `users` MODIFY COLUMN `name` VARCHAR(255) NULL DEFAULT NULL',
+    'SELECT 1'
+);
+PREPARE legacy_name_statement FROM @legacy_name_sql;
+EXECUTE legacy_name_statement;
+DEALLOCATE PREPARE legacy_name_statement;
 
 -- CreateTable: itinerary_messages
 CREATE TABLE IF NOT EXISTS `itinerary_messages` (

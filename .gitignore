@@ -17,3 +17,8 @@ archive/
 !.env.example
 
 .one-tap-backup/
+
+# Active applications live in frontend/ and backend/.
+/Front End/
+/Back End/
+/Database/

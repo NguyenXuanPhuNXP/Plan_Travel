@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import Layout from '../components/Layout/Layout';
+import React, { useRef, useState } from 'react';
+import Layout from '../Components/Layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,24 +19,28 @@ import './Profile.css';
 const Profile = () => {
   const { user, updateProfile, logout } = useAuth();
   const [formData, setFormData] = useState({
-    name: user?.name || '',
+    name: user?.fullName || user?.name || '',
     email: user?.email || '',
-    bio: 'Professional traveler and explorer. Passionate about discovering new cultures and cuisines.'
+    phone: user?.phone || '',
+    avatarUrl: user?.avatarUrl || user?.avatar || ''
   });
   const [isSaving, setIsSaving] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [error, setError] = useState('');
+  const avatarInput = useRef(null);
 
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    updateProfile({ name: formData.name, email: formData.email });
-    setIsSaving(false);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    setError('');
+    try {
+      await updateProfile({ fullName: formData.name, email: formData.email, phone: formData.phone, avatarUrl: formData.avatarUrl });
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Không thể lưu hồ sơ. Vui lòng thử lại.');
+    } finally { setIsSaving(false); }
   };
 
   const sections = [
@@ -56,15 +60,16 @@ const Profile = () => {
             <div className="card profile-card-center">
               <div className="profile-avatar-container">
                 <img
-                  src={user?.avatar}
-                  alt={user?.name}
+                  src={user?.avatarUrl || user?.avatar || '/avatars/traveler.svg'}
+                  alt={user?.fullName || user?.name || 'Ảnh đại diện'}
+                  onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/avatars/traveler.svg'; }}
                   className="profile-avatar-img"
                 />
-                <button className="profile-avatar-btn">
+                <button type="button" className="profile-avatar-btn" aria-label="Đổi ảnh đại diện" onClick={() => avatarInput.current?.focus()}>
                   <Camera size={16} />
                 </button>
               </div>
-              <h2 className="profile-name">{user?.name}</h2>
+              <h2 className="profile-name">{user?.fullName || user?.name}</h2>
               <p className="profile-member-since">Thành viên từ 2026</p>
               <button onClick={logout} className="btn btn-outline profile-logout-btn">
                 <LogOut size={16} /> Đăng xuất
@@ -94,6 +99,7 @@ const Profile = () => {
             <h3 className="profile-edit-title">Thông tin cá nhân</h3>
 
             <form onSubmit={handleSave} className="profile-form">
+              {error && <p role="alert">{error}</p>}
               <div>
                 <label className="profile-label">Tên hiển thị</label>
                 <div className="profile-input-group">
@@ -121,15 +127,20 @@ const Profile = () => {
               </div>
 
               <div>
-                <label className="profile-label">Giới thiệu bản thân</label>
-                <textarea
-                  className="btn-outline profile-textarea"
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                <label className="profile-label">Số điện thoại</label>
+                <input
+                  type="tel"
+                  maxLength={20}
+                  className="btn-outline profile-input"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
               </div>
 
               <div className="profile-form-footer">
+                <label className="profile-label">Ảnh đại diện (URL)
+                  <input ref={avatarInput} type="url" maxLength={500} className="btn-outline profile-input" value={formData.avatarUrl} onChange={event => setFormData({ ...formData, avatarUrl: event.target.value })} />
+                </label>
                 <button
                   type="submit"
                   className="btn btn-primary profile-submit-btn"

@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../Components/Layout/Layout';
 import { useParams, Link } from 'react-router-dom';
+import TripEdit from './TripEdit';
+import PackingDraftPicker from '../Components/Layout/PackingDraftPicker';
+import TripStopFields from '../Components/Layout/TripStopFields';
 import { useTrips } from '../context/TripContext';
 import { itineraryService } from '../services/itineraryService';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { WeatherService } from '../services/WeatherService';
 import MapComponent from '../Components/Map/MapComponent';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Calendar,
   MapPin,
@@ -32,27 +35,24 @@ import {
   MessageCircle,
   Plus,
   Search,
-  Check
+  Check,
+  Edit3,
+  GripVertical
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { sharingService } from '../services/sharingService';
 import { friendService } from '../services/friendService';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import './TripDetails.css';
 
-const PACKING_CATEGORIES = [
-  { key: 'all', label: 'Tất cả' },
-  { key: 'clothing', label: 'Quần áo' },
-  { key: 'devices', label: 'Thiết bị' },
-  { key: 'tools', label: 'Đồ cá nhân' },
-  { key: 'accessories', label: 'Phụ kiện' },
-  { key: 'documents', label: 'Giấy tờ & Tiền' },
-  { key: 'medical', label: 'Y tế & Thuốc' }
-];
+
 
 const TripDetails = () => {
   const { id } = useParams();
+  const editorRef = useRef(null);
+  const [liveDraft, setLiveDraft] = useState(null);
+  const [showPackingPicker, setShowPackingPicker] = useState(false);
   const { getTripById, updateTrip, fetchTrips } = useTrips();
   const { user } = useAuth();
   const { pushNotification } = useNotifications();
@@ -62,7 +62,9 @@ const TripDetails = () => {
   const [dbTrip, setDbTrip] = useState(null);
   const trip = dbTrip || contextTrip;
   const [isLoadingTrip, setIsLoadingTrip] = useState(!trip);
-  const [packingItems, setPackingItems] = useState(trip?.packingItems || []);
+  const [savedPackingItems, setPackingItems] = useState(trip?.packingItems || []);
+  const packingItems = liveDraft?.packingItems || savedPackingItems;
+  const [selectedDayTab, setSelectedDayTab] = useState('all');
 
   useEffect(() => {
     async function loadFreshTrip() {
@@ -93,183 +95,6 @@ const TripDetails = () => {
     }
   }, [trip]);
 
-  const handleTogglePacking = async (packingItemId) => {
-    const item = packingItems.find(p => String(p.id) === String(packingItemId));
-    if (!item) return;
-    const nextPacked = !item.isPacked;
-    setPackingItems(prev => prev.map(p => String(p.id) === String(packingItemId) ? { ...p, isPacked: nextPacked } : p));
-    try {
-      if (/^\d+$/.test(String(packingItemId)) && /^\d+$/.test(String(trip?.id))) {
-        await itineraryService.updatePackingItem(trip.id, packingItemId, { isPacked: nextPacked });
-      }
-    } catch (e) {
-      console.warn('Failed to update packing item:', e);
-    }
-  };
-
-  // Packing Catalog Modal States
-  const [showPackingModal, setShowPackingModal] = useState(false);
-  const [catalogItems, setCatalogItems] = useState([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogCategory, setCatalogCategory] = useState('all');
-  const [catalogSearch, setCatalogSearch] = useState('');
-  const [selectedCatalogIds, setSelectedCatalogIds] = useState(new Set());
-  const [catalogItemQuantities, setCatalogItemQuantities] = useState({});
-  const [customPackingName, setCustomPackingName] = useState('');
-  const [customPackingCategory, setCustomPackingCategory] = useState('clothing');
-  const [customPackingQty, setCustomPackingQty] = useState(1);
-  const [savingPacking, setSavingPacking] = useState(false);
-
-  const openPackingCatalogModal = async () => {
-    setShowPackingModal(true);
-    setSelectedCatalogIds(new Set());
-    setCatalogItemQuantities({});
-    setCustomPackingName('');
-    if (catalogItems.length === 0) {
-      setCatalogLoading(true);
-      try {
-        const cat = await itineraryService.getPackingCatalog();
-        if (Array.isArray(cat)) {
-          setCatalogItems(cat);
-        }
-      } catch (err) {
-        console.warn('Failed to fetch catalog:', err);
-      } finally {
-        setCatalogLoading(false);
-      }
-    }
-  };
-
-  const toggleSelectCatalogItem = (itemId) => {
-    setSelectedCatalogIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(itemId)) {
-        next.delete(itemId);
-      } else {
-        next.add(itemId);
-      }
-      return next;
-    });
-  };
-
-  const setCatalogQty = (itemId, delta) => {
-    setCatalogItemQuantities((prev) => {
-      const current = prev[itemId] || 1;
-      const next = Math.max(1, current + delta);
-      return { ...prev, [itemId]: next };
-    });
-  };
-
-  const handleSelectAllInCatalogCategory = (select) => {
-    const existingNames = new Set(packingItems.map((p) => (p.itemName || p.name || '').toLowerCase().trim()));
-    const matching = catalogItems.filter((item) => {
-      const matchesCategory = catalogCategory === 'all' || item.category === catalogCategory;
-      const matchesSearch = !catalogSearch || item.name.toLowerCase().includes(catalogSearch.toLowerCase());
-      const alreadyAdded = existingNames.has(item.name.toLowerCase().trim());
-      return matchesCategory && matchesSearch && !alreadyAdded;
-    });
-
-    setSelectedCatalogIds((prev) => {
-      const next = new Set(prev);
-      matching.forEach((item) => {
-        if (select) next.add(item.id);
-        else next.delete(item.id);
-      });
-      return next;
-    });
-  };
-
-  const handleAddSelectedPackingItems = async () => {
-    const selectedList = catalogItems.filter((item) => selectedCatalogIds.has(item.id));
-    const hasCustom = Boolean(customPackingName.trim());
-    if (selectedList.length === 0 && !hasCustom) {
-      setToast('Vui lòng chọn ít nhất một món đồ.');
-      setTimeout(() => setToast(''), 2000);
-      return;
-    }
-
-    setSavingPacking(true);
-    const addedItems = [];
-
-    // 1. Add selected catalog items
-    for (const item of selectedList) {
-      const qty = catalogItemQuantities[item.id] || item.defaultQuantity || 1;
-      const payload = {
-        itemName: item.name,
-        category: item.category || 'other',
-        quantity: qty,
-        notes: item.notes || null,
-        isPacked: false
-      };
-      try {
-        if (/^\d+$/.test(String(trip?.id))) {
-          const res = await itineraryService.addPackingItem(trip.id, payload);
-          if (res && res.id) {
-            addedItems.push(res);
-          } else {
-            addedItems.push({ id: `pack_${Date.now()}_${Math.random()}`, ...payload });
-          }
-        } else {
-          addedItems.push({ id: `pack_${Date.now()}_${Math.random()}`, ...payload });
-        }
-      } catch (e) {
-        console.warn('Failed to add packing item to backend:', e);
-        addedItems.push({ id: `pack_${Date.now()}_${Math.random()}`, ...payload });
-      }
-    }
-
-    // 2. Add custom item if entered
-    if (hasCustom) {
-      const customPayload = {
-        itemName: customPackingName.trim(),
-        category: customPackingCategory || 'other',
-        quantity: Math.max(1, Number(customPackingQty) || 1),
-        notes: null,
-        isPacked: false
-      };
-      try {
-        if (/^\d+$/.test(String(trip?.id))) {
-          const res = await itineraryService.addPackingItem(trip.id, customPayload);
-          if (res && res.id) {
-            addedItems.push(res);
-          } else {
-            addedItems.push({ id: `pack_${Date.now()}_custom`, ...customPayload });
-          }
-        } else {
-          addedItems.push({ id: `pack_${Date.now()}_custom`, ...customPayload });
-        }
-      } catch (_e) {
-        addedItems.push({ id: `pack_${Date.now()}_custom`, ...customPayload });
-      }
-    }
-
-    const nextPacking = [...packingItems, ...addedItems];
-    setPackingItems(nextPacking);
-    if (trip?.id) {
-      updateTrip(trip.id, { packingItems: nextPacking });
-    }
-    setSavingPacking(false);
-    setShowPackingModal(false);
-    setToast(`Đã thêm thành công ${addedItems.length} món đồ vào danh sách.`);
-    setTimeout(() => setToast(''), 2500);
-  };
-
-  const handleRemovePacking = async (e, packingItemId) => {
-    e.stopPropagation();
-    const nextPacking = packingItems.filter((p) => String(p.id) !== String(packingItemId));
-    setPackingItems(nextPacking);
-    if (trip?.id) {
-      updateTrip(trip.id, { packingItems: nextPacking });
-    }
-    try {
-      if (/^\d+$/.test(String(packingItemId)) && /^\d+$/.test(String(trip?.id))) {
-        await itineraryService.removePackingItem(trip.id, packingItemId);
-      }
-    } catch (e) {
-      console.warn('Failed to remove packing item:', e);
-    }
-  };
-
   const [weatherData, setWeatherData] = useState({});
   const [activeWeatherLoc, setActiveWeatherLoc] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -281,18 +106,10 @@ const TripDetails = () => {
   const [friendsList, setFriendsList] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [toast, setToast] = useState('');
-  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const isEditingInfo = false;
   const [editingLocations, setEditingLocations] = useState([]);
-  const [editForm, setEditForm] = useState({
-    title: '',
-    startLocation: '',
-    endLocation: '',
-    startDate: '',
-    endDate: '',
-    budget: '',
-    notes: ''
-  });
-  const locations = Array.isArray(trip?.locations) ? trip.locations : [];
+
+  const locations = liveDraft?.items || (Array.isArray(trip?.locations) ? trip.locations : []);
   const isTripOwner = String(trip?.userId || trip?.owner?.id || '') === String(user?.id || '');
   const collaborators = groupMembers?.members || trip?.collaborators || [];
   const currentMember = collaborators.find((member) => String(member.userId || member.user?.id || '') === String(user?.id || ''));
@@ -305,20 +122,24 @@ const TripDetails = () => {
 
   const normalizeMapLoc = (loc) => {
     if (!loc) return null;
-    const lat = Number(loc.lat ?? loc.latitude);
-    const lng = Number(loc.lng ?? loc.longitude);
-    const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng);
+    const source = loc.location || loc;
+    const rawLat = source.lat ?? source.latitude;
+    const rawLng = source.lng ?? source.longitude;
+    const lat = rawLat == null ? null : Number(rawLat);
+    const lng = rawLng == null ? null : Number(rawLng);
+    const hasValidCoords = lat !== null && lng !== null && Number.isFinite(lat) && Number.isFinite(lng);
 
     return {
-      id: String(loc.id || loc.locationId || `tmp_${Date.now()}`),
-      name: loc.name || loc.customName || 'Địa điểm',
-      address: loc.address || '',
-      lat: hasValidCoords ? lat : 21.0285,
-      lng: hasValidCoords ? lng : 105.8542,
+      id: String(source.id || loc.locationId || loc.id || ''),
+      tripLocId: loc.key || (loc.location ? loc.id : loc.tripLocId),
+      name: loc.customName || source.name || 'Địa điểm',
+      address: source.address || '',
+      lat: hasValidCoords ? lat : null,
+      lng: hasValidCoords ? lng : null,
       hasRealCoords: hasValidCoords,
-      image: loc.image || loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
-      suggestedDuration: loc.suggestedDuration || null,
-      estimatedCost: Number(loc.estimatedCost || 0)
+      image: source.image || source.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
+      suggestedDuration: source.suggestedDuration || null,
+      estimatedCost: Number(source.estimatedCost || 0)
     };
   };
 
@@ -336,7 +157,7 @@ const TripDetails = () => {
       return [{ day: 1, items: editingLocations.map(normalizeMapLoc).filter(Boolean).map((loc, idx) => ({ loc, idx, note: '' })) }];
     }
 
-    const tripItems = Array.isArray(trip?.items) ? trip.items : [];
+    const tripItems = liveDraft?.items || (Array.isArray(trip?.items) ? trip.items : []);
     if (tripItems.length > 0) {
       const map = new Map();
       tripItems.forEach((item, idx) => {
@@ -345,12 +166,12 @@ const TripDetails = () => {
           id: item.locationId || `item_${idx}`,
           name: item.customName || `Điểm dừng ${idx + 1}`,
           address: item.address || '',
-          lat: 21.0285,
-          lng: 105.8542
+          lat: null,
+          lng: null
         });
         const normalized = normalizeMapLoc(locRaw);
         if (!normalized) return;
-        const day = parseDayFromNote(item?.note);
+        const day = Number(item.day) || parseDayFromNote(item?.note);
         const cleanNote = stripDayMarker(item?.note);
         if (!map.has(day)) map.set(day, []);
         map.get(day).push({ loc: normalized, idx, note: cleanNote, rawItem: item });
@@ -378,6 +199,22 @@ const TripDetails = () => {
     return Number.isNaN(date.getTime()) ? '--/--/----' : format(date, 'dd/MM/yyyy');
   };
 
+  const getDaysLeft = (dateStr) => {
+    try {
+      if (!dateStr) return '';
+      const diff = differenceInDays(new Date(dateStr), new Date());
+      if (diff > 0) return `Còn ${diff} ngày nữa`;
+      if (diff === 0) return 'Khởi hành hôm nay!';
+      return 'Đã kết thúc';
+    } catch {
+      return '';
+    }
+  };
+
+  const visibleDayGroups = selectedDayTab === 'all'
+    ? groupedLocationsByDay
+    : groupedLocationsByDay.filter(dg => dg.day === selectedDayTab);
+
   useEffect(() => {
     if (trip && locations.length > 0) {
       const first = locations[0];
@@ -387,15 +224,7 @@ const TripDetails = () => {
 
   useEffect(() => {
     if (trip) {
-      setEditForm({
-        title: trip.title || trip.name || '',
-        startLocation: trip.startLocation || '',
-        endLocation: trip.endLocation || '',
-        startDate: trip.startDate ? new Date(trip.startDate).toISOString().slice(0, 10) : '',
-        endDate: trip.endDate ? new Date(trip.endDate).toISOString().slice(0, 10) : '',
-        budget: trip.budget || '',
-        notes: trip.notes || trip.description || ''
-      });
+
       setEditingLocations(Array.isArray(trip.locations) ? trip.locations : []);
     }
   }, [trip]);
@@ -578,43 +407,6 @@ const TripDetails = () => {
     }
   };
 
-  const handleSaveInfo = async () => {
-    if (!canEditTrip) {
-      setToast('Bạn chỉ có quyền xem kế hoạch này.');
-      setTimeout(() => setToast(''), 2200);
-      return;
-    }
-    try {
-      await updateTrip(trip.id, {
-        name: editForm.title,
-        title: editForm.title,
-        startLocation: editForm.startLocation,
-        endLocation: editForm.endLocation,
-        startDate: editForm.startDate || null,
-        endDate: editForm.endDate || null,
-        budget: editForm.budget ? Number(editForm.budget) : null,
-        description: editForm.notes,
-        notes: editForm.notes
-      });
-      setIsEditingInfo(false);
-      setToast('Đã cập nhật thông tin kế hoạch.');
-      setTimeout(() => setToast(''), 2200);
-    } catch (_error) {
-      setToast('Không thể cập nhật kế hoạch. Vui lòng thử lại.');
-      setTimeout(() => setToast(''), 2200);
-    }
-  };
-
-  const handleAddEditLocation = (loc) => {
-    if (!canEditTrip) return;
-    const normalized = normalizeMapLoc(loc);
-    setEditingLocations((prev) => {
-      const exists = prev.some((p) => String(p.id) === String(normalized.id));
-      if (exists) return prev;
-      return [...prev, normalized];
-    });
-  };
-
   const handleRemoveEditLocation = (locId) => {
     if (!canEditTrip) return;
     setEditingLocations((prev) => prev.filter((p) => String(p.id) !== String(locId)));
@@ -706,246 +498,366 @@ const TripDetails = () => {
         )}
         {/* Header Navigation */}
         <div className="trip-details-header">
-          <Link to="/history" className="trip-details-header-link"><ArrowLeft size={14} /> Lịch sử</Link>
+          <Link to="/history" className="trip-details-header-link"><ArrowLeft size={14} /> Lịch sử chuyến đi</Link>
           <ChevronRight size={14} />
-          <span>Chi tiết chuyến đi</span>
+          <span>Chi tiết kế hoạch</span>
         </div>
 
-        {/* Hero Info */}
-        <div className="card trip-details-hero">
-          <div className="trip-details-hero-bg">
-            <MapPin size={200} />
-          </div>
-
+        {/* Hero Info - Signature Web Framing */}
+        <div className="trip-details-featured-hero">
+          <div
+            className="trip-details-hero-bg"
+            style={{
+              backgroundImage: `url(${locations[0]?.image || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=1400'})`
+            }}
+          />
+          <div className="trip-details-hero-overlay" />
           <div className="trip-details-hero-content">
-            <div>
-              <div className={`trip-details-status-badge trip-details-status-${trip.status}`}>
-                {trip.status === 'upcoming' ? 'Sắp tới' : (trip.status === 'ongoing' ? 'Đang diễn ra' : 'Đã hoàn thành')}
+            <div className="trip-details-hero-top">
+              <span className={`badge ${trip.status === 'upcoming' ? 'badge-gold' : (trip.status === 'ongoing' ? 'badge-forest' : 'badge-completed')}`}>
+                {trip.status === 'upcoming' ? 'CHUYẾN ĐI SẮP TỚI' : (trip.status === 'ongoing' ? 'ĐANG DIỄN RA' : 'ĐÃ HOÀN THÀNH')}
+              </span>
+              <div className="trip-details-hero-top-right">
+                {trip.startDate && (
+                  <span className="trip-details-hero-countdown">
+                    <Clock size={13} /> {getDaysLeft(trip.startDate)}
+                  </span>
+                )}
               </div>
-              <h1 className="trip-details-title">{trip.title || trip.name}</h1>
-              <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>
-                {trip.startLocation || 'Chưa có điểm đi'} → {displayEndLocation} · {locations.length} điểm dừng
+            </div>
+
+            <div className="trip-details-hero-main">
+              <h1 className="trip-details-hero-title">{trip.title || trip.name}</h1>
+              <p className="trip-details-hero-route">
+                <MapPin size={16} />
+                <span>{trip.startLocation || 'Chưa có điểm đi'} → {displayEndLocation} · {locations.length} điểm dừng</span>
               </p>
-              <div className="trip-details-meta">
-                <div className="trip-details-meta-item">
-                  <Calendar size={18} />
+
+              <div className="trip-details-hero-meta">
+                <div className="trip-details-hero-meta-item">
+                  <Calendar size={15} />
                   <span>{safeFormatDate(trip.startDate)} - {safeFormatDate(trip.endDate)}</span>
                 </div>
-                <div className="trip-details-meta-item">
-                  <DollarSign size={18} />
-                  <span>Ngân sách: {Number(trip.budget || trip.totalCost || 0).toLocaleString()} VNĐ</span>
+                <div className="trip-details-hero-meta-item">
+                  <DollarSign size={15} />
+                  <span>Ngân sách: {Number(trip.budget ?? trip.totalCost ?? 0).toLocaleString()} VNĐ</span>
                 </div>
-                <div className="trip-details-meta-item">
-                  <Users size={18} />
+                <div className="trip-details-hero-meta-item">
+                  <Users size={15} />
                   <span>{trip.travelerCount || 1} người tham gia</span>
                 </div>
                 {trip.transportMode && (
-                  <div className="trip-details-meta-item">
-                    <Car size={18} />
-                    <span>{trip.transportMode === 'flight' ? 'Máy bay' : (trip.transportMode === 'coach' ? 'Xe khách' : (trip.transportMode === 'train' ? 'Tàu hỏa' : (trip.transportMode === 'motorbike' ? 'Xe máy' : (trip.transportMode === 'car' ? 'Ô tô tự lái' : 'Đi bộ / Khác'))))}</span>
+                  <div className="trip-details-hero-meta-item">
+                    <Car size={15} />
+                    <span>{({ flight: 'Máy bay', coach: 'Xe khách', train: 'Tàu hỏa', motorbike: 'Xe máy', car: 'Ô tô tự lái', walk: 'Đi bộ' })[trip.transportMode] || trip.transportMode}</span>
                   </div>
                 )}
               </div>
+
               {Array.isArray(trip.preferences) && trip.preferences.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.6rem' }}>
+                <div className="trip-details-hero-prefs">
                   {trip.preferences.map((p) => (
-                    <span key={p} className="trip-details-pref-pill">#{p}</span>
+                    <span key={p} className="trip-details-hero-pref-tag">#{p}</span>
                   ))}
-                </div>
-              )}
-              {(Number(trip.costTransport) > 0 || Number(trip.costMeals) > 0 || Number(trip.costAttractions) > 0 || Number(trip.costAccommodation) > 0 || Number(trip.costContingency) > 0 || Number(trip.totalCost) > 0) && (
-                <div className="trip-details-cost-card" style={{ marginTop: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
-                      <DollarSign size={18} color="var(--primary)" /> Chi tiết dự toán chi phí
-                    </h3>
-                    <span style={{ fontSize: '0.78rem', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: 999, fontWeight: 600 }}>
-                      {trip.costScope === 'PERSON' ? `Tính theo đầu người (× ${trip.travelerCount || 1} người)` : 'Tính chung cho cả nhóm'}
-                    </span>
-                  </div>
-
-                  <div className="trip-details-cost-grid">
-                    <div className="trip-details-cost-col">
-                      <span>Di chuyển</span>
-                      <strong>{Number(trip.costTransport || 0).toLocaleString()} VNĐ</strong>
-                    </div>
-                    <div className="trip-details-cost-col">
-                      <span>Ăn uống</span>
-                      <strong>{Number(trip.costMeals || 0).toLocaleString()} VNĐ</strong>
-                    </div>
-                    <div className="trip-details-cost-col">
-                      <span>Tham quan</span>
-                      <strong>{Number(trip.costAttractions || 0).toLocaleString()} VNĐ</strong>
-                    </div>
-                    <div className="trip-details-cost-col">
-                      <span>Lưu trú</span>
-                      <strong>{Number(trip.costAccommodation || 0).toLocaleString()} VNĐ</strong>
-                    </div>
-                    <div className="trip-details-cost-col">
-                      <span>Dự phòng</span>
-                      <strong>{Number(trip.costContingency || 0).toLocaleString()} VNĐ</strong>
-                    </div>
-                  </div>
-
-                  <div className="trip-details-cost-total-bar">
-                    <span>Tổng chi phí tính toán ({trip.costScope === 'PERSON' ? `${trip.travelerCount || 1} người` : 'cả nhóm'}):</span>
-                    <span style={{ fontSize: '1.15rem', color: '#059669', fontWeight: 800 }}>
-                      {Number(trip.totalCost || trip.budget || 0).toLocaleString()} VNĐ
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {isEditingInfo && (
-                <div className="card" style={{ marginTop: '0.8rem', padding: '0.8rem' }}>
-                  <div style={{ display: 'grid', gap: '0.6rem' }}>
-                    <input className="btn-outline trip-planner-input" value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} placeholder="Tên chuyến đi" />
-                    <input className="btn-outline trip-planner-input" value={editForm.startLocation} onChange={(e) => setEditForm((p) => ({ ...p, startLocation: e.target.value }))} placeholder="Điểm đi" />
-                    <input className="btn-outline trip-planner-input" value={editForm.endLocation} onChange={(e) => setEditForm((p) => ({ ...p, endLocation: e.target.value }))} placeholder="Điểm kết thúc" />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                      <input type="date" className="btn-outline trip-planner-input" value={editForm.startDate} onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))} />
-                      <input type="date" className="btn-outline trip-planner-input" value={editForm.endDate} onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))} />
-                    </div>
-                    <input type="number" className="btn-outline trip-planner-input" value={editForm.budget} onChange={(e) => setEditForm((p) => ({ ...p, budget: e.target.value }))} placeholder="Ngân sách" />
-                    <textarea className="btn-outline trip-planner-textarea" value={editForm.notes} onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Ghi chú" />
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-primary" onClick={handleSaveInfo}>Lưu thay đổi</button>
-                      <button className="btn btn-outline" onClick={() => setIsEditingInfo(false)}>Hủy</button>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
 
-            <div className="trip-details-actions-stack">
-              {canEditTrip && trip.status !== 'completed' && (
-                <div className="trip-details-actions">
-                  <button
-                    onClick={() => updateTrip(trip.id, { status: trip.status === 'upcoming' ? 'ongoing' : 'upcoming' })}
-                    className={`btn ${trip.status === 'upcoming' ? 'btn-primary' : 'btn-outline'}`}
-                  >
-                    {trip.status === 'upcoming' ? 'Bắt đầu chuyến đi' : 'Tạm dừng chuyến đi'}
-                  </button>
-                  <button onClick={handleVerifyLocation} className="btn btn-primary trip-details-action-finish">
-                    <CheckCircle size={18} /> Hoàn thành chuyến đi
-                  </button>
-                </div>
-              )}
-              <div className="trip-details-actions">
-                {canEditTrip && <button onClick={() => setIsEditingInfo((v) => !v)} className="btn btn-outline">
-                  {isEditingInfo ? 'Đóng chỉnh sửa' : 'Chỉnh sửa kế hoạch'}
-                </button>}
-                <button onClick={openGroupModal} className="btn btn-outline">
-                  <Users size={18} /> Nhóm kế hoạch
-                </button>
+            <div className="trip-details-hero-actions">
+              {canEditTrip && (
                 <button
+                  type="button"
                   onClick={() => {
-                    window.dispatchEvent(new CustomEvent('open-trip-chat', {
-                      detail: { itineraryId: trip.id, tripName: trip.title || trip.name }
-                    }));
+                    editorRef.current?.openSection('general');
+                    const el = document.getElementById('plan-editor');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }}
-                  className="btn btn-primary"
-                  style={{ gap: 6 }}
+                  className="btn btn-outline trip-details-glass-btn"
                 >
-                  <MessageCircle size={18} /> Nhóm chat
+                  <Edit3 size={16} /> Chỉnh sửa kế hoạch
                 </button>
-              </div>
+              )}
+              {canEditTrip && trip.status !== 'completed' && (
+                <button
+                  onClick={() => updateTrip(trip.id, { status: trip.status === 'upcoming' ? 'ongoing' : 'upcoming' })}
+                  className={`btn ${trip.status === 'upcoming' ? 'btn-primary' : 'btn-outline trip-details-glass-btn'}`}
+                >
+                  {trip.status === 'upcoming' ? 'Bắt đầu chuyến đi' : 'Tạm dừng chuyến đi'}
+                </button>
+              )}
+              {canEditTrip && trip.status !== 'completed' && (
+                <button onClick={handleVerifyLocation} className="btn trip-details-action-finish">
+                  <CheckCircle size={16} /> Hoàn thành chuyến đi
+                </button>
+              )}
+              <button onClick={() => canEditTrip ? editorRef.current?.openSection('members') : openGroupModal()} className="btn btn-outline trip-details-glass-btn">
+                <Users size={16} /> Nhóm kế hoạch
+              </button>
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('open-trip-chat', {
+                    detail: { itineraryId: trip.id, tripName: trip.title || trip.name }
+                  }));
+                }}
+                className="btn btn-primary"
+                style={{ gap: 6 }}
+              >
+                <MessageCircle size={16} /> Nhóm chat
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="trip-details-grid">
-          {/* Timeline */}
-          <div className="card">
-            <h3 className="trip-details-timeline-title">
-              <Clock size={20} color="var(--primary)" /> Lịch trình chi tiết
-            </h3>
+        {/* Edit Info Form Card */}
+        {canEditTrip && <div className="card trip-details-edit-form-card" id="plan-editor">
+          <TripEdit embedded editorRef={editorRef} onDraftChange={setLiveDraft} onSaved={updated => { setDbTrip(updated); setPackingItems(updated.packingItems || []); setGroupMembers(null); }} />
+        </div>}
+        
 
-            <div className="trip-details-edit-map card" style={{ marginBottom: '1rem', padding: '0.75rem' }}>
-              {isEditingInfo && (
-                <div className="trip-details-actions" style={{ marginBottom: '0.75rem' }}>
-                  <button className="btn btn-primary" onClick={handleSaveTimeline}>Lưu lịch trình</button>
-                  <button className="btn btn-outline" onClick={() => setEditingLocations(locations.map(normalizeMapLoc))}>Khôi phục</button>
+        {/* Cost Breakdown Card */}
+        {(Number(trip.costTransport) > 0 || Number(trip.costMeals) > 0 || Number(trip.costAttractions) > 0 || Number(trip.costAccommodation) > 0 || Number(trip.costContingency) > 0 || Number(trip.totalCost) > 0) && (
+          <div className="card trip-details-cost-card">
+            <div className="trip-details-cost-header">
+              <div>
+                <h3 className="trip-details-cost-title">
+                  <DollarSign size={18} color="var(--primary)" /> Dự toán chi phí chi tiết
+                </h3>
+                <p className="trip-details-cost-subtitle">
+                  {trip.costScope === 'PERSON'
+                    ? `Tính trên đầu người (nhân với ${trip.travelerCount || 1} người)`
+                    : 'Tổng chi phí dự tính cho toàn bộ đoàn'}
+                </p>
+              </div>
+              <div className="trip-details-cost-total-badge">
+                <span>Tổng dự kiến:</span>
+                <strong>{Number(trip.totalCost ?? trip.budget ?? 0).toLocaleString()} VNĐ</strong>
+              </div>
+            </div>
+
+            <div className="trip-details-cost-grid">
+              <div className="trip-details-cost-col">
+                <span className="cost-col-label">🚗 Di chuyển</span>
+                <strong className="cost-col-val">{Number(trip.costTransport || 0).toLocaleString()} VNĐ</strong>
+              </div>
+              <div className="trip-details-cost-col">
+                <span className="cost-col-label">🍜 Ăn uống</span>
+                <strong className="cost-col-val">{Number(trip.costMeals || 0).toLocaleString()} VNĐ</strong>
+              </div>
+              <div className="trip-details-cost-col">
+                <span className="cost-col-label">🎟️ Tham quan</span>
+                <strong className="cost-col-val">{Number(trip.costAttractions || 0).toLocaleString()} VNĐ</strong>
+              </div>
+              <div className="trip-details-cost-col">
+                <span className="cost-col-label">🏨 Lưu trú</span>
+                <strong className="cost-col-val">{Number(trip.costAccommodation || 0).toLocaleString()} VNĐ</strong>
+              </div>
+              <div className="trip-details-cost-col">
+                <span className="cost-col-label">🛡️ Dự phòng</span>
+                <strong className="cost-col-val">{Number(trip.costContingency || 0).toLocaleString()} VNĐ</strong>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="trip-details-grid">
+          {/* Main Itinerary Column */}
+          <div className="trip-details-main-column">
+            {/* Interactive Route Map */}
+            <div className="card trip-details-map-card">
+              <div className="trip-details-map-header">
+                <div>
+                  <h3 className="trip-details-map-title">
+                    <MapPin size={18} color="var(--primary)" /> Bản đồ lộ trình ({locations.length} điểm dừng)
+                  </h3>
+                  <p className="trip-details-map-subtitle">
+                    {canEditTrip ? 'Bấm trên bản đồ hoặc tìm địa điểm để thêm vào bản nháp lịch trình.' : 'Theo dõi tuyến đường di chuyển trực quan.'}
+                  </p>
                 </div>
-              )}
-              <div style={{ height: 340, borderRadius: '10px', overflow: 'hidden' }}>
+                {isEditingInfo && (
+                  <div className="trip-details-map-actions">
+                    <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.825rem' }} onClick={handleSaveTimeline}>Lưu lịch trình</button>
+                    <button className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', fontSize: '0.825rem' }} onClick={() => setEditingLocations(locations.map(normalizeMapLoc))}>Khôi phục</button>
+                  </div>
+                )}
+              </div>
+              <div className="trip-details-map-view">
                 <MapComponent
                   selectedLocations={(isEditingInfo ? editingLocations : locations).map(normalizeMapLoc)}
-                  onLocationAdd={isEditingInfo ? handleAddEditLocation : undefined}
-                  onLocationRemove={isEditingInfo ? handleRemoveEditLocation : undefined}
+                  onLocationAdd={canEditTrip ? location => editorRef.current?.addStop(location, selectedDayTab === 'all' ? 1 : selectedDayTab) : undefined}
+                  onLocationRemove={canEditTrip ? key => editorRef.current?.removeStop(key) : undefined}
                 />
               </div>
             </div>
 
-            <div className="trip-details-timeline">
-              {/* Vertical line */}
-              <div className="trip-details-timeline-line"></div>
-
-              {groupedLocationsByDay.map((dayGroup, dayGroupIndex) => (
-                <div key={`day_${dayGroup.day}`}>
-                  <div style={{ fontWeight: 700, margin: '0.5rem 0 0.75rem', color: 'var(--primary)' }}>
-                    Ngày {dayGroup.day}
-                  </div>
-                  {dayGroup.items.map(({ loc, idx, note, rawItem }, itemIndex) => (
-                    <div
-                      key={`${dayGroup.day}_${loc.tripLocId || loc.id}_${idx}`}
-                      className={`trip-details-timeline-item ${activeWeatherLoc === loc.id ? 'active' : ''}`}
-                      onClick={() => fetchWeather(loc.id, loc.lat, loc.lng)}
-                    >
-                      <div className="trip-details-timeline-number">
-                        {itemIndex + 1}
-                      </div>
-
-                      <div className="trip-details-timeline-content">
-                        <img src={loc.image} alt={loc.name} className="trip-details-timeline-img" />
-                        <div className="trip-details-timeline-info">
-                          <h4 className="trip-details-timeline-name">{rawItem?.customName || loc.name}</h4>
-                          <p className="trip-details-timeline-address">{loc.address}</p>
-                          {(rawItem?.startTime || loc.startTime) && (
-                            <div style={{ fontSize: '0.8rem', color: '#4338ca', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                              <span><Clock size={13} style={{ verticalAlign: 'middle', marginRight: 2 }} /> Khởi hành: {rawItem?.startTime ? (String(rawItem.startTime).includes('T') ? String(rawItem.startTime).split('T')[1].slice(0, 5) : String(rawItem.startTime).slice(0, 5)) : loc.startTime}</span>
-                              {rawItem?.durationMinutes ? <span style={{ background: '#e0e7ff', padding: '0.1rem 0.4rem', borderRadius: 4 }}>Thời lượng: {rawItem.durationMinutes}p</span> : null}
-                              {rawItem?.travelMinutes ? <span style={{ background: '#fef3c7', color: '#b45309', padding: '0.1rem 0.4rem', borderRadius: 4 }}>Di chuyển: {rawItem.travelMinutes}p</span> : null}
-                            </div>
-                          )}
-                          {note ? (
-                            <p className="trip-details-timeline-address" style={{ marginTop: 4 }}>
-                              {note}
-                            </p>
-                          ) : null}
-                          <div className="trip-details-timeline-tags">
-                            <span className="trip-details-tag-duration">Gợi ý: {loc.suggestedDuration || '2 giờ'}</span>
-                            <span className="trip-details-tag-cost">Phí: {loc.estimatedCost?.toLocaleString() || 'Miễn phí'}</span>
-                          </div>
-                          {isEditingInfo && (
-                            <div className="trip-details-actions" style={{ marginTop: '0.5rem', gap: '0.5rem' }}>
-                              <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx - 1); }}>Lên</button>
-                              <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx + 1); }}>Xuống</button>
-                              <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); handleRemoveEditLocation(loc.id); }}>Xóa điểm</button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {dayGroupIndex === groupedLocationsByDay.length - 1 && itemIndex === dayGroup.items.length - 1 && (
-                        <div className="trip-details-timeline-end">
-                          <MapPin size={16} /> Đểm cuối
-                        </div>
-                      )}
-                    </div>
-                  ))}
+            {/* Timeline Section */}
+            <div className="card trip-details-timeline-card-wrapper">
+              <div className="trip-details-timeline-header">
+                <div>
+                  <h3 className="trip-details-timeline-title">
+                    <Clock size={20} color="var(--primary)" /> Lịch trình chi tiết
+                  </h3>
+                  <p className="trip-details-timeline-subtitle">
+                    {canEditTrip ? 'Chọn địa điểm trên bản đồ hoặc thêm hoạt động riêng. Kéo thả để đổi thứ tự, như khi lập lịch thủ công.' : 'Bấm vào từng điểm dừng để xem dự báo thời tiết và chi tiết hoạt động'}
+                  </p>
+                  {canEditTrip && <button type="button" className="btn btn-outline trip-stop-add" onClick={() => editorRef.current?.addStop(null, selectedDayTab === 'all' ? 1 : selectedDayTab)}><Plus size={14} /> Thêm hoạt động</button>}
                 </div>
-              ))}
+                {groupedLocationsByDay.length > 1 && (
+                  <div className="trip-details-day-tabs">
+                    <button
+                      type="button"
+                      className={`trip-details-day-tab ${selectedDayTab === 'all' ? 'active' : ''}`}
+                      onClick={() => setSelectedDayTab('all')}
+                    >
+                      Tất cả ngày ({locations.length})
+                    </button>
+                    {groupedLocationsByDay.map((dg) => (
+                      <button
+                        key={dg.day}
+                        type="button"
+                        className={`trip-details-day-tab ${selectedDayTab === dg.day ? 'active' : ''}`}
+                        onClick={() => setSelectedDayTab(dg.day)}
+                      >
+                        Ngày {dg.day} ({dg.items.length})
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="trip-details-timeline">
+                <div className="trip-details-timeline-line" />
+                {visibleDayGroups.map((dayGroup) => (
+                  <div key={`day_${dayGroup.day}`} className="trip-details-day-group">
+                    <div className="trip-details-day-heading">
+                      <span className="trip-details-day-tag">Ngày {dayGroup.day}</span>
+                      <span className="trip-details-day-meta">
+                        {dayGroup.items.length} điểm dừng
+                      </span>
+                    </div>
+
+                    <Reorder.Group axis="y" values={dayGroup.items.map(entry => entry.rawItem)} onReorder={items => { if (canEditTrip) editorRef.current?.reorderDay(dayGroup.day, items); }} className="trip-details-day-items trip-stop-reorder-list">
+                      {dayGroup.items.map(({ loc, idx, note, rawItem }, itemIndex) => {
+                        const isStopActive = String(activeWeatherLoc) === String(loc.id);
+                        return (
+                          <Reorder.Item
+                            value={rawItem}
+                            dragListener={canEditTrip}
+                            key={rawItem?.id || rawItem?.key || `${dayGroup.day}_${loc.tripLocId || loc.id}_${idx}`}
+                            className={`trip-details-timeline-item ${isStopActive ? 'active' : ''}`}
+                            onClick={() => fetchWeather(loc.id, loc.lat, loc.lng)}
+                          >
+                            <div className="trip-details-timeline-badge">
+                              {canEditTrip && <GripVertical size={13} />}
+                              {itemIndex + 1}
+                            </div>
+
+                            <div className="trip-details-timeline-body">
+                              <div className="trip-details-timeline-thumb-box">
+                                <img
+                                  src={loc.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'}
+                                  alt={loc.name}
+                                  className="trip-details-timeline-img"
+                                  onError={(e) => {
+                                    e.target.src = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1';
+                                  }}
+                                />
+                              </div>
+
+                              <div className="trip-details-timeline-info">
+                                <div className="trip-details-timeline-title-row">
+                                  {canEditTrip && rawItem ? <input className="trip-stop-name" aria-label="Tên điểm dừng" value={rawItem.customName || loc.name} maxLength={255} onClick={event => event.stopPropagation()} onChange={event => editorRef.current?.updateStop(rawItem.id || rawItem.key, { customName: event.target.value })} /> : <h4 className="trip-details-timeline-name">{rawItem?.customName || loc.name}</h4>}
+                                  <button
+                                    type="button"
+                                    className={`trip-details-weather-trigger ${isStopActive ? 'active' : ''}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      fetchWeather(loc.id, loc.lat, loc.lng);
+                                    }}
+                                    title="Xem thời tiết điểm dừng này"
+                                  >
+                                    <Thermometer size={13} /> {isStopActive ? 'Đang xem' : 'Thời tiết'}
+                                  </button>
+                                </div>
+
+                                <p className="trip-details-timeline-address">
+                                  <MapPin size={13} /> {loc.address || 'Chưa có địa chỉ chi tiết'}
+                                </p>
+
+                                {(rawItem?.startTime || rawItem?.endTime || loc.startTime || rawItem?.durationMinutes || rawItem?.travelMinutes) && (
+                                  <div className="trip-details-schedule-chips">
+                                    {(rawItem?.startTime || loc.startTime) && (
+                                      <span className="chip chip-time">
+                                        <Clock size={12} />
+                                        Bắt đầu: {rawItem?.startTime ? format(new Date(rawItem.startTime), 'HH:mm') : loc.startTime}
+                                      </span>
+                                    )}
+                                    {rawItem?.endTime && <span className="chip chip-time"><Clock size={12} /> Kết thúc: {format(new Date(rawItem.endTime), 'HH:mm')}</span>}
+                                    {rawItem?.durationMinutes ? (
+                                      <span className="chip chip-duration">
+                                        Thời lượng: {rawItem.durationMinutes} phút
+                                      </span>
+                                    ) : null}
+                                    {rawItem?.travelMinutes ? (
+                                      <span className="chip chip-travel">
+                                        <Car size={12} /> Di chuyển: {rawItem.travelMinutes} phút
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                )}
+
+                                {note && !canEditTrip && (
+                                  <div className="trip-details-timeline-note">
+                                    <StickyNote size={13} />
+                                    <span>{note}</span>
+                                  </div>
+                                )}
+
+                                <div className="trip-details-timeline-tags">
+                                  <span className="trip-details-tag-duration">
+                                    <Clock size={11} /> Gợi ý: {loc.suggestedDuration || '2 giờ'}
+                                  </span>
+                                  <span className="trip-details-tag-cost">
+                                    <DollarSign size={11} /> Phí: {loc.estimatedCost ? `${Number(loc.estimatedCost).toLocaleString()} VNĐ` : 'Miễn phí'}
+                                  </span>
+                                </div>
+
+                                {canEditTrip && rawItem && <TripStopFields item={rawItem} startDate={liveDraft?.startDate || trip.startDate} onChange={changes => editorRef.current?.updateStop(rawItem.id || rawItem.key, changes)} onRemove={() => editorRef.current?.removeStop(rawItem.id || rawItem.key)} onMove={direction => {
+                                  const items = dayGroup.items.map(entry => entry.rawItem);
+                                  const target = itemIndex + direction;
+                                  if (target < 0 || target >= items.length) return;
+                                  [items[itemIndex], items[target]] = [items[target], items[itemIndex]];
+                                  editorRef.current?.reorderDay(dayGroup.day, items);
+                                }} />}
+                                {isEditingInfo && (
+                                  <div className="trip-details-actions" style={{ marginTop: '0.6rem', gap: '0.4rem' }}>
+                                    <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }} onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx - 1); }}>Lên</button>
+                                    <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }} onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx + 1); }}>Xuống</button>
+                                    <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: 'var(--accent-danger)' }} onClick={(e) => { e.stopPropagation(); handleRemoveEditLocation(loc.id); }}>Xóa điểm</button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </Reorder.Item>
+                        );
+                      })}
+                    </Reorder.Group>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Sidebar: Weather & Packing & Notes */}
           <div className="trip-details-sidebar">
             {/* Weather Card */}
-            <div className="card trip-details-weather-card">
-              <h3 className="trip-details-weather-title">
-                <Thermometer size={18} /> Thời tiết hiện tại
-              </h3>
+            <div className="trip-details-weather-card">
+              <div className="trip-details-weather-header">
+                <div className="trip-details-weather-title-box">
+                  <Thermometer size={18} className="trip-details-weather-icon" />
+                  <h3 className="trip-details-weather-title">Thời tiết hiện tại</h3>
+                </div>
+                <span className="trip-details-weather-badge">Trực tiếp</span>
+              </div>
 
               <AnimatePresence mode="wait">
                 {activeWeatherLoc && weatherData[activeWeatherLoc] ? (
@@ -954,23 +866,35 @@ const TripDetails = () => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
+                    className="trip-details-weather-content"
                   >
+                    <div className="trip-details-weather-loc-name">
+                      <MapPin size={13} />
+                      <span>
+                        {(() => {
+                          const flat = locations.find(l => String(l.id) === String(activeWeatherLoc));
+                          return flat?.name || 'Điểm dừng đã chọn';
+                        })()}
+                      </span>
+                    </div>
+
                     <div className="trip-details-weather-main">
                       <div className="trip-details-weather-temp">{weatherData[activeWeatherLoc].temp}</div>
                       <div className="trip-details-weather-cond">{weatherData[activeWeatherLoc].condition}</div>
                     </div>
+
                     <div className="trip-details-weather-grid">
                       <div className="trip-details-weather-stat">
                         <div className="trip-details-weather-label">Lượng mưa</div>
                         <div className="trip-details-weather-val">{weatherData[activeWeatherLoc].rain_mm} mm</div>
                       </div>
                       <div className="trip-details-weather-stat">
-                        <div className="trip-details-weather-label">Điểm dừng</div>
+                        <div className="trip-details-weather-label">Vị trí điểm dừng</div>
                         <div className="trip-details-weather-val">
                           {(() => {
                             for (const dg of groupedLocationsByDay) {
                               const found = dg.items.find(({ loc }) => String(loc.id) === String(activeWeatherLoc));
-                              if (found) return `Ngày ${dg.day} #${dg.items.indexOf(found) + 1}`;
+                              if (found) return `Ngày ${dg.day} · #${dg.items.indexOf(found) + 1}`;
                             }
                             const flatIdx = locations.findIndex(l => String(l.id) === String(activeWeatherLoc));
                             return flatIdx >= 0 ? `#${flatIdx + 1}` : '--';
@@ -981,8 +905,16 @@ const TripDetails = () => {
                   </motion.div>
                 ) : (
                   <div className="trip-details-weather-loading">
-                    <Loader2 className="animate-spin" size={24} />
-                    <p>Đang tải...</p>
+                    {geoLoading ? (
+                      <>
+                        <Loader2 className="animate-spin" size={24} style={{ margin: '0 auto 0.5rem' }} />
+                        <p style={{ margin: 0, fontSize: '0.85rem' }}>Đang nạp dữ liệu thời tiết...</p>
+                      </>
+                    ) : (
+                      <p style={{ fontSize: '0.85rem', margin: 0 }}>
+                        Bấm vào bất kỳ điểm dừng nào trên lịch trình để cập nhật thời tiết.
+                      </p>
+                    )}
                   </div>
                 )}
               </AnimatePresence>
@@ -990,29 +922,28 @@ const TripDetails = () => {
 
             {/* Packing Checklist Card */}
             <div className="card trip-details-packing-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+              <div className="trip-details-sidebar-card-header">
+                <h3 className="trip-details-sidebar-card-title">
                   <Briefcase size={18} color="var(--primary)" /> Đồ cần mang theo ({packingItems.filter(p => p.isPacked).length}/{packingItems.length})
                 </h3>
                 <button
                   type="button"
-                  onClick={openPackingCatalogModal}
+                  onClick={() => setShowPackingPicker(true)}
+                  disabled={!canEditTrip}
                   className="btn btn-outline"
                   style={{ padding: '0.25rem 0.55rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                 >
-                  <Plus size={14} /> Thêm đồ dùng
+                  <Plus size={13} /> Thêm đồ
                 </button>
               </div>
 
               {packingItems.length > 0 ? (
                 <>
-                  <div style={{ background: '#e2e8f0', borderRadius: 999, height: 6, overflow: 'hidden', marginBottom: '0.75rem' }}>
+                  <div className="trip-details-packing-progress-track">
                     <div
+                      className="trip-details-packing-progress-fill"
                       style={{
-                        height: '100%',
-                        background: 'var(--primary)',
-                        width: `${Math.round((packingItems.filter(p => p.isPacked).length / Math.max(1, packingItems.length)) * 100)}%`,
-                        transition: 'width 0.3s ease'
+                        width: `${Math.round((packingItems.filter(p => p.isPacked).length / Math.max(1, packingItems.length)) * 100)}%`
                       }}
                     />
                   </div>
@@ -1020,25 +951,26 @@ const TripDetails = () => {
                   <div className="trip-details-packing-items-list">
                     {packingItems.map((item) => (
                       <div
-                        key={item.id}
-                        className="trip-details-packing-item-row"
-                        onClick={() => handleTogglePacking(item.id)}
+                        key={item.id || item.key}
+                        className={`trip-details-packing-item-row ${item.isPacked ? 'packed' : ''}`}
+                        onClick={() => { if (canEditTrip) editorRef.current?.togglePacking(item.id || item.key); }}
                       >
                         {item.isPacked ? (
-                          <CheckSquare size={16} color="var(--primary)" />
+                          <CheckSquare size={16} className="packing-check-icon checked" />
                         ) : (
-                          <Square size={16} color="var(--text-muted)" />
+                          <Square size={16} className="packing-check-icon" />
                         )}
-                        <div style={{ flex: 1, minWidth: 0, textDecoration: item.isPacked ? 'line-through' : 'none', color: item.isPacked ? 'var(--text-muted)' : 'inherit' }}>
-                          <span style={{ fontWeight: 500, fontSize: '0.85rem' }}>{item.itemName || item.name}</span>
-                          {item.notes && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 6 }}>({item.notes})</span>}
+                        <div className="packing-item-text">
+                          <span className="packing-item-name">{item.itemName || item.name}</span>
+                          {item.notes && <span className="packing-item-note">({item.notes})</span>}
                         </div>
-                        <span style={{ fontSize: '0.75rem', background: '#f1f5f9', padding: '0.15rem 0.4rem', borderRadius: 4, fontWeight: 600 }}>
-                          x{item.quantity || 1}
-                        </span>
+                        <label className="packing-item-qty" onClick={event => event.stopPropagation()}>
+                          x{canEditTrip ? <input type="number" min={1} max={10000} aria-label={`Số lượng ${item.itemName || item.name}`} value={item.quantity ?? 1} onChange={event => editorRef.current?.setPackingQuantity(item.id || item.key, event.target.value)} /> : (item.quantity || 1)}
+                        </label>
                         <button
                           type="button"
-                          onClick={(e) => handleRemovePacking(e, item.id)}
+                          onClick={(e) => { e.stopPropagation(); if (canEditTrip) editorRef.current?.removePacking(item.id || item.key); }}
+                          disabled={!canEditTrip}
                           className="trip-details-packing-delete-btn"
                           title="Xóa món đồ này"
                         >
@@ -1049,32 +981,36 @@ const TripDetails = () => {
                   </div>
                 </>
               ) : (
-                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Chưa có danh sách đồ chuẩn bị cho chuyến đi này.</p>
+                <div className="trip-details-packing-empty">
+                  <p>Chưa có danh sách đồ chuẩn bị cho chuyến đi này.</p>
                   <button
                     type="button"
-                    onClick={openPackingCatalogModal}
+                    onClick={() => setShowPackingPicker(true)}
+                    disabled={!canEditTrip}
                     className="btn btn-outline"
                     style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
                   >
-                    <Plus size={14} /> Chọn từ danh mục mẫu
+                    <Plus size={13} /> Chọn từ danh mục mẫu
                   </button>
                 </div>
               )}
             </div>
 
             {/* Notes Card */}
-            <div className="card">
-              <h3 className="trip-details-notes-title">
-                <StickyNote size={18} color="var(--primary)" /> Ghi chú
+            <div className="card trip-details-notes-card">
+              <h3 className="trip-details-sidebar-card-title">
+                <StickyNote size={18} color="var(--primary)" /> Ghi chú chuyến đi
               </h3>
-              <p className="trip-details-notes-content">
-                {trip.notes || 'Không có ghi chú nào cho chuyến đi này.'}
-              </p>
+              <div className="trip-details-notes-box">
+                <p className="trip-details-notes-content">
+                  {trip.notes || 'Không có ghi chú nào cho chuyến đi này.'}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
+        {showPackingPicker && canEditTrip && <PackingDraftPicker catalog={editorRef.current?.packingCatalog || []} selected={packingItems} onAdd={item => editorRef.current?.addPacking(item)} onClose={() => setShowPackingPicker(false)} />}
         {/* Confirmation Modal */}
         <AnimatePresence>
           {isConfirming && (
@@ -1268,217 +1204,7 @@ const TripDetails = () => {
           )}
         </AnimatePresence>
 
-        {/* Packing Items Catalog Selector Modal */}
-        <AnimatePresence>
-          {showPackingModal && (
-            <div className="trip-details-modal-overlay">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="card trip-details-modal-card trip-details-packing-catalog-modal"
-              >
-                <div className="trip-details-modal-header">
-                  <div>
-                    <h2 className="trip-details-modal-title" style={{ fontSize: '1.25rem' }}>Danh mục đồ dùng cần thiết</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 4 }}>
-                      Chọn nhanh các vật dụng cần chuẩn bị có sẵn trong hệ thống hoặc tự thêm món mới
-                    </p>
-                  </div>
-                  <button onClick={() => setShowPackingModal(false)} className="trip-details-modal-close"><X size={20} /></button>
-                </div>
 
-                <div className="trip-details-modal-body" style={{ textAlign: 'left', padding: '1rem' }}>
-                  {/* Category filters */}
-                  <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-                    {PACKING_CATEGORIES.map(cat => (
-                      <button
-                        key={cat.key}
-                        type="button"
-                        className={`btn ${catalogCategory === cat.key ? 'btn-primary' : 'btn-outline'}`}
-                        style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
-                        onClick={() => setCatalogCategory(cat.key)}
-                      >
-                        {cat.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Search and Quick Select */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-                    <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-                      <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                      <input
-                        type="text"
-                        value={catalogSearch}
-                        onChange={(e) => setCatalogSearch(e.target.value)}
-                        placeholder="Tìm kiếm đồ dùng..."
-                        style={{ width: '100%', padding: '0.35rem 0.5rem 0.35rem 1.8rem', fontSize: '0.85rem', border: '1px solid #cbd5e1', borderRadius: 6 }}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectAllInCatalogCategory(true)}
-                        className="btn btn-outline"
-                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                      >
-                        Chọn tất cả
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectAllInCatalogCategory(false)}
-                        className="btn btn-outline"
-                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                      >
-                        Bỏ chọn
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Catalog items list */}
-                  {catalogLoading ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      <Loader2 className="animate-spin" size={24} style={{ margin: '0 auto 0.5rem' }} />
-                      <p style={{ fontSize: '0.85rem' }}>Đang nạp danh mục vật dụng...</p>
-                    </div>
-                  ) : (
-                    <div className="trip-details-packing-catalog-grid">
-                      {catalogItems
-                        .filter(item => {
-                          const matchesCat = catalogCategory === 'all' || item.category === catalogCategory;
-                          const matchesSearch = !catalogSearch || item.name.toLowerCase().includes(catalogSearch.toLowerCase());
-                          return matchesCat && matchesSearch;
-                        })
-                        .map(item => {
-                          const existingNames = new Set(packingItems.map(p => (p.itemName || p.name || '').toLowerCase().trim()));
-                          const alreadyInTrip = existingNames.has(item.name.toLowerCase().trim());
-                          const isSelected = selectedCatalogIds.has(item.id);
-                          const currentQty = catalogItemQuantities[item.id] || item.defaultQuantity || 1;
-
-                          return (
-                            <div
-                              key={item.id}
-                              className={`trip-details-packing-catalog-item ${alreadyInTrip ? 'disabled' : (isSelected ? 'selected' : '')}`}
-                              onClick={() => {
-                                if (!alreadyInTrip) toggleSelectCatalogItem(item.id);
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1 }}>
-                                {alreadyInTrip ? (
-                                  <Check size={16} color="#16a34a" />
-                                ) : isSelected ? (
-                                  <CheckSquare size={16} color="var(--primary)" />
-                                ) : (
-                                  <Square size={16} color="var(--text-muted)" />
-                                )}
-                                <div style={{ minWidth: 0, flex: 1 }}>
-                                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: alreadyInTrip ? '#16a34a' : 'inherit' }}>
-                                    {item.name}
-                                  </div>
-                                  {item.notes && (
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                      {item.notes}
-                                    </div>
-                                  )}
-                                  {alreadyInTrip && (
-                                    <div style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 600 }}>
-                                      ✓ Đã có trong chuyến
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {!alreadyInTrip && isSelected && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginLeft: '0.5rem' }} onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    type="button"
-                                    onClick={() => setCatalogQty(item.id, -1)}
-                                    style={{ border: '1px solid #cbd5e1', background: '#f8fafc', borderRadius: 4, padding: '0.1rem 0.35rem', cursor: 'pointer' }}
-                                  >
-                                    -
-                                  </button>
-                                  <span style={{ fontSize: '0.8rem', fontWeight: 700, minWidth: 16, textAlign: 'center' }}>
-                                    {currentQty}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => setCatalogQty(item.id, 1)}
-                                    style={{ border: '1px solid #cbd5e1', background: '#f8fafc', borderRadius: 4, padding: '0.1rem 0.35rem', cursor: 'pointer' }}
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-
-                  {/* Custom item quick add row */}
-                  <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>Tự thêm món khác:</span>
-                    <input
-                      type="text"
-                      value={customPackingName}
-                      onChange={(e) => setCustomPackingName(e.target.value)}
-                      placeholder="Tên đồ dùng..."
-                      style={{ flex: 1, minWidth: 140, fontSize: '0.8rem', padding: '0.3rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: 4 }}
-                    />
-                    <select
-                      value={customPackingCategory}
-                      onChange={(e) => setCustomPackingCategory(e.target.value)}
-                      style={{ fontSize: '0.8rem', padding: '0.3rem', border: '1px solid #cbd5e1', borderRadius: 4 }}
-                    >
-                      <option value="clothing">Quần áo</option>
-                      <option value="devices">Thiết bị</option>
-                      <option value="tools">Đồ cá nhân</option>
-                      <option value="accessories">Phụ kiện</option>
-                      <option value="documents">Giấy tờ & Tiền</option>
-                      <option value="medical">Y tế & Thuốc</option>
-                    </select>
-                    <input
-                      type="number"
-                      min="1"
-                      max="99"
-                      value={customPackingQty}
-                      onChange={(e) => setCustomPackingQty(Math.max(1, Number(e.target.value) || 1))}
-                      style={{ width: 50, fontSize: '0.8rem', padding: '0.3rem', border: '1px solid #cbd5e1', borderRadius: 4 }}
-                    />
-                  </div>
-                </div>
-
-                <div className="trip-details-modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    Đã chọn: <strong>{selectedCatalogIds.size + (customPackingName.trim() ? 1 : 0)}</strong> món
-                  </span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowPackingModal(false)}
-                      className="btn btn-outline trip-details-modal-btn"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddSelectedPackingItems}
-                      disabled={savingPacking || (selectedCatalogIds.size === 0 && !customPackingName.trim())}
-                      className="btn btn-primary trip-details-modal-btn"
-                    >
-                      {savingPacking ? (
-                        <><Loader2 className="animate-spin" size={14} style={{ marginRight: 4 }} /> Đang thêm...</>
-                      ) : (
-                        `Thêm vào chuyến đi (${selectedCatalogIds.size + (customPackingName.trim() ? 1 : 0)})`
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
       </div>
     </Layout>
   );

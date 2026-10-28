@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { Loader2 } from 'lucide-react';
 import ErrorBoundary from './Components/Common/ErrorBoundary';
@@ -13,6 +13,10 @@ const PlannerWizard = lazy(() => import('./pages/PlannerWizard'));
 const AiPlanner = lazy(() => import('./pages/AiPlanner'));
 const TripHistory = lazy(() => import('./pages/TripHistory'));
 const TripDetails = lazy(() => import('./pages/TripDetails'));
+const TripEditRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/trip/${id}?edit=1`} replace />;
+};
 const Profile = lazy(() => import('./pages/Profile'));
 const SharedTripView = lazy(() => import('./pages/SharedTripView'));
 const GroupInvite = lazy(() => import('./pages/GroupInvite'));
@@ -110,6 +114,7 @@ function App() {
               <TripDetails />
             </ProtectedRoute>
           } />
+          <Route path="/trip/:id/edit" element={<ProtectedRoute><TripEditRedirect /></ProtectedRoute>} />
 
           <Route path="/profile" element={
             <ProtectedRoute>

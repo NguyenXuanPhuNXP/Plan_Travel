@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useAuth } from './AuthContext';
 import { itineraryService } from '../services/itineraryService';
 
 const TripContext = createContext();
@@ -33,138 +34,51 @@ function normalizeTrip(trip) {
 }
 
 export const TripProvider = ({ children }) => {
-  const [trips, setTrips] = useState(() => {
-    try {
-      const stored = localStorage.getItem('travel_trips');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          return parsed.map(normalizeTrip).filter(Boolean);
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return [];
-  });
+  const { user, loading } = useAuth();
+  return <AccountTripProvider key={String(user?.id || 'guest')} userId={user?.id} authLoading={loading}>{children}</AccountTripProvider>;
+};
+const AccountTripProvider = ({ children, userId, authLoading }) => {
+  const [trips, setTrips] = useState([]);
   const [currentTrip, setCurrentTrip] = useState(null);
   const [loading, setLoading] = useState(false);
-
+  const [error, setError] = useState('');
   const fetchTrips = useCallback(async () => {
+    if (!userId || authLoading) return [];
     setLoading(true);
+    setError('');
     try {
-      const remote = await itineraryService.getAll();
-      if (Array.isArray(remote)) {
-        const normalizedRemote = remote.map(normalizeTrip).filter(Boolean);
-        // Merge with existing local-only fallback trips (e.g. itinerary_xxx) so they are preserved
-        const stored = localStorage.getItem('travel_trips');
-        let localTrips = [];
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) {
-              localTrips = parsed
-                .filter(t => t && !/^\d+$/.test(String(t.id)))
-                .map(normalizeTrip)
-                .filter(Boolean);
-            }
-          } catch {
-            // ignore
-          }
-        }
-        const merged = [...normalizedRemote];
-        for (const locTrip of localTrips) {
-          if (!merged.some(t => String(t.id) === String(locTrip.id))) {
-            merged.push(locTrip);
-          }
-        }
-        setTrips(merged);
-        localStorage.setItem('travel_trips', JSON.stringify(merged));
-        setLoading(false);
-        return merged;
-      }
+      const data = await itineraryService.getAll();
+      const next = data.map(normalizeTrip).filter(Boolean);
+      setTrips(next);
+      return next;
     } catch (err) {
-      console.warn('Lỗi fetchTrips từ backend API:', err);
-    }
-
-    // Fallback local storage
-    const storedTrips = localStorage.getItem('travel_trips');
-    if (storedTrips) {
-      try {
-        const parsed = JSON.parse(storedTrips);
-        const normalized = Array.isArray(parsed) ? parsed.map(normalizeTrip).filter(Boolean) : [];
-        setTrips(normalized);
-        setLoading(false);
-        return normalized;
-      } catch (e) {
-        console.error('Lỗi nạp dữ liệu chuyến đi:', e);
-      }
-    }
-    setLoading(false);
-    return [];
-  }, []);
-
+      setError(err.response?.data?.message || err.message);
+      return [];
+    } finally { setLoading(false); }
+  }, [userId, authLoading]);
   useEffect(() => {
     let active = true;
     Promise.resolve().then(() => { if (active) fetchTrips(); });
     return () => { active = false; };
   }, [fetchTrips]);
-
-  const addTrip = useCallback((tripData) => {
-    const newTrip = normalizeTrip(tripData);
-    setTrips((prevTrips) => {
-      const existsIndex = prevTrips.findIndex((t) => String(t.id) === String(newTrip.id));
-      let updated;
-      if (existsIndex >= 0) {
-        updated = [...prevTrips];
-        updated[existsIndex] = { ...updated[existsIndex], ...newTrip };
-      } else {
-        updated = [newTrip, ...prevTrips];
-      }
-      localStorage.setItem('travel_trips', JSON.stringify(updated));
-      return updated;
-    });
-    return newTrip;
+  const addTrip = useCallback(data => {
+    const trip = normalizeTrip(data);
+    if (!trip) return null;
+    setTrips(prev => [trip, ...prev.filter(item => String(item.id) !== String(trip.id))]);
+    return trip;
   }, []);
-
-  const updateTrip = useCallback((tripId, updates) => {
-    setTrips((prevTrips) => {
-      const updatedTrips = prevTrips.map((trip) =>
-        String(trip.id) === String(tripId) ? normalizeTrip({ ...trip, ...updates }) : trip
-      );
-      localStorage.setItem('travel_trips', JSON.stringify(updatedTrips));
-      return updatedTrips;
-    });
+  const updateTrip = useCallback((id, data) => {
+    setTrips(prev => prev.map(trip => String(trip.id) === String(id) ? normalizeTrip({ ...trip, ...data }) : trip));
   }, []);
-
-  const deleteTrip = useCallback(async (tripId) => {
-    setTrips((prevTrips) => {
-      const updatedTrips = prevTrips.filter((trip) => String(trip.id) !== String(tripId));
-      localStorage.setItem('travel_trips', JSON.stringify(updatedTrips));
-      return updatedTrips;
-    });
-    try {
-      await itineraryService.delete(tripId);
-    } catch (err) {
-      console.warn('Lỗi xóa lịch trình trên backend:', err);
-    }
+  const deleteTrip = useCallback(async id => {
+    await itineraryService.delete(id);
+    setTrips(prev => prev.filter(trip => String(trip.id) !== String(id)));
   }, []);
-
-  const getTripById = useCallback((id) => {
-    return trips.find((trip) => String(trip.id) === String(id));
-  }, [trips]);
-
-  return (
-    <TripContext.Provider value={{ trips, currentTrip, setCurrentTrip, addTrip, updateTrip, deleteTrip, getTripById, fetchTrips, loading }}>
-      {children}
-    </TripContext.Provider>
-  );
+  const getTripById = useCallback(id => trips.find(trip => String(trip.id) === String(id)), [trips]);
+  return <TripContext.Provider value={{ trips, currentTrip, setCurrentTrip, addTrip, updateTrip, deleteTrip, getTripById, fetchTrips, loading, error }}>{children}</TripContext.Provider>;
 };
-
 export const useTrips = () => {
   const context = useContext(TripContext);
-  if (!context) {
-    throw new Error('useTrips must be used within a TripProvider');
-  }
+  if (!context) throw new Error('useTrips must be used within a TripProvider');
   return context;
 };

@@ -34,7 +34,8 @@ test('Migration Safety - Backward compatibility: trips without new fields load w
       name: 'Chuyến Đi Cũ Thời Kỳ Đầu',
       destination: 'Đà Lạt',
       status: 'draft',
-      budget: 3000000
+      budget: 3000000,
+      total_cost: null // A legacy row with no stored estimate, rather than an explicit zero estimate.
       // traveler_count, transport_mode, cost fields omitted to simulate old data
     }
   });

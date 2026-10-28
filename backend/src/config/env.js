@@ -8,8 +8,8 @@ const backendRoot = path.resolve(__dirname, "../..");
 const projectRoot = path.resolve(backendRoot, "..");
 
 const envFiles = [
-    path.join(projectRoot, ".env"),
-    path.join(backendRoot, ".env")
+    path.join(backendRoot, ".env"),
+    path.join(projectRoot, ".env")
 ];
 
 for (const envFile of envFiles) {

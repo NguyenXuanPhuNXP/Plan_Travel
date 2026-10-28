@@ -2,7 +2,7 @@
 
 - `frontend/`: giao diện React, public assets, cấu hình Vite và dependency riêng.
 - `backend/`: API Express, Prisma, kiểm thử và dependency riêng.
-- `backend/database/`: SQL khởi tạo MySQL.
+- `backend/database/`: hướng dẫn DB và SQL cũ để tham khảo; cấu trúc hiện tại nằm trong `backend/prisma/migrations/`. Khởi tạo bằng `npm run db:init`.
 - `backend/compose.yml`: MySQL và phpMyAdmin. Chạy từ thư mục gốc bằng `npm run db:up`.
 - `backend/python_service/`: dịch vụ AI và thời tiết, đọc cấu hình từ `backend/.env`.
 - `scripts/`: tiện ích quản lý toàn dự án.

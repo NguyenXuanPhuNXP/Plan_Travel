@@ -14,6 +14,8 @@
     "db:generate": "npm --prefix backend run db:generate",
     "db:migrate": "npm --prefix backend run db:migrate",
     "db:up": "docker compose -f backend/compose.yml up -d",
-    "db:down": "docker compose -f backend/compose.yml down"
+    "db:down": "docker compose -f backend/compose.yml down",
+    "db:seed": "npm --prefix backend run db:seed",
+    "db:init": "npm --prefix backend run db:init"
   }
 }

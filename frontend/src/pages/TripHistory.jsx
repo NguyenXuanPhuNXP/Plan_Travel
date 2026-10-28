@@ -25,10 +25,16 @@ const TripHistory = () => {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? '--/--/----' : format(date, 'dd/MM/yyyy');
   };
-  const { trips, deleteTrip, fetchTrips, loading } = useTrips();
+  const { trips, deleteTrip, fetchTrips, loading, error } = useTrips();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [actionError, setActionError] = useState('');
+  const handleDelete = async id => {
+    if (!window.confirm('Xóa kế hoạch này?')) return;
+    try { await deleteTrip(id); }
+    catch (err) { setActionError(err.response?.data?.message || 'Không thể xóa kế hoạch.'); }
+  };
 
   useEffect(() => {
     fetchTrips();
@@ -70,6 +76,7 @@ const TripHistory = () => {
           </Link>
         </div>
 
+        {(error || actionError) && <p role="alert">{actionError || error}</p>}
         {/* Filters */}
         <div className="trip-history-filters">
           <div className="trip-history-search">
@@ -113,6 +120,8 @@ const TripHistory = () => {
               const firstLocName = (locations[0]?.name || locations[0]?.customName || 'Chưa có điểm').split(',')[0];
               const budgetVal = Number(trip.budget != null ? trip.budget : (trip.totalCost != null ? trip.totalCost : 0));
 
+              const tripImage = locations[0]?.image || locations[0]?.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800';
+
               return (
               <motion.div
                 key={trip.id}
@@ -122,18 +131,21 @@ const TripHistory = () => {
                 exit={{ opacity: 0, scale: 0.9 }}
                 className="card trip-history-card"
               >
-                <div className="trip-history-status-row">
+                <div className="trip-history-img-wrapper">
+                  <img
+                    src={tripImage}
+                    alt={tripTitle}
+                    className="trip-history-img"
+                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800'; }}
+                  />
                   <div
-                    className="trip-history-badge"
+                    className="trip-history-img-badge"
                     style={{ color: getStatusColor(trip.status) }}
                   >
-                    {tabs.find(t => t.id === trip.status)?.label || trip.status}
+                    {tabs.find(t => t.id === trip.status)?.label || (trip.status === 'upcoming' ? 'Sắp tới' : (trip.status === 'ongoing' ? 'Đang đi' : 'Đã đi'))}
                   </div>
                   {trip.owner && String(trip.owner.id) !== String(user?.id) && (
-                    <div
-                      className="trip-history-badge trip-history-badge-shared"
-                      title="Chuyến đi chung"
-                    >
+                    <div className="trip-history-badge-shared-float">
                       Nhóm của {trip.owner.name}
                     </div>
                   )}
@@ -142,9 +154,9 @@ const TripHistory = () => {
                 <div className="trip-history-content">
                   <div className="trip-history-card-header">
                     <h3 className="trip-history-card-title">{tripTitle}</h3>
-                    <button onClick={() => deleteTrip(trip.id)} className="trip-history-delete-btn" title="Xóa">
+                    {String(trip.userId || trip.owner?.id) === String(user?.id) && <button onClick={() => handleDelete(trip.id)} className="trip-history-delete-btn" title="Xóa">
                       <Trash2 size={18} />
-                    </button>
+                    </button>}
                   </div>
 
                   <div className="trip-history-meta">
@@ -159,6 +171,9 @@ const TripHistory = () => {
                   </div>
 
                   <div className="trip-history-footer">
+                    <Link className="btn btn-outline" to={`/trip/${trip.id}#plan-editor-members`}>
+                      {String(trip.userId || trip.owner?.id) === String(user?.id) ? 'Thêm thành viên' : 'Thành viên'}
+                    </Link>
                     <div className="trip-history-budget">
                       <span>Ngân sách: </span>
                       {budgetVal.toLocaleString()}đ

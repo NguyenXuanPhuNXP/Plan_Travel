@@ -38,24 +38,25 @@ const FriendModal = ({ isOpen, onClose }) => {
   };
 
   useEffect(() => {
-    if (activeTab === 'add') {
+    if (isOpen && activeTab === 'add') {
       const trimmed = searchQuery.trim();
       setIsSearchingUser(true);
+      let active = true;
       const timer = setTimeout(async () => {
         try {
           const res = await friendService.searchUsers(trimmed);
-          setSearchResults(res || []);
+          if (active) setSearchResults((res || []).filter(user => !user.isFriend && user.requestStatus !== 'received'));
         } catch (error) {
           console.error("Lỗi tìm kiếm user:", error);
-          setSearchResults([]);
+          if (active) setSearchResults([]);
         } finally {
-          setIsSearchingUser(false);
+          if (active) setIsSearchingUser(false);
         }
       }, trimmed ? 300 : 0);
 
-      return () => clearTimeout(timer);
+      return () => { active = false; clearTimeout(timer); };
     }
-  }, [searchQuery, activeTab]);
+  }, [searchQuery, activeTab, isOpen]);
 
   const handleAddFriend = async (userId, name) => {
     try {

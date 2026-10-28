@@ -13,14 +13,13 @@ Trang **Đăng nhập** hỗ trợ hai cách đăng nhập bằng Google:
 
 Backend xác minh token do Google cấp trước khi tạo phiên đăng nhập của PlanTravel. Nếu xác minh thất bại, hệ thống hiển thị lỗi và không tạo phiên đăng nhập giả.
 
-Chức năng được bổ sung ở cả hai thư mục giao diện:
+Giao diện đã được hợp nhất vào thư mục `frontend`:
 
 | Thư mục | Cách sử dụng |
 |---|---|
-| `Front End/Plan_travel` | Giao diện được chạy bằng `npm run dev` tại thư mục gốc |
-| `frontend` | Giao diện được chạy trực tiếp bằng `npm --prefix frontend run dev` |
+| `frontend` | Chạy bằng `npm run dev` tại thư mục gốc hoặc `npm --prefix frontend run dev` |
 
-Luồng đăng nhập bằng email và mật khẩu được giữ nguyên. Hộp chọn tài khoản Google giả lập trên trang **Đăng ký** vẫn thuộc phần code cũ, không phải chức năng One Tap mới.
+Luồng đăng nhập bằng email và mật khẩu được giữ nguyên. Cả trang đăng nhập và đăng ký sử dụng Google One Tap và nút Google chính thức.
 
 ---
 
@@ -37,13 +36,13 @@ Luồng đăng nhập bằng email và mật khẩu được giữ nguyên. Hộ
 
 ### Bước 2: Cấu hình Frontend
 
-Tạo hoặc cập nhật file `Front End/Plan_travel/.env.local`:
+Tạo hoặc cập nhật file `frontend/.env.local`:
 
 ```env
 VITE_GOOGLE_CLIENT_ID=client-id-do-google-cap.apps.googleusercontent.com
 ```
 
-Nếu chạy giao diện trong thư mục `frontend`, đặt cấu hình tương ứng tại `frontend/.env.local`.
+Frontend đọc cấu hình trong thư mục `frontend`.
 
 ### Bước 3: Cấu hình Backend
 
@@ -66,7 +65,7 @@ Tại thư mục gốc của dự án, cài các gói cần thiết:
 
 ```powershell
 npm --prefix backend install
-npm --prefix "Front End/Plan_travel" install
+npm --prefix frontend install
 ```
 
 Mở Terminal 1 để chạy Backend mới:
@@ -137,4 +136,4 @@ Việc hiển thị One Tap còn phụ thuộc tài khoản Google đang đăng 
 
 ---
 
-*Bản sao các file gốc trước khi chỉnh sửa được lưu trong thư mục `.one-tap-backup` tại thư mục gốc của dự án.*
+*Mã nguồn hiện tại nằm trong `frontend` và `backend`. `.one-tap-backup` là bản lưu cục bộ cũ, không được ứng dụng sử dụng và không đưa vào Git.*
