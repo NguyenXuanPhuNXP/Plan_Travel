@@ -3,15 +3,17 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev": "npm --prefix \"Front End/Plan_travel\" run dev",
-    "build": "npm --prefix \"Front End/Plan_travel\" run build",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
     "test": "npm --prefix backend test",
     "start": "npm --prefix backend start",
     "backend": "npm --prefix backend start",
     "backend:dev": "npm --prefix backend run dev",
-    "backend:legacy": "npm --prefix \"Back End\" start"
-  },
-  "dependencies": {
-    "prisma": "^7.8.0"
+    "lint": "npm --prefix frontend run lint",
+    "install:all": "npm --prefix frontend ci && npm --prefix backend ci",
+    "db:generate": "npm --prefix backend run db:generate",
+    "db:migrate": "npm --prefix backend run db:migrate",
+    "db:up": "docker compose -f backend/compose.yml up -d",
+    "db:down": "docker compose -f backend/compose.yml down"
   }
 }

@@ -1,3 +1,4 @@
+import { OAuth2Client } from "google-auth-library";
 import bcrypt from "bcryptjs";
 import prisma from "../config/db.js";
 import {
@@ -11,8 +12,21 @@ import {
  * Tương đương AuthService.RegisterAsync trong C#
  */
 export async function register(dto) {
-    const { fullName, email, phone, password, confirmPassword } = dto;
+    const fullName = String(dto.fullName || dto.name || "").trim();
+    const email = String(dto.email || "").trim().toLowerCase();
+    const phone = dto.phone ? String(dto.phone).trim() : null;
+    const password = String(dto.password || "");
+    const confirmPassword = String(dto.confirmPassword || "");
 
+    if (!fullName) {
+        throw { status: 400, message: "Họ và tên là bắt buộc." };
+    }
+    if (!email) {
+        throw { status: 400, message: "Email là bắt buộc." };
+    }
+    if (password.length < 6) {
+        throw { status: 400, message: "Mật khẩu cần ít nhất 6 ký tự." };
+    }
     if (password !== confirmPassword) {
         throw { status: 400, message: "Mật khẩu xác nhận không khớp." };
     }
@@ -30,6 +44,7 @@ export async function register(dto) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+
 
     const user = await prisma.users.create({
         data: {
@@ -50,7 +65,8 @@ export async function register(dto) {
  * Tương đương AuthService.LoginAsync trong C#
  */
 export async function login(dto) {
-    const { email, password } = dto;
+    const email = String(dto.email || "").trim().toLowerCase();
+    const password = String(dto.password || "");
 
     const user = await prisma.users.findUnique({ where: { email } });
     if (!user) {
@@ -84,7 +100,8 @@ export async function refreshToken(refreshTokenValue) {
     if (
         !savedToken ||
         savedToken.revoked_at !== null ||
-        savedToken.expires_at <= new Date()
+        savedToken.expires_at <= new Date() ||
+        !savedToken.users.is_active
     ) {
         throw { status: 401, message: "Refresh token không hợp lệ hoặc đã hết hạn." };
     }
@@ -238,4 +255,86 @@ function buildUserProfile(user) {
         avatarUrl: user.avatar_url || null,
         role: user.role === "admin" ? 1 : 0
     };
+}
+
+
+/**
+ * Đăng nhập / đăng ký qua Google
+ */
+export async function loginWithGoogle(dto) {
+    const idToken = dto.credential || dto.idToken;
+    if (!idToken || String(idToken).startsWith('mock-')) {
+        throw { status: 401, message: 'Google ID token is required.' };
+    }
+    if (!process.env.GOOGLE_CLIENT_ID) {
+        throw { status: 503, message: 'Google sign-in is not configured.' };
+    }
+    let payload;
+    try {
+        const ticket = await new OAuth2Client(process.env.GOOGLE_CLIENT_ID).verifyIdToken({
+            idToken, audience: process.env.GOOGLE_CLIENT_ID
+        });
+        payload = ticket.getPayload();
+        if (!payload?.email_verified || !payload.email) throw new Error('Unverified email');
+    } catch {
+        throw { status: 401, message: 'Invalid Google ID token.' };
+    }
+    const email = payload.email.trim().toLowerCase();
+    const fullName = payload.name || email.split('@')[0];
+    const avatarUrl = payload.picture || null;
+
+    let user = await prisma.users.findUnique({ where: { email } });
+
+    if (!user) {
+        const dummyPassword = await bcrypt.hash(Math.random().toString(36), 10);
+        user = await prisma.users.create({
+            data: {
+                full_name: fullName,
+                email,
+                phone: null,
+                password_hash: dummyPassword,
+                role: "user",
+                avatar_url: avatarUrl,
+                is_active: true
+            }
+        });
+    }
+
+    if (!user.is_active) {
+        throw { status: 401, message: "Tài khoản của bạn đã bị vô hiệu hóa." };
+    }
+
+    return await createAuthResponse(user);
+}
+
+/**
+ * Đảm bảo tài khoản admin mặc định tồn tại trong hệ thống
+ */
+export async function ensureAdminAccount() {
+    try {
+        const adminEmail = process.env.ADMIN_EMAIL;
+        const adminPassword = process.env.ADMIN_PASSWORD;
+        if (!adminEmail || !adminPassword) return;
+        const existingAdmin = await prisma.users.findUnique({
+            where: { email: adminEmail }
+        });
+
+        if (!existingAdmin) {
+            const passwordHash = await bcrypt.hash(adminPassword, 10);
+            await prisma.users.create({
+                data: {
+                    full_name: "Quản Trị Viên",
+                    email: adminEmail,
+                    phone: "0900000000",
+                    password_hash: passwordHash,
+                    role: "admin",
+                    is_active: true,
+                    avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
+                }
+            });
+            console.log("Admin account initialized.");
+        }
+    } catch (err) {
+        console.warn("⚠️ Không thể kết nối DB để kiểm tra tài khoản Admin mặc định:", err.message);
+    }
 }

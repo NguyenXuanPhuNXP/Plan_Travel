@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useCallback, useRef, useState } from 'react';
 import { Bell, X } from 'lucide-react';
 import { useTrips } from './TripContext';
 import { useAuth } from './AuthContext';
@@ -41,19 +41,19 @@ export const NotificationProvider = ({ children }) => {
   const seenCollaborators = useRef(new Map());
   const initialized = useRef(false);
 
-  const pushNotification = (item, showPopup = true) => {
+  const pushNotification = useCallback((item, showPopup = true) => {
     setNotifications((prev) => {
       const existingIndex = prev.findIndex((n) => n.id === item.id);
       let next;
-      
+
       if (existingIndex >= 0) {
         // Update existing item, but never revert a 'read' status from true to false
         next = [...prev];
         const existingItem = next[existingIndex];
-        next[existingIndex] = { 
-          ...existingItem, 
+        next[existingIndex] = {
+          ...existingItem,
           ...item,
-          read: existingItem.read || item.read 
+          read: existingItem.read || item.read
         };
       } else {
         // Add new item
@@ -64,16 +64,16 @@ export const NotificationProvider = ({ children }) => {
           read: item.read ?? false
         }, ...prev].slice(0, 80);
       }
-      
+
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       return next;
     });
-    
+
     if (enabled && showPopup) {
       setToast(item);
       setTimeout(() => setToast(null), 4200);
     }
-  };
+  }, [enabled]);
 
   useEffect(() => {
     localStorage.setItem(ENABLED_KEY, String(enabled));
@@ -110,7 +110,7 @@ export const NotificationProvider = ({ children }) => {
         console.error("Failed to fetch notifications:", err);
       });
     }
-  }, [user?.id]);
+  }, [user?.id, pushNotification]);
 
   useEffect(() => {
     trips.forEach((trip) => {
@@ -173,11 +173,11 @@ export const NotificationProvider = ({ children }) => {
       seenCollaborators.current.set(String(trip.id), collaboratorSignature);
     });
     initialized.current = true;
-  }, [trips, user?.id]);
+  }, [trips, user?.id, pushNotification]);
 
   const unreadCount = notifications.filter((item) => !item.read).length;
 
-  const value = useMemo(() => ({
+  const value = {
     notifications,
     unreadCount,
     enabled,
@@ -204,7 +204,7 @@ export const NotificationProvider = ({ children }) => {
       localStorage.removeItem(STORAGE_KEY);
       setNotifications([]);
     }
-  }), [notifications, unreadCount, enabled]);
+  };
 
   return (
     <NotificationContext.Provider value={value}>

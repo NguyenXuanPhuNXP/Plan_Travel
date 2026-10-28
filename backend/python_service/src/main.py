@@ -22,7 +22,7 @@ class EmbedTextRequest(BaseModel):
     text: str
 
 from pathlib import Path
-load_dotenv(Path(__file__).resolve().parents[3] / ".env")
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 OPEN_WEATHER_KEY = os.getenv('OPEN_WEATHER_KEY')
 

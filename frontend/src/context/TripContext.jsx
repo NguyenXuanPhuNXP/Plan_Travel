@@ -3,168 +3,159 @@ import { itineraryService } from '../services/itineraryService';
 
 const TripContext = createContext();
 
-const toUiStatus = (status) => {
-  if (status === 'generated') return 'ongoing';
-  if (status === 'draft') return 'upcoming';
-  if (status === 'cancelled') return 'completed';
-  return status || 'upcoming';
-};
-
-const toBackendStatus = (status) => {
-  if (status === 'upcoming') return 'draft';
-  if (status === 'ongoing') return 'generated';
-  return status;
-};
-
-const parseDayNumberFromNote = (note) => {
-  const text = String(note || '');
-  const match = text.match(/\[DAY:(\d+)\]/i);
-  if (!match) return null;
-  const value = Number(match[1]);
-  return Number.isFinite(value) && value > 0 ? value : null;
-};
-
-const stripDayMarker = (note) => String(note || '').replace(/\[DAY:\d+\]\s*/gi, '').trim();
-
-const normalizeLocation = (loc) => {
-  if (!loc) return null;
-  return {
-    id: String(loc.id),
-    name: loc.name || 'Địa điểm',
-    address: loc.address || '',
-    lat: loc.lat ?? loc.latitude ?? null,
-    lng: loc.lng ?? loc.longitude ?? null,
-    image: loc.image || loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1',
-    estimatedCost: loc.estimatedCost ?? 0,
-    suggestedDuration: loc.suggestedDuration || null,
-    category: loc.category || null
-  };
-};
-
-const normalizeTrip = (trip) => {
-  const items = Array.isArray(trip?.items) ? trip.items : [];
-  const normalizedItems = items.map((item, index) => ({
-    ...item,
-    id: String(item?.id || `item_${index}`),
-    dayNumber: parseDayNumberFromNote(item?.note) || 1,
-    note: stripDayMarker(item?.note),
-    location: normalizeLocation(item?.location)
-  }));
-
-  const itemLocations = normalizedItems
-    .map((item) => normalizeLocation(item?.location))
-    .filter(Boolean);
-
-  const locations = Array.isArray(trip?.locations)
-    ? trip.locations.map((loc) => normalizeLocation(loc)).filter(Boolean)
-    : itemLocations;
+function normalizeTrip(trip) {
+  if (!trip) return null;
+  const title = trip.title || trip.name || 'Chuyến đi chưa đặt tên';
+  const locations = Array.isArray(trip.locations)
+    ? trip.locations
+    : (Array.isArray(trip.items)
+      ? trip.items.map((it) => (it && it.location ? { ...it.location, customName: it.customName, note: it.note } : it))
+      : []);
+  const items = Array.isArray(trip.items) ? trip.items : locations;
+  const budget = trip.budget != null ? Number(trip.budget) : (trip.totalCost != null ? Number(trip.totalCost) : 0);
+  const totalCost = trip.totalCost != null ? Number(trip.totalCost) : budget;
 
   return {
     ...trip,
-    id: String(trip?.id),
-    rawStatus: trip?.status || 'draft',
-    status: toUiStatus(trip?.status),
-    title: trip?.title || trip?.name || 'Chuyến đi',
-    notes: trip?.notes || trip?.description || '',
-    startLocation: trip?.startLocation || '',
-    endLocation: trip?.endLocation || '',
-    budget: trip?.budget ? Number(trip.budget) : 0,
+    id: trip.id ? String(trip.id) : Date.now().toString(),
+    title,
+    name: title,
     locations,
-    items: normalizedItems
+    items,
+    budget,
+    totalCost,
+    status: trip.status || 'upcoming',
+    startDate: trip.startDate || trip.tripDate || null,
+    endDate: trip.endDate || null,
+    packingItems: Array.isArray(trip.packingItems) ? trip.packingItems : [],
+    collaborators: Array.isArray(trip.collaborators) ? trip.collaborators : []
   };
-};
+}
 
 export const TripProvider = ({ children }) => {
-  const [trips, setTrips] = useState([]);
+  const [trips, setTrips] = useState(() => {
+    try {
+      const stored = localStorage.getItem('travel_trips');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed.map(normalizeTrip).filter(Boolean);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
   const [currentTrip, setCurrentTrip] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Fetch trips from backend
   const fetchTrips = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await itineraryService.getAll();
-      setTrips((data || []).map(normalizeTrip));
-    } catch (error) {
-      console.error('Failed to fetch trips:', error);
-      // Fallback to localStorage for offline
-      const stored = localStorage.getItem('travel_trips');
-      if (stored) setTrips(JSON.parse(stored));
-    } finally {
-      setLoading(false);
+      const remote = await itineraryService.getAll();
+      if (Array.isArray(remote)) {
+        const normalizedRemote = remote.map(normalizeTrip).filter(Boolean);
+        // Merge with existing local-only fallback trips (e.g. itinerary_xxx) so they are preserved
+        const stored = localStorage.getItem('travel_trips');
+        let localTrips = [];
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+              localTrips = parsed
+                .filter(t => t && !/^\d+$/.test(String(t.id)))
+                .map(normalizeTrip)
+                .filter(Boolean);
+            }
+          } catch {
+            // ignore
+          }
+        }
+        const merged = [...normalizedRemote];
+        for (const locTrip of localTrips) {
+          if (!merged.some(t => String(t.id) === String(locTrip.id))) {
+            merged.push(locTrip);
+          }
+        }
+        setTrips(merged);
+        localStorage.setItem('travel_trips', JSON.stringify(merged));
+        setLoading(false);
+        return merged;
+      }
+    } catch (err) {
+      console.warn('Lỗi fetchTrips từ backend API:', err);
     }
+
+    // Fallback local storage
+    const storedTrips = localStorage.getItem('travel_trips');
+    if (storedTrips) {
+      try {
+        const parsed = JSON.parse(storedTrips);
+        const normalized = Array.isArray(parsed) ? parsed.map(normalizeTrip).filter(Boolean) : [];
+        setTrips(normalized);
+        setLoading(false);
+        return normalized;
+      } catch (e) {
+        console.error('Lỗi nạp dữ liệu chuyến đi:', e);
+      }
+    }
+    setLoading(false);
+    return [];
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      fetchTrips();
-    }
+    let active = true;
+    Promise.resolve().then(() => { if (active) fetchTrips(); });
+    return () => { active = false; };
   }, [fetchTrips]);
 
-  const addTrip = async (tripData) => {
-    try {
-      const newTrip = await itineraryService.create(tripData);
-      const normalized = normalizeTrip(newTrip);
-      setTrips(prev => [normalized, ...prev]);
-      return normalized;
-    } catch (error) {
-      console.error('Failed to create trip:', error);
-      throw error;
-    }
-  };
+  const addTrip = useCallback((tripData) => {
+    const newTrip = normalizeTrip(tripData);
+    setTrips((prevTrips) => {
+      const existsIndex = prevTrips.findIndex((t) => String(t.id) === String(newTrip.id));
+      let updated;
+      if (existsIndex >= 0) {
+        updated = [...prevTrips];
+        updated[existsIndex] = { ...updated[existsIndex], ...newTrip };
+      } else {
+        updated = [newTrip, ...prevTrips];
+      }
+      localStorage.setItem('travel_trips', JSON.stringify(updated));
+      return updated;
+    });
+    return newTrip;
+  }, []);
 
-  const updateTrip = async (tripId, updates) => {
-    const payload = {
-      ...updates,
-      status: updates.status ? toBackendStatus(updates.status) : updates.status
-    };
-    try {
-      const updated = await itineraryService.update(tripId, payload);
-      const normalized = normalizeTrip(updated);
-      setTrips(prev => prev.map(t => {
-        if (t.id !== String(tripId)) return t;
+  const updateTrip = useCallback((tripId, updates) => {
+    setTrips((prevTrips) => {
+      const updatedTrips = prevTrips.map((trip) =>
+        String(trip.id) === String(tripId) ? normalizeTrip({ ...trip, ...updates }) : trip
+      );
+      localStorage.setItem('travel_trips', JSON.stringify(updatedTrips));
+      return updatedTrips;
+    });
+  }, []);
 
-        const hasUpdatedLocations = normalized.locations.length > 0;
-        return {
-          ...t,
-          ...normalized,
-          locations: hasUpdatedLocations ? normalized.locations : t.locations
-        };
-      }));
-      return normalized;
-    } catch (error) {
-      console.error('Failed to update trip:', error);
-      throw error;
-    }
-  };
-
-  const deleteTrip = async (tripId) => {
+  const deleteTrip = useCallback(async (tripId) => {
+    setTrips((prevTrips) => {
+      const updatedTrips = prevTrips.filter((trip) => String(trip.id) !== String(tripId));
+      localStorage.setItem('travel_trips', JSON.stringify(updatedTrips));
+      return updatedTrips;
+    });
     try {
       await itineraryService.delete(tripId);
-      setTrips(prev => prev.filter(t => t.id !== tripId));
-    } catch (error) {
-      console.error('Failed to delete trip:', error);
-      throw error;
+    } catch (err) {
+      console.warn('Lỗi xóa lịch trình trên backend:', err);
     }
-  };
+  }, []);
 
-  const getTripById = (id) => {
-    return trips.find((trip) => trip.id === id || trip.id === String(id));
-  };
+  const getTripById = useCallback((id) => {
+    return trips.find((trip) => String(trip.id) === String(id));
+  }, [trips]);
 
   return (
-    <TripContext.Provider value={{ 
-      trips, 
-      currentTrip, 
-      setCurrentTrip, 
-      addTrip, 
-      updateTrip, 
-      deleteTrip, 
-      getTripById, 
-      fetchTrips,
-      loading 
-    }}>
+    <TripContext.Provider value={{ trips, currentTrip, setCurrentTrip, addTrip, updateTrip, deleteTrip, getTripById, fetchTrips, loading }}>
       {children}
     </TripContext.Provider>
   );

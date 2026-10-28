@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { motion, Reorder } from 'framer-motion';
-import { 
-  Clock, MapPin, GripVertical, Edit3, Check, X, 
-  ChevronDown, ChevronUp, Sparkles, StickyNote, 
+import {
+  Clock, MapPin, GripVertical, Edit3, Check, X,
+  ChevronDown, ChevronUp, Sparkles, StickyNote,
   Navigation, Sun, Sunset, Moon, Plus, Search
 } from 'lucide-react';
 import { locationService } from '../services/locationService';
@@ -11,7 +11,7 @@ import './TimelineEditor.css';
 const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destination, onPlanChange, onAddCustomLocation }) => {
   const [editingPlan, setEditingPlan] = useState(null);
   const [expandedDay, setExpandedDay] = useState(0);
-  const [editingItem, setEditingItem] = useState(null);
+  const [editingItem, _setEditingItem] = useState(null);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
@@ -26,7 +26,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
       // Generate basic plan from selected locations
       const itemsPerDay = Math.max(1, Math.ceil(selectedLocations.length / totalDays));
       const days = [];
-      
+
       for (let d = 0; d < totalDays; d++) {
         const dayLocs = selectedLocations.slice(d * itemsPerDay, (d + 1) * itemsPerDay);
         days.push({
@@ -146,7 +146,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
         .filter((loc) => loc?.id && Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude));
       setPickerResults(results);
       if (results.length === 0) setPickerError('Không tìm thấy địa điểm phù hợp.');
-    } catch (e) {
+    } catch (_e) {
       setPickerError('Không thể tìm kiếm địa điểm lúc này.');
     } finally {
       setPickerLoading(false);
@@ -270,7 +270,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
             className="timeline-day"
           >
             {/* Day Header */}
-            <button 
+            <button
               className="timeline-day-header"
               onClick={() => setExpandedDay(expandedDay === dayIdx ? -1 : dayIdx)}
             >
@@ -306,7 +306,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                     <Search size={14} /> Chọn điểm đến...
                   </button>
                 </div>
-                
+
                 <Reorder.Group
                   axis="y"
                   values={day.items}
@@ -336,7 +336,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                               <MapPin size={14} />
                               {item.locationName || item.location?.name || 'Địa điểm'}
                             </h4>
-                            <button 
+                            <button
                               className="timeline-item-remove"
                               onClick={() => handleRemoveItem(dayIdx, itemIdx)}
                               title="Xóa"
@@ -392,7 +392,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                           {/* Inline note editing */}
                           <div className={`timeline-item-note ${item.note ? 'has-content' : ''}`}>
                             <div className="timeline-note-header">
-                              <StickyNote size={12} /> 
+                              <StickyNote size={12} />
                               <span>Ghi chú {item.note && <Sparkles size={10} className="ai-note-sparkle" title="AI đã gợi ý ghi chú này" />}</span>
                             </div>
                             <textarea

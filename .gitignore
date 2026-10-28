@@ -8,3 +8,10 @@ build/
 *.log
 .vscode/
 .vs/
+
+archive/
+**/.vite/
+**/__pycache__/
+*.pyc
+.env.*
+!.env.example

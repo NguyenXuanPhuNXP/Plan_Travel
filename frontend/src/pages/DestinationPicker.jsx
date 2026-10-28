@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  MapPin, Star, Clock, DollarSign, Check, 
+import {
+  MapPin, Star, Clock, DollarSign, Check,
   Filter, Search, Sparkles, ChevronDown
 } from 'lucide-react';
 import MapComponent from '../Components/Map/MapComponent';
@@ -19,18 +19,18 @@ const CATEGORY_FILTERS = [
 const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect, onDeselect, destination }) => {
   const [searchFilter, setSearchFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [showMap, setShowMap] = useState(true);
+  const [showMap, _setShowMap] = useState(true);
 
   const getLocKey = (loc) => String(loc?.id || `${loc?.name || ''}_${loc?.latitude || loc?.lat}_${loc?.longitude || loc?.lng}`);
   const isSelected = (loc) => selectedLocations.some(l => getLocKey(l) === getLocKey(loc));
 
   const filteredSuggestions = useMemo(() => {
     return suggestions.filter(loc => {
-      const matchSearch = !searchFilter || 
+      const matchSearch = !searchFilter ||
         loc.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
         loc.address?.toLowerCase().includes(searchFilter.toLowerCase());
-      
-      const matchCategory = categoryFilter === 'all' || 
+
+      const matchCategory = categoryFilter === 'all' ||
         loc.category?.includes(categoryFilter);
 
       return matchSearch && matchCategory;
@@ -71,7 +71,7 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
             Gợi ý cho <span className="picker-destination">{destination}</span>
           </h2>
           <p className="picker-subtitle">
-            AI đã tìm thấy <strong>{suggestions.length}</strong> địa điểm. 
+            AI đã tìm thấy <strong>{suggestions.length}</strong> địa điểm.
             Đã chọn <strong>{selectedLocations.length}</strong>.
           </p>
         </div>
@@ -148,7 +148,7 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
                 {/* Card body */}
                 <div className="picker-card-body">
                   <h4 className="picker-card-name">{loc.name}</h4>
-                  
+
                   {loc.address && (
                     <p className="picker-card-address">
                       <MapPin size={12} /> {loc.address.substring(0, 60)}{loc.address.length > 60 ? '...' : ''}
@@ -209,7 +209,7 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
                 isSuggested: !isSelected(loc)
               }))}
               onLocationAdd={(loc) => {
-                const matched = suggestions.find(s => 
+                const matched = suggestions.find(s =>
                   s.latitude === loc.lat && s.longitude === loc.lng
                 );
                 if (matched && !isSelected(matched)) {

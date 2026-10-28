@@ -67,7 +67,7 @@ GEMINI_API_KEY=your_gemini_key   # Tùy chọn, để trống vẫn chạy (rule
 
 ### 4. Docker (Tùy chọn)
 ```bash
-docker-compose up
+docker compose -f backend/compose.yml up
 ```
 
 ## 📁 Cấu trúc dự án
@@ -130,7 +130,7 @@ Plan_Travel/
 Dự án sử dụng **MySQL** để lưu trữ người dùng, phân loại và các địa điểm du lịch.
 
 ### 2.1. Cấu hình biến môi trường kết nối Database
-Thông tin kết nối nằm trong file `Back End/.env` (hoặc `Back End/Database/.env`):
+Thông tin kết nối nằm trong file `backend/.env` (hoặc `backend/.env`):
 
 ```env
 DB_HOST=127.0.0.1
@@ -173,19 +173,19 @@ Máy tính của bạn đã có dịch vụ `MySQL80` cài sẵn:
 3. Đảm bảo mật khẩu tài khoản `root` trùng khớp với `DB_PASSWORD` trong file `.env` (mặc định là `123456`).
 
 #### 👉 Cách 2: Sử dụng Docker Compose (Nếu máy cài Docker)
-Dự án đã có sẵn file `Docker-compose.yml` chuẩn:
+Dự án đã có sẵn file `backend/compose.yml` chuẩn:
 1. Mở terminal tại thư mục gốc của dự án:
    ```bash
-   docker compose up -d
+   docker compose -f backend/compose.yml up -d
    ```
 2. Lệnh trên sẽ tự động:
    * Chạy container **MySQL 8.0** trên cổng `3306`.
-   * Tự động nạp cấu trúc database từ file `Back End/Database/schema.sql`.
+   * Tự động nạp cấu trúc database từ file `backend/database/schema.sql`.
    * Chạy **phpMyAdmin** tại `http://localhost:8080` (Tài khoản: `root`, Mật khẩu: `123456`) để bạn xem và quản lý bảng trực quan trên web.
 
 #### 👉 Cách 3: Nạp thủ công bằng file SQL (MySQL Workbench / XAMPP / Laragon)
 Nếu bạn muốn tự tạo thủ công:
-* Toàn bộ câu lệnh DDL và dữ liệu mẫu đã được lưu tại: [`Back End/Database/schema.sql`](Back%20End/Database/schema.sql).
+* Toàn bộ câu lệnh DDL và dữ liệu mẫu đã được lưu tại: [`backend/database/schema.sql`](backend/database/schema.sql).
 * Mở **MySQL Workbench** hoặc **phpMyAdmin** ➔ Mở file `schema.sql` và nhấn **Execute**.
 
 ---
@@ -260,7 +260,7 @@ erDiagram
 ### Bước 1: Khởi động Backend API (Port 5000)
 Mở Terminal 1:
 ```powershell
-cd "F:\DuAn\Plan_Travel\Back End"
+cd "F:\DuAn\Plan_Travel\backend"
 npm start
 ```
 *Kết quả thông báo thành công:*
@@ -273,7 +273,7 @@ npm start
 ### Bước 2: Khởi động Weather Microservice (Python FastAPI - Port 8000)
 Mở Terminal 2 (tùy chọn, phục vụ lấy dữ liệu thời tiết thực tế):
 ```powershell
-cd "F:\DuAn\Plan_Travel\Back End\src"
+cd "F:\DuAn\Plan_Travel\backend\src"
 python -m uvicorn Weather:app --reload --port 8000
 ```
 

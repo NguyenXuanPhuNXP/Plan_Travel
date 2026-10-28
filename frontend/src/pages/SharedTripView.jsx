@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  MapPin, Calendar, Clock, DollarSign, User, 
+import {
+  MapPin, Calendar, Clock, DollarSign, User,
   Share2, Copy, Check, Loader2, AlertTriangle,
   Navigation, StickyNote, Edit3, Save, X, Trash2
 } from 'lucide-react';
@@ -19,8 +19,8 @@ const SharedTripView = () => {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '', budget: '' });
-  const [editingNote, setEditingNote] = useState(null);
-  const [noteValue, setNoteValue] = useState('');
+  const [_editingNote, _setEditingNote] = useState(null);
+  const [_noteValue, _setNoteValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
 
@@ -39,7 +39,7 @@ const SharedTripView = () => {
         description: data.description || '',
         budget: data.budget || ''
       });
-    } catch (err) {
+    } catch (_err) {
       setError('Lịch trình không tồn tại hoặc đã hết hạn chia sẻ.');
     } finally {
       setLoading(false);
@@ -83,7 +83,7 @@ const SharedTripView = () => {
         items: prev.items.filter(i => i.id !== itemId)
       }));
       showToast('Đã xóa điểm dừng.');
-    } catch (err) {
+    } catch (_err) {
       showToast('Không thể xóa. Vui lòng thử lại.');
     }
   };
@@ -130,8 +130,8 @@ const SharedTripView = () => {
 
         <div className="shared-header-actions">
           {canEdit && (
-            <button 
-              onClick={() => setIsEditing(!isEditing)} 
+            <button
+              onClick={() => setIsEditing(!isEditing)}
               className={`btn ${isEditing ? 'btn-primary' : 'btn-outline'} shared-edit-btn`}
             >
               <Edit3 size={16} /> {isEditing ? 'Đang chỉnh sửa' : 'Chỉnh sửa'}
@@ -201,7 +201,7 @@ const SharedTripView = () => {
               {trip.description && <p className="shared-desc">{trip.description}</p>}
             </>
           )}
-          
+
           <div className="shared-meta">
             {trip.destination && (
               <span><MapPin size={16} /> {trip.destination}</span>
@@ -240,7 +240,7 @@ const SharedTripView = () => {
 
         <div className="shared-timeline-list">
           <div className="shared-timeline-line" />
-          
+
           {trip.items?.map((item, idx) => (
             <motion.div
               key={item.id || idx}
@@ -261,7 +261,7 @@ const SharedTripView = () => {
                       {item.location?.name || 'Địa điểm'}
                     </h3>
                     {isEditing && (
-                      <button 
+                      <button
                         className="shared-timeline-remove"
                         onClick={() => handleRemoveItem(item.id)}
                         title="Xóa điểm dừng"

@@ -9,10 +9,10 @@ const AdminUsers = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
 
-  const loadUsers = async () => setUsers(await adminService.getUsers());
+  const _loadUsers = async () => setUsers(await adminService.getUsers());
 
   useEffect(() => {
-    loadUsers().catch(console.error);
+    adminService.getUsers().then(setUsers).catch(console.error);
   }, []);
 
   const visibleUsers = useMemo(
