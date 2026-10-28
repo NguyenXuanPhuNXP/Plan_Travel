@@ -42,6 +42,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithGoogleCredential = async (data) => {
+    const response = await authService.loginWithGoogle(data);
+    localStorage.setItem('access_token', response.token);
+    localStorage.setItem('refresh_token', response.refreshToken);
+    setUser(response.user);
+    return response.user;
+  };
+
   const register = async (data) => {
     try {
       const response = await authService.register(data);
@@ -58,6 +66,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    window.google?.accounts?.id?.disableAutoSelect();
     try {
       const refreshToken = localStorage.getItem('refresh_token');
       if (refreshToken) {
@@ -81,7 +90,7 @@ export const AuthProvider = ({ children }) => {
   const changePassword = (data) => authService.changePassword(data);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile, changePassword }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogleCredential, register, logout, updateProfile, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

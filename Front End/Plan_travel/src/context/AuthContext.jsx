@@ -67,6 +67,21 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
+  const loginWithGoogleCredential = async (data) => {
+    try {
+      const response = await axios.post(`${API_BASE}/auth/google`, data, { timeout: 15000 });
+      const { user: account, token: accessToken, refreshToken } = response.data;
+      if (!account || !accessToken || !refreshToken) throw new Error('Phản hồi đăng nhập Google không hợp lệ.');
+      const userData = { ...account, name: account.fullName, avatar: account.avatarUrl, authProvider: 'google' };
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('refresh_token', refreshToken);
+      saveSession(userData, accessToken);
+      return userData;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.message || 'Đăng nhập Google thất bại.');
+    }
+  };
+
   const loginWithGoogle = async (googleData) => {
     try {
       // Thử xác thực với backend API
@@ -125,6 +140,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    window.google?.accounts?.id?.disableAutoSelect();
+    if (user?.authProvider === 'google' && localStorage.getItem('refresh_token')) {
+      axios.post(`${API_BASE}/auth/logout`, { refreshToken: localStorage.getItem('refresh_token') }).catch(() => {});
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+    }
     setUser(null);
     setToken(null);
     localStorage.removeItem('travel_user');
@@ -138,7 +159,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, loginWithGoogle, register, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, token, loading, login, loginWithGoogle, loginWithGoogleCredential, register, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -53,7 +53,7 @@ export async function login(dto) {
     const { email, password } = dto;
 
     const user = await prisma.users.findUnique({ where: { email } });
-    if (!user) {
+    if (!user || !user.password_hash) {
         throw { status: 401, message: "Email hoặc mật khẩu không chính xác." };
     }
 
@@ -190,7 +190,7 @@ export async function changePassword(userId, dto) {
     }
 
     const user = await prisma.users.findUnique({ where: { id: BigInt(userId) } });
-    if (!user || !(await bcrypt.compare(currentPassword, user.password_hash))) {
+    if (!user || !user.password_hash || !(await bcrypt.compare(currentPassword, user.password_hash))) {
         throw { status: 400, message: "Mật khẩu hiện tại không đúng." };
     }
 
@@ -207,7 +207,7 @@ export async function changePassword(userId, dto) {
 
 // ===== HELPERS =====
 
-async function createAuthResponse(user) {
+export async function createAuthResponse(user) {
     const accessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken();
     const refreshTokenHash = hashToken(newRefreshToken);

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 function estimateCostByCategory(categories = []) {
     const joined = categories.join(",");
 
@@ -77,7 +79,9 @@ export function mapGeoapifyFeatureToLocation(feature, fallbackRegion = null) {
     const categories = p.categories || [];
 
     return {
-        external_id: p.place_id,
+        external_id: typeof p.place_id === 'string' && p.place_id.length > 255
+            ? `geoapify_sha256_${createHash('sha256').update(p.place_id).digest('hex')}`
+            : p.place_id,
         source: "geoapify",
         name: p.name || p.address_line1 || "Không rõ tên",
         address: p.formatted || null,

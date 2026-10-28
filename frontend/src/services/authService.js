@@ -1,6 +1,10 @@
 import apiClient from './apiClient';
 
 export const authService = {
+  loginWithGoogle: async (data) => {
+    const response = await apiClient.post('/auth/google', data);
+    return response.data;
+  },
   login: async (email, password) => {
     const response = await apiClient.post('/auth/login', { email, password });
     return response.data;

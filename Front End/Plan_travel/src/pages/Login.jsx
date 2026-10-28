@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Compass } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { GoogleLogo, GoogleSignInModal } from '../Components/Auth/GoogleSignInModal';
+import GoogleOneTap from '../Components/Auth/GoogleOneTap';
 import './Auth.css';
 
 const HERO_BG = 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=1600';
@@ -15,9 +15,8 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
 
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogleCredential } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -39,7 +38,7 @@ const Login = () => {
     setIsSubmitting(true);
     setError('');
     try {
-      await loginWithGoogle(account);
+      await loginWithGoogleCredential(account);
       navigate('/');
     } catch (err) {
       setError(err.message || 'Lỗi đăng nhập Google');
@@ -100,16 +99,7 @@ const Login = () => {
           )}
 
           {/* Google Sign-in */}
-          <div className="auth-social-wrap">
-            <button
-              type="button"
-              onClick={() => setIsGoogleModalOpen(true)}
-              className="auth-google-btn"
-            >
-              <GoogleLogo />
-              <span>Tiếp tục với Google</span>
-            </button>
-          </div>
+          <GoogleOneTap onCredential={handleGoogleSuccess} onError={setError} disabled={isSubmitting} />
 
           <div className="auth-divider">
             <span>hoặc đăng nhập bằng email</span>
@@ -193,11 +183,7 @@ const Login = () => {
         </motion.div>
       </div>
 
-      <GoogleSignInModal
-        isOpen={isGoogleModalOpen}
-        onClose={() => setIsGoogleModalOpen(false)}
-        onSelectAccount={handleGoogleSuccess}
-      />
+
     </div>
   );
 };

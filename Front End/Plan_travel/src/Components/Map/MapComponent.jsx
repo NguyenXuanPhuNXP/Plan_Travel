@@ -47,11 +47,13 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
 
   // Filter only valid locations with finite lat/lng to prevent Leaflet LatLng crash
   const validLocations = (Array.isArray(selectedLocations) ? selectedLocations : [])
-    .filter((loc) => loc && Number.isFinite(Number(loc.lat)) && Number.isFinite(Number(loc.lng)))
+    .filter((loc) => loc && (loc.lat ?? loc.latitude) != null && (loc.lng ?? loc.longitude) != null && Number.isFinite(Number(loc.lat ?? loc.latitude)) && Number.isFinite(Number(loc.lng ?? loc.longitude)))
     .map((loc) => ({
       ...loc,
-      lat: Number(loc.lat),
-      lng: Number(loc.lng)
+      id: loc.tripLocId || loc.id,
+      image: loc.image || loc.imageUrl,
+      lat: Number(loc.lat ?? loc.latitude),
+      lng: Number(loc.lng ?? loc.longitude)
     }));
 
   const center = validLocations.length > 0
@@ -97,30 +99,31 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
 
   const [routeGeometry, setRouteGeometry] = useState([]);
 
+  // Depend on coordinate values, not a new array allocated on every render.
+  const routeCoordinates = validLocations.map(loc => `${loc.lng},${loc.lat}`).join(';');
+
   useEffect(() => {
-    if (validLocations.length < 2) {
-      setRouteGeometry([]);
-      return;
-    }
+    const controller = new AbortController();
+    setRouteGeometry(previous => previous.length ? [] : previous);
+    if (!showRoute || !routeCoordinates.includes(';')) return;
 
     const fetchRoute = async () => {
-      const coords = validLocations.map(loc => `${loc.lng},${loc.lat}`).join(';');
-      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+      const url = `https://router.project-osrm.org/route/v1/driving/${routeCoordinates}?overview=full&geometries=geojson`;
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) return;
         const data = await response.json();
-        if (data.routes && data.routes[0]) {
-          const coordsGeo = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-          setRouteGeometry(coordsGeo);
+        if (!controller.signal.aborted && data.routes?.[0]?.geometry?.coordinates) {
+          setRouteGeometry(data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]));
         }
       } catch (err) {
-        console.warn('Lỗi khi lấy lộ trình:', err);
+        if (err.name !== 'AbortError') console.warn('Lỗi khi lấy lộ trình:', err);
       }
     };
 
     fetchRoute();
-  }, [validLocations]);
+    return () => controller.abort();
+  }, [routeCoordinates, showRoute]);
 
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>

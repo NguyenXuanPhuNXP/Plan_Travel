@@ -94,7 +94,7 @@ async function seedRegion(regionName) {
     let skipped = Number(job.skipped_total || 0);
 
     // last_page = -1 nghĩa là chưa chạy page nào
-    const startPage = Number(job.last_page || -1) + 1;
+    const startPage = Number(job.last_page ?? -1) + 1;
 
     for (let page = startPage; page < MAX_PAGES_PER_REGION; page++) {
         const offset = page * PAGE_LIMIT;
@@ -163,6 +163,18 @@ async function seedRegion(regionName) {
         }
 
         await sleep(DELAY_MS);
+    }
+
+    // Đánh dấu hoàn tất cả khi đã chạm giới hạn số trang của đợt seed.
+    const latestJob = await getOrCreateSeedJob(regionName);
+    if (latestJob.status === "running") {
+        await markJobDone(regionName, {
+            lastPage: latestJob.last_page,
+            lastOffset: latestJob.last_offset,
+            fetchedTotal,
+            insertedTotal: insertedOrUpdated,
+            skippedTotal: skipped
+        });
     }
 
     return {

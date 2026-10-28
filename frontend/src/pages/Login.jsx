@@ -4,6 +4,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import './Auth.css';
+import GoogleOneTap from '../Components/Auth/GoogleOneTap';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -11,9 +12,21 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login } = useAuth();
+  const { login, loginWithGoogleCredential } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  const handleGoogleSuccess = async (data) => {
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const user = await loginWithGoogleCredential(data);
+      const redirect = searchParams.get('redirect');
+      navigate(redirect || (user?.role === 1 || user?.role === 'admin' ? '/admin' : '/'));
+    } catch (error) {
+      setError(error.response?.data?.message || error.message || 'Đăng nhập Google thất bại.');
+    } finally { setIsSubmitting(false); }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,6 +62,8 @@ const Login = () => {
             {error}
           </div>
         )}
+
+        <GoogleOneTap onCredential={handleGoogleSuccess} onError={setError} disabled={isSubmitting} />
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div>
