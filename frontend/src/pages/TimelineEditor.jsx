@@ -10,7 +10,8 @@ import './TimelineEditor.css';
 
 const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destination, onPlanChange, onAddCustomLocation }) => {
   const [editingPlan, setEditingPlan] = useState(null);
-  const [expandedDay, setExpandedDay] = useState(0);
+  const [collapsedDays, setCollapsedDays] = useState(new Set());
+  const [pickerDay, setPickerDay] = useState(0);
   const [editingItem, _setEditingItem] = useState(null);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -123,7 +124,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
   };
 
   const openPickerForDay = (dayIdx) => {
-    setExpandedDay(dayIdx);
+    setPickerDay(dayIdx);
     setPickerError('');
     setPickerResults([]);
     setPickerQuery('');
@@ -260,6 +261,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
       </div>
 
       {/* Day Timeline */}
+      <h2>Lịch trình chi tiết từng ngày</h2>
       <div className="timeline-days">
         {editingPlan.days?.map((day, dayIdx) => (
           <motion.div
@@ -272,24 +274,31 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
             {/* Day Header */}
             <button
               className="timeline-day-header"
-              onClick={() => setExpandedDay(expandedDay === dayIdx ? -1 : dayIdx)}
+              aria-expanded={!collapsedDays.has(dayIdx)}
+              onClick={() => setCollapsedDays(previous => {
+                const next = new Set(previous);
+                if (next.has(dayIdx)) next.delete(dayIdx); else next.add(dayIdx);
+                return next;
+              })}
             >
               <div className="timeline-day-badge">
                 <span className="timeline-day-number">Ngày {day.dayNumber}</span>
                 <span className="timeline-day-title">{day.title}</span>
-                <span className="timeline-day-count">{day.items.length} địa điểm</span>
+                <span className="timeline-day-count">{day.items.length} hoạt động</span>
               </div>
-              {expandedDay === dayIdx ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              {!collapsedDays.has(dayIdx) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
             </button>
 
             {/* Day Items */}
-            {expandedDay === dayIdx && (
+            {!collapsedDays.has(dayIdx) && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 className="timeline-day-items"
               >
                 <div className="timeline-line" />
+                {day.summary && <p className="timeline-plan-desc">{day.summary}</p>}
+                {day.items.some(item => item.estimatedCost != null) && <p>Ăn uống và hoạt động cả nhóm: <strong>{day.items.reduce((sum, item) => sum + Number(item.estimatedCost || 0), 0).toLocaleString('vi-VN')} VNĐ</strong> · Di chuyển, lưu trú và dự phòng tính riêng ở phần tổng chi phí.</p>}
                 <div className="timeline-day-actions">
                   <button
                     type="button"
@@ -369,6 +378,9 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                           </div>
 
                           {/* Location details */}
+                          {item.activityDescription && <p>{item.activityDescription}</p>}
+                          {item.transport && <p><strong>Di chuyển:</strong> {item.transport}</p>}
+                          {item.estimatedCost != null && <p><strong>Chi phí mẫu cả nhóm:</strong> {Number(item.estimatedCost).toLocaleString('vi-VN')} VNĐ</p>}
                           {item.location && (
                             <div className="timeline-item-details">
                               {item.location.estimatedCost > 0 && (
@@ -455,7 +467,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                     className={`timeline-result ${alreadyUsed ? 'disabled' : ''}`}
                     disabled={alreadyUsed}
                     onClick={() => {
-                      addPickedLocationToDay(expandedDay >= 0 ? expandedDay : 0, loc);
+                      addPickedLocationToDay(pickerDay, loc);
                       setIsPickerOpen(false);
                     }}
                   >

@@ -115,7 +115,7 @@ export const locationService = {
       const response = await apiClient.post('/suggestions/destinations', {
         region,
         days: days || null,
-        budget: budget || null,
+        budget: budget ?? null,
         preferences: preferences || []
       });
       return response.data;
@@ -133,15 +133,16 @@ export const locationService = {
   /**
    * Tự động tạo lịch trình
    */
-  getAutoPlan: async ({ region, days, budget, preferences, selectedLocationIds, focusLocationId }) => {
+  getAutoPlan: async ({ region, days, budget, preferences, selectedLocationIds, focusLocationId, travelerCount, startDate, endDate, transportMode }) => {
     const response = await apiClient.post('/suggestions/auto-plan', {
       region,
       days,
       budget,
       preferences,
       selectedLocationIds,
+      travelerCount, startDate, endDate, transportMode,
       focusLocationId
-    });
+    }, { timeout: 70000 });
     return response.data;
   },
 

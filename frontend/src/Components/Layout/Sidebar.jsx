@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   Compass,
   Map as MapIcon,
@@ -39,7 +39,7 @@ const Sidebar = () => {
     if (item.key === 'dashboard') return path === '/';
     if (item.key === 'planner-manual') return path === '/planner/map' || path === '/planner/manual';
     if (item.key === 'planner-ai') return path === '/planner' || path === '/ai-planner';
-    return item.matchStartsWith?.some((prefix) => path.startsWith(prefix));
+    return item.matchStartsWith?.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
   };
 
   return (
@@ -50,15 +50,16 @@ const Sidebar = () => {
           {menuItems.map((item) => {
             const isActive = isMenuItemActive(item);
             return (
-              <NavLink
+              <Link
                 key={item.key}
                 to={item.path}
                 className={`sidebar-link ${isActive ? 'active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <item.icon size={18} className="sidebar-link-icon" />
                 <span>{item.label}</span>
                 {item.key === 'planner-ai' && <span className="sidebar-ai-tag">AI</span>}
-              </NavLink>
+              </Link>
             );
           })}
         </nav>
@@ -104,12 +105,12 @@ const Sidebar = () => {
         <h4 className="sidebar-cta-title">Tạo kế hoạch mới</h4>
         <p className="sidebar-cta-text">Tự do lên kế hoạch thủ công chi tiết hoặc để AI gợi ý thông minh.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem' }}>
-          <NavLink to="/planner/map" className="btn btn-primary sidebar-cta-btn">
+          <Link to="/planner/map" className="btn btn-primary sidebar-cta-btn">
             <PlusCircle size={16} /> Lập kế hoạch thủ công
-          </NavLink>
-          <NavLink to="/planner" className="btn btn-outline" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+          </Link>
+          <Link to="/planner" className="btn btn-outline" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
             <Sparkles size={16} /> Lập kế hoạch (AI)
-          </NavLink>
+          </Link>
         </div>
       </div>
     </aside>

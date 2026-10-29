@@ -122,7 +122,8 @@ def _normalize_organized_plan_payload(parsed: dict) -> dict:
     return {
         "planName": plan_name,
         "description": description,
-        "days": days
+        "days": days,
+        **{key: parsed[key] for key in ('transport', 'accommodation', 'costAllocation', 'risks', 'weather') if key in parsed}
     }
 
 
@@ -220,7 +221,7 @@ class PlannerService:
             for l in request.locations
         ])
 
-        budget_str = f"{request.budget:,}" if request.budget else "Không giới hạn"
+        budget_str = f"{request.budget:,}" if request.budget is not None else "Chưa cung cấp, hãy ước tính và nêu rõ giả định"
 
         focus_info = ""
         if request.focusLocationId:
@@ -232,6 +233,13 @@ class PlannerService:
             "Bạn là chuyên gia du lịch Việt Nam. Hãy tạo lịch trình du lịch chi tiết (có tính đến chi phí và thời gian di chuyển).\n\n"
             f"Thông tin:\n- Địa điểm: {request.region}\n- Số ngày: {request.days}\n"
             f"- Ngân sách: {budget_str} VNĐ\n"
+            f"- Đây là TỔNG ngân sách cho {request.travelerCount} người trong TOÀN BỘ chuyến đi, không phải mỗi người hay mỗi ngày.\n"
+            f"- Ngày đi: {request.startDate or 'Chưa chọn'}, ngày về: {request.endDate or 'Chưa chọn'}; phương tiện ưu tiên: {request.transportMode}.\n"
+            f"- Thông tin thời tiết từ hệ thống: {request.weatherContext or 'Chưa có dữ liệu xác thực'}. Đây là quan trắc hiện tại, KHÔNG phải dự báo cho ngày đi.\n"
+            "- Trả lời tiếng Việt. transport: đề xuất phương tiện và cách đi giữa các điểm; chưa có điểm xuất phát thì nêu giả định, không bịa tuyến bay.\n"
+            "- accommodation: đề xuất khu vực, loại lưu trú, số đêm và số phòng phù hợp số người; giá chỉ là ước tính, không khẳng định còn phòng.\n"
+            "- costAllocation: 5 khoản transport, accommodation, meals, attractions, contingency bằng VNĐ cho CẢ NHÓM, tổng không vượt ngân sách. Dự phòng khoảng 10%. Nếu ngân sách không khả thi phải nói rõ trong description và gợi ý giảm ngày/dịch vụ, không bịa giá để ép vừa ngân sách.\n"
+            "- risks: các rủi ro cụ thể và phương án thay thế. weather: nếu có quan trắc từ hệ thống thì tóm tắt và ghi thời điểm quan trắc; luôn ghi rõ chưa có dự báo xác thực cho ngày đi, chỉ nêu lưu ý mùa và phương án mưa, không bịa nhiệt độ hay dự báo.\n"
             f"- Sở thích: {', '.join(request.preferences) if request.preferences else 'Đa dạng'}"
             f"{focus_info}\n\n"
             f"Danh sách địa điểm có sẵn (bao gồm cả quán ăn, khách sạn và điểm tham quan):\n{location_list}\n\n"
@@ -239,7 +247,7 @@ class PlannerService:
             "1. ĂN UỐNG: Mỗi ngày phải bao gồm ít nhất 3 bữa (Sáng, Trưa, Tối). Hãy chọn các quán ăn/nhà hàng từ danh sách nếu có, hoặc gợi ý tên quán phù hợp nếu không có trong danh sách.\n"
             "2. ĐI LẠI: Mô tả phương tiện di chuyển hợp lý giữa các điểm (ví dụ: đi bộ, taxi, xe máy) trong trường 'note'.\n"
             "3. LƯU TRÚ: Nếu đi trên 1 ngày, hãy bao gồm hoạt động 'Check-in khách sạn' vào chiều ngày 1 và 'Nghỉ ngơi tại khách sạn' vào cuối mỗi ngày.\n"
-            "4. SỐ LƯỢNG: Mỗi ngày chỉ được chọn tối đa 6 địa điểm/hoạt động thực sự chất lượng từ danh sách. Đừng cố dùng hết danh sách đầu vào.\n"
+            "4. SỐ LƯỢNG: Mỗi ngày tối đa 10 hoạt động gồm ăn uống, nghỉ và 2-4 điểm tham quan; không nhồi kín lịch. Đừng cố dùng hết danh sách đầu vào.\n"
             "5. THỜI GIAN: BẮT BUỘC định dạng HH:mm (ví dụ: 08:30, 14:00). Tuyệt đối không để trống hoặc để --:--. Sắp xếp thời gian tăng dần từ 07:00 đến 22:00.\n"
             "6. ĐỊNH DẠNG: Trả về JSON chi tiết. BẮT BUỘC trường 'locationId' khớp với ID trong danh sách nếu địa điểm đó có trong danh sách.\n\n"
             "Lưu ý: Nếu budget nhỏ, ưu tiên các địa điểm miễn phí, quán ăn bình dân. Nếu budget lớn, ưu tiên nhà hàng và khách sạn cao cấp."

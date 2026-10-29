@@ -198,6 +198,7 @@ def fallback_organize_plan(request: OrganizePlanRequest):
     return {
         "planName": f"Ke hoach {request.region} {days_count} ngay",
         "description": "Lich trinh fallback duoc tao khi AI tam thoi khong kha dung.",
+        "generationMethod": "rule-based",
         "days": days
     }
 
@@ -273,6 +274,21 @@ async def rank_locations(request: LocationRankingRequest):
 
 @app.post("/ai/organize-plan")
 async def organize_plan(request: OrganizePlanRequest):
+    # Only server-fetched observations may be given to the model as verified weather.
+    request.weatherContext = None
+    point = next((place for place in request.locations if place.latitude is not None and place.longitude is not None), None)
+    if point and OPEN_WEATHER_KEY:
+        try:
+            import asyncio
+            observation = await asyncio.wait_for(get_weather(point.latitude, point.longitude), timeout=4)
+            from datetime import datetime, timezone
+            request.weatherContext = (
+                f"Quan trắc hiện tại tại {observation.city}, {datetime.now(timezone.utc).isoformat()}: "
+                f"{observation.condition}, {observation.temp}, mưa {observation.rain_mm} mm trong giờ qua. "
+                "Chưa có dự báo xác thực cho ngày khởi hành."
+            )
+        except Exception:
+            pass  # Weather outages must not prevent planning.
     if not planner_service:
         return fallback_organize_plan(request)
     if _ai_cooldown_active("organize"):
