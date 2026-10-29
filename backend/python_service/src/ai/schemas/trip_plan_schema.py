@@ -72,6 +72,11 @@ class LocationRankingResponse(BaseModel):
     rankings: List[RankedLocation]
 
 class OrganizePlanRequest(BaseModel):
+    travelerCount: int = Field(default=1, ge=1, le=100)
+    startDate: Optional[str] = None
+    endDate: Optional[str] = None
+    transportMode: str = 'other'
+    weatherContext: Optional[str] = None
     region: str
     days: int
     budget: Optional[int] = None
@@ -92,7 +97,20 @@ class DayPlan(BaseModel):
     title: str
     items: List[PlanActivity]
 
+class CostAllocation(BaseModel):
+    transport: int = Field(ge=0)
+    accommodation: int = Field(ge=0)
+    meals: int = Field(ge=0)
+    attractions: int = Field(ge=0)
+    contingency: int = Field(ge=0)
+
+
 class OrganizedTripPlan(BaseModel):
+    transport: str
+    accommodation: str
+    costAllocation: CostAllocation
+    risks: List[str]
+    weather: str
     planName: str
     description: str
     days: List[DayPlan]

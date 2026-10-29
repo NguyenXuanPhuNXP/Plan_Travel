@@ -10,7 +10,6 @@ const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const TripPlanner = lazy(() => import('./pages/TripPlanner'));
 const PlannerWizard = lazy(() => import('./pages/PlannerWizard'));
-const AiPlanner = lazy(() => import('./pages/AiPlanner'));
 const TripHistory = lazy(() => import('./pages/TripHistory'));
 const TripDetails = lazy(() => import('./pages/TripDetails'));
 const TripEditRedirect = () => {
@@ -87,7 +86,7 @@ function App() {
           {/* Quick AI Planner */}
           <Route path="/ai-planner" element={
             <ProtectedRoute>
-              <AiPlanner />
+              <PlannerWizard />
             </ProtectedRoute>
           } />
 

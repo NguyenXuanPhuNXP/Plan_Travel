@@ -15,8 +15,8 @@ export async function generatePlanWithPythonAI({ region, days, budget, preferenc
             placeTypes: preferences || ["cafe", "quán ăn"],
             region: region,
             weather: "nắng nhẹ",
-            budget: budget || 5000000
-        });
+            budget: budget ?? 5000000
+        }, { timeout: 60000 });
         return response.data;
     } catch (error) {
         console.error("Lỗi khi gọi Python AI Service:", error.message);
@@ -89,7 +89,7 @@ export async function getSuggestions({ region, days, budget, preferences }) {
 /**
  * AI tự động tạo lịch trình chi tiết theo ngày
  */
-export async function generateAutoPlan({ region, days, budget, preferences, selectedLocationIds, focusLocationId }) {
+export async function generateAutoPlan({ region, days, budget, preferences, selectedLocationIds, focusLocationId, travelerCount = 1, startDate = null, endDate = null, transportMode = 'other' }) {
     console.log(`[AI] generateAutoPlan for region="${region}", days=${days}, selectedIds=${selectedLocationIds?.length || 0}, focusId=${focusLocationId}`);
 
     // 1. Lấy thông tin các địa điểm đã chọn
@@ -139,6 +139,7 @@ export async function generateAutoPlan({ region, days, budget, preferences, sele
     // 4. Dùng Python AI để tổ chức lịch trình chi tiết (Gửi tối đa 30 địa điểm để AI có đủ lựa chọn ăn/ngủ/chơi)
     try {
         const payload = {
+            travelerCount, startDate, endDate, transportMode,
             region,
             days: Number(days) || 3,
             budget: budget ?? null,
@@ -155,10 +156,10 @@ export async function generateAutoPlan({ region, days, budget, preferences, sele
             }))
         };
 
-        const response = await axios.post(`${PYTHON_AI_URL}/ai/organize-plan`, payload);
+        const response = await axios.post(`${PYTHON_AI_URL}/ai/organize-plan`, payload, { timeout: 60000 });
 
         if (response.data) {
-            return mapPlanToLocations(response.data, selectedLocations);
+            return { ...mapPlanToLocations(response.data, selectedLocations), generationMethod: response.data.generationMethod || 'ai' };
         }
     } catch (err) {
         const status = err?.response?.status;
@@ -172,7 +173,7 @@ export async function generateAutoPlan({ region, days, budget, preferences, sele
 
     // Fallback
     console.log("[AI] Using rule-based plan as fallback");
-    return generateRuleBasedPlan(selectedLocations, days || 3);
+    return { ...generateRuleBasedPlan(selectedLocations, days || 3), generationMethod: 'rule-based' };
 }
 
 
@@ -257,7 +258,7 @@ async function getGeminiSuggestions(region, days, budget, preferences, locations
         const response = await axios.post(`${PYTHON_AI_URL}/ai/rank-locations`, {
             region,
             days: days || 3,
-            budget: budget || 5000000,
+            budget: budget ?? 5000000,
             preferences: preferences || [],
             locations: locations.slice(0, 30).map(l => ({
                 id: l.id != null ? String(l.id) : null,
@@ -265,7 +266,7 @@ async function getGeminiSuggestions(region, days, budget, preferences, locations
                 category: l.category,
                 estimatedCost: l.estimatedCost || 0
             }))
-        });
+        }, { timeout: 15000 });
         
         return response.data.rankings;
     } catch (error) {
@@ -331,14 +332,18 @@ function generateRuleBasedPlan(locations, totalDays) {
     for (let d = 0; d < totalDays; d++) {
         const dayLocations = locations.slice(d * itemsPerDay, (d + 1) * itemsPerDay);
         const items = dayLocations.map((loc, idx) => {
-            const startHour = 8 + idx * 2.5;
-            const endHour = startHour + 2;
+            const slotMinutes = Math.min(150, Math.floor(14 * 60 / Math.max(1, dayLocations.length)));
+            const startMinutes = 8 * 60 + idx * slotMinutes;
+            const durationMinutes = Math.max(1, slotMinutes - 15);
+            const endMinutes = startMinutes + durationMinutes;
+            const clock = minutes => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
             return {
                 locationName: loc.name,
                 locationId: loc.id,
                 location: loc,
-                startTime: `${Math.floor(startHour).toString().padStart(2, "0")}:${(Math.round((startHour % 1) * 60)).toString().padStart(2, "0")}`,
-                endTime: `${Math.floor(endHour).toString().padStart(2, "0")}:${(Math.round((endHour % 1) * 60)).toString().padStart(2, "0")}`,
+                startTime: clock(startMinutes),
+                endTime: clock(endMinutes),
+                durationMinutes,
                 note: loc.description || "",
                 travelMinutesToNext: 15
             };

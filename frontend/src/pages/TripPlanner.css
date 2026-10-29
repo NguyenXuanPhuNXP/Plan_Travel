@@ -1,498 +1,585 @@
-.trip-planner-container {
-  height: calc(100vh - var(--header-height) - 3.5rem);
-  display: flex;
-  gap: 1.25rem;
-  padding: 0 0.5rem;
-}
+/* ==========================================================================
+   TRIP PLANNER (LẬP KẾ HOẠCH THỦ CÔNG) - MODERN WORKSPACE STYLES
+   ========================================================================== */
 
-.trip-planner-form-card {
-  width: 420px;
-  min-width: 380px;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  overflow-y: auto;
-  padding: 1.25rem;
-  border-radius: var(--radius-lg);
-}
-
-.trip-planner-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-.trip-planner-breadcrumb-link {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--text-secondary);
-  text-decoration: none;
-}
-.trip-planner-breadcrumb-link:hover {
-  color: var(--primary);
-}
-
-.trip-planner-title {
-  font-size: 1.35rem;
-  font-weight: 700;
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.trip-planner-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.trip-planner-label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.35rem;
-  font-size: 0.825rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.trip-planner-input {
-  width: 100%;
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  box-sizing: border-box;
-}
-.trip-planner-input:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-
-.trip-planner-date-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-.trip-planner-date-input {
-  width: 100%;
-  text-align: left;
-  padding: 0.6rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  box-sizing: border-box;
-}
-
-/* Counter & Select Row */
-.trip-planner-row-2col {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr;
-  gap: 0.75rem;
-}
-
-.trip-planner-counter {
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-  overflow: hidden;
-}
-
-.trip-planner-counter-btn {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--text-primary);
-  font-weight: 700;
-  font-size: 1.1rem;
-  transition: background 0.15s ease;
-}
-.trip-planner-counter-btn:hover {
-  background: rgba(99, 102, 241, 0.1);
-  color: var(--primary);
-}
-
-.trip-planner-counter-val {
-  flex: 1;
-  text-align: center;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-}
-
-.trip-planner-select {
-  width: 100%;
-  padding: 0.65rem 0.85rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  box-sizing: border-box;
-}
-
-/* Preferences Multi-Select Checkboxes */
-.trip-planner-prefs-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.4rem;
-  max-height: 140px;
-  overflow-y: auto;
-  padding: 0.4rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.02);
-}
-
-.trip-planner-pref-checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.8rem;
-  cursor: pointer;
-  padding: 0.35rem 0.5rem;
-  border-radius: var(--radius-sm);
-  transition: background 0.15s ease;
-  user-select: none;
-  color: var(--text-secondary);
-}
-.trip-planner-pref-checkbox-label:hover {
-  background: rgba(99, 102, 241, 0.08);
-}
-.trip-planner-pref-checkbox-label.checked {
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--primary);
-  font-weight: 600;
-}
-.trip-planner-pref-checkbox-label input {
-  accent-color: var(--primary);
-}
-
-/* Collapsible Cost Breakdown */
-.trip-planner-cost-accordion {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--bg-card);
-}
-
-.trip-planner-cost-header {
-  padding: 0.75rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(16, 185, 129, 0.06));
-  user-select: none;
-}
-
-.trip-planner-cost-header:hover {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.1));
-}
-
-.trip-planner-cost-header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.trip-planner-cost-header-summary {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  color: #10b981;
-  font-weight: 700;
-}
-
-.trip-planner-cost-body {
-  padding: 0.85rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg-card);
-}
-
-.trip-planner-scope-selector {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 0.25rem;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-.trip-planner-scope-selector label {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  cursor: pointer;
-}
-
-.trip-planner-cost-item {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.trip-planner-cost-item-label {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.trip-planner-cost-input {
-  width: 100%;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  text-align: right;
-  background: var(--bg-card);
-  color: var(--text-primary);
-  box-sizing: border-box;
-}
-
-.trip-planner-cost-calc-box {
-  margin-top: 0.5rem;
-  padding: 0.65rem 0.85rem;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px dashed rgba(16, 185, 129, 0.4);
-  border-radius: var(--radius-md);
-  font-size: 0.825rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.trip-planner-calc-row {
-  display: flex;
-  justify-content: space-between;
-  color: var(--text-secondary);
-}
-.trip-planner-calc-row.total {
-  font-weight: 700;
-  color: #10b981;
-  font-size: 0.95rem;
-  border-top: 1px solid rgba(16, 185, 129, 0.2);
-  padding-top: 0.3rem;
-  margin-top: 0.2rem;
-}
-
-.trip-planner-textarea {
-  width: 100%;
-  text-align: left;
-  padding: 0.65rem;
-  height: 65px;
-  resize: none;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  box-sizing: border-box;
-  font-size: 0.85rem;
-}
-
-.trip-planner-form-footer {
-  margin-top: auto;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
-}
-
-.trip-planner-save-btn {
-  width: 100%;
-  padding: 0.85rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-/* Map Center Container */
-.trip-planner-map-container {
-  flex: 1;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  border: 1px solid var(--border);
+.trip-planner-root {
   height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  box-sizing: border-box;
   position: relative;
 }
 
-/* Right Column (Tabs: Lịch trình chi tiết theo giờ / Checklist Đồ dùng) */
-.trip-planner-side-card {
-  width: 440px;
-  min-width: 400px;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  overflow-y: auto;
-  padding: 1.25rem;
-  border-radius: var(--radius-lg);
+/* Toast message */
+.trip-planner-toast {
+  position: fixed;
+  right: 24px;
+  top: 84px;
+  z-index: 3500;
+  padding: 0.75rem 1.25rem;
+  background: #ef4444;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  animation: fadeIn 0.2s ease-in-out;
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------------------------------------------------------
+   1. TOP TOOLBAR HEADER
+   -------------------------------------------------------------------------- */
+.trip-planner-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  flex-shrink: 0;
+  min-height: 52px;
+}
+
+.trip-planner-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.trip-planner-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: #fbf9f4;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.trip-planner-back-btn:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.trip-planner-heading-group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.trip-planner-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--primary-soft);
+  color: var(--primary);
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.trip-planner-topbar-title-input {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  padding: 0.25rem 0.5rem;
+  flex: 1;
+  min-width: 140px;
+  max-width: 380px;
+  transition: all 0.15s ease;
+}
+.trip-planner-topbar-title-input:hover {
+  border-color: var(--border-color);
+  background: #faf8f5;
+}
+.trip-planner-topbar-title-input:focus {
+  border-color: var(--primary);
+  background: #ffffff;
+  outline: none;
+}
+
+/* Center Stat Pills */
+.trip-planner-topbar-center {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.trip-planner-stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  background: #fbf9f4;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+/* Topbar Right Actions */
+.trip-planner-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+.trip-planner-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+}
+.trip-planner-mode-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.trip-planner-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 6px var(--primary-glow);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.trip-planner-save-btn:hover {
+  background: var(--primary-hover);
+}
+.trip-planner-save-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   2. MAIN WORKSPACE CONTAINERS
+   -------------------------------------------------------------------------- */
+
+/* Split Mode (Default: Tabbed Panel on Left + Large Map on Right) */
+.trip-planner-split-container {
+  display: flex;
+  gap: 0.85rem;
+  flex: 1;
+  height: calc(100% - 64px);
+  min-height: 0;
+  width: 100%;
+  min-width: 0;
+  position: relative;
+}
+
+.trip-planner-unified-side-panel {
+  width: 480px;
+  min-width: 400px;
+  max-width: 520px;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Columns Mode (3-Columns on Ultrawide screens) */
+.trip-planner-columns-container {
+  display: flex;
+  gap: 0.85rem;
+  flex: 1;
+  height: calc(100% - 64px);
+  min-height: 0;
+  width: 100%;
+  min-width: 0;
+}
+
+.trip-planner-col-form {
+  width: 360px;
+  min-width: 320px;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.trip-planner-col-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  padding-bottom: 0.65rem;
+  margin-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.trip-planner-col-side {
+  width: 420px;
+  min-width: 360px;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Shared Map Container */
+.trip-planner-map-container {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  position: relative;
+  box-shadow: var(--shadow-sm);
+  background: #e2e8f0;
+}
+
+.trip-planner-map-badge {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  font-size: 0.775rem;
+  font-weight: 600;
+  color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   3. TABS & INNER PANEL NAVIGATION
+   -------------------------------------------------------------------------- */
 .trip-planner-tabs {
   display: flex;
-  gap: 0.5rem;
-  background: rgba(0, 0, 0, 0.04);
-  padding: 0.25rem;
+  gap: 0.35rem;
+  background: #f4efe6;
+  padding: 0.3rem;
   border-radius: var(--radius-md);
+  flex-shrink: 0;
+  margin-bottom: 0.85rem;
+  border: 1px solid var(--border-color);
 }
 
 .trip-planner-tab-btn {
   flex: 1;
-  padding: 0.5rem;
-  font-size: 0.825rem;
-  font-weight: 600;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  transition: all 0.2s ease;
+  gap: 0.35rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  background: transparent;
+  white-space: nowrap;
 }
+
+.trip-planner-tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.5);
+}
+
 .trip-planner-tab-btn.active {
   background: var(--bg-card);
   color: var(--primary);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-xs);
+  font-weight: 700;
 }
 
-/* Timeline & Schedule Items */
+.trip-planner-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.35rem;
+  min-height: 0;
+}
+
+/* --------------------------------------------------------------------------
+   4. HOURLY TIMELINE / SCHEDULE ITEMS
+   -------------------------------------------------------------------------- */
+.trip-planner-schedule-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .trip-planner-schedule-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.trip-planner-schedule-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.trip-planner-add-act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.775rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.trip-planner-add-act-btn:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+
+.trip-planner-reorder-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.trip-planner-reorder-item {
+  list-style: none;
 }
 
 .trip-planner-schedule-item {
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 0.75rem;
-  margin-bottom: 0.65rem;
+  padding: 0.75rem 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  position: relative;
-  transition: border-color 0.15s ease;
+  gap: 0.55rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  min-width: 0;
 }
 .trip-planner-schedule-item:hover {
   border-color: var(--primary);
+  box-shadow: var(--shadow-xs);
 }
 
 .trip-planner-item-top {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
+}
+
+.trip-planner-drag-handle {
+  color: var(--text-light);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.trip-planner-drag-handle:active {
+  cursor: grabbing;
 }
 
 .trip-planner-item-badge {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), #8b5cf6);
-  color: white;
+  background: var(--primary);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   flex-shrink: 0;
 }
 
 .trip-planner-item-name-input {
   flex: 1;
+  min-width: 0;
   font-weight: 600;
-  font-size: 0.9rem;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-primary);
+  font-size: 0.875rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  background: #fbf9f4;
+  color: var(--text-main);
+  transition: all 0.15s ease;
 }
 .trip-planner-item-name-input:focus {
   border-color: var(--primary);
-  background: var(--bg-card);
+  background: #ffffff;
+  outline: none;
 }
 
 .trip-planner-item-remove {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--text-muted);
-  padding: 0.2rem;
-  border-radius: 4px;
+  color: var(--text-light);
+  padding: 0.25rem;
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
 }
 .trip-planner-item-remove:hover {
   color: #ef4444;
   background: rgba(239, 68, 68, 0.1);
 }
 
-.trip-planner-time-row {
+/* Parameters Row: Clean grid that auto-adapts without squishing */
+.trip-planner-params-row {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 1.1fr;
-  gap: 0.4rem;
-  font-size: 0.775rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+  background: #fbf9f4;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  min-width: 0;
 }
 
-.trip-planner-time-col {
+.trip-planner-param-col {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-}
-.trip-planner-time-col label {
-  color: var(--text-muted);
-  font-size: 0.72rem;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
-.trip-planner-time-input {
-  padding: 0.3rem 0.4rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 0.775rem;
+.trip-planner-param-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trip-planner-param-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.trip-planner-param-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.28rem 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  background: #ffffff;
+  color: var(--text-main);
   box-sizing: border-box;
+}
+.trip-planner-param-input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.trip-planner-param-suffix {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .trip-planner-item-note-input {
   width: 100%;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 0.775rem;
-  background: rgba(0, 0, 0, 0.015);
-  color: var(--text-primary);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  background: #ffffff;
+  color: var(--text-main);
   box-sizing: border-box;
+}
+.trip-planner-item-note-input:focus {
+  border-color: var(--primary);
+  outline: none;
 }
 
 .trip-planner-add-custom-btn {
   width: 100%;
-  padding: 0.55rem;
+  padding: 0.6rem;
   font-size: 0.825rem;
-  border: 1px dashed var(--border);
-  background: transparent;
+  font-weight: 600;
+  border: 1px dashed var(--border-color);
+  background: #fbf9f4;
   color: var(--primary);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -503,39 +590,107 @@
   transition: all 0.15s ease;
 }
 .trip-planner-add-custom-btn:hover {
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--primary-soft);
   border-color: var(--primary);
 }
 
-/* Packing Checklist in Planner */
+/* --------------------------------------------------------------------------
+   5. PACKING CHECKLIST
+   -------------------------------------------------------------------------- */
+.trip-planner-packing-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
 .trip-planner-packing-filter {
   display: flex;
   gap: 0.35rem;
   overflow-x: auto;
-  padding-bottom: 0.4rem;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
 }
 
 .trip-planner-cat-pill {
-  padding: 0.25rem 0.6rem;
+  padding: 0.25rem 0.65rem;
   font-size: 0.75rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
   background: var(--bg-card);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.trip-planner-cat-pill:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 .trip-planner-cat-pill.active {
   background: var(--primary);
-  color: white;
+  color: #ffffff;
   border-color: var(--primary);
+  font-weight: 600;
+}
+
+.trip-planner-packing-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.trip-planner-btn-mini {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  color: var(--text-main);
+  cursor: pointer;
+}
+.trip-planner-btn-mini:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.trip-planner-packing-add-bar {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.trip-planner-packing-add-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.825rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--text-main);
+}
+.trip-planner-packing-add-input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.trip-planner-packing-add-btn {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .trip-planner-packing-list {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  max-height: 400px;
+  max-height: 440px;
   overflow-y: auto;
   padding-right: 0.25rem;
 }
@@ -544,11 +699,16 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
   font-size: 0.825rem;
+  min-width: 0;
+  transition: border-color 0.15s ease;
+}
+.trip-planner-packing-row:hover {
+  border-color: var(--border-focus, #C85A32);
 }
 
 .trip-planner-pack-check {
@@ -556,147 +716,443 @@
   width: 16px;
   height: 16px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .trip-planner-pack-name {
   flex: 1;
+  min-width: 0;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--text-main);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.trip-planner-pack-name.checked {
+.trip-planner-pack-name.unchecked {
+  color: var(--text-light);
   text-decoration: line-through;
-  color: var(--text-muted);
 }
 
 .trip-planner-pack-qty {
-  width: 48px;
-  padding: 0.2rem 0.35rem;
-  font-size: 0.775rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  width: 44px;
+  flex-shrink: 0;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.78rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
   text-align: center;
-  background: var(--bg-card);
-  color: var(--text-primary);
+  background: #fbf9f4;
+  color: var(--text-main);
 }
 
 .trip-planner-pack-notes {
-  flex: 0.8;
-  padding: 0.2rem 0.4rem;
-  font-size: 0.775rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  color: var(--text-primary);
+  width: 110px;
+  flex-shrink: 0;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.78rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  background: #fbf9f4;
+  color: var(--text-main);
+}
+.trip-planner-pack-notes:focus,
+.trip-planner-pack-qty:focus {
+  border-color: var(--primary);
+  background: #ffffff;
+  outline: none;
 }
 
-.trip-planner-packing-add-bar {
+/* --------------------------------------------------------------------------
+   6. TRIP INFO FORM & COST BREAKDOWN
+   -------------------------------------------------------------------------- */
+.trip-planner-form {
   display: flex;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
+  flex-direction: column;
+  gap: 0.85rem;
 }
 
-.trip-planner-packing-add-input {
+.trip-planner-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.trip-planner-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.trip-planner-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.text-danger {
+  color: #ef4444;
+}
+
+.trip-planner-days-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-soft);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-xs);
+  margin-left: 0.25rem;
+}
+
+.trip-planner-input,
+.trip-planner-date-input,
+.trip-planner-select,
+.trip-planner-textarea {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+.trip-planner-input:focus,
+.trip-planner-date-input:focus,
+.trip-planner-select:focus,
+.trip-planner-textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.trip-planner-textarea {
+  height: 68px;
+  resize: vertical;
+}
+
+/* Counter */
+.trip-planner-counter {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  overflow: hidden;
+  height: 38px;
+}
+
+.trip-planner-counter-btn {
+  width: 34px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fbf9f4;
+  border: none;
+  cursor: pointer;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 1rem;
+  transition: all 0.15s ease;
+}
+.trip-planner-counter-btn:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.trip-planner-counter-val {
   flex: 1;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.825rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-  color: var(--text-primary);
-}
-
-.trip-planner-empty-hint {
   text-align: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+/* Preferences Grid */
+.trip-planner-prefs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+  max-height: 130px;
+  overflow-y: auto;
+  padding: 0.4rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #fbf9f4;
+}
+
+.trip-planner-pref-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-xs);
+  transition: all 0.15s ease;
+  user-select: none;
   color: var(--text-muted);
+}
+.trip-planner-pref-checkbox-label:hover {
+  background: rgba(200, 90, 50, 0.08);
+}
+.trip-planner-pref-checkbox-label.checked {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+.trip-planner-pref-checkbox-label input {
+  accent-color: var(--primary);
+}
+
+/* Cost Breakdown Accordion */
+.trip-planner-cost-accordion {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.trip-planner-cost-header {
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  background: #fbf9f4;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.trip-planner-cost-header:hover {
+  background: #f4efe6;
+}
+
+.trip-planner-cost-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   font-size: 0.825rem;
-  padding: 1.5rem 0.5rem;
+  font-weight: 700;
+  color: var(--text-main);
 }
 
-@media (max-width: 1200px) {
-  .trip-planner-container {
-    flex-direction: column;
-    height: auto;
-  }
-  .trip-planner-form-card,
-  .trip-planner-side-card {
-    width: 100%;
-    min-width: 100%;
-    height: auto;
-  }
-  .trip-planner-map-container {
-    height: 380px;
-  }
+.trip-planner-cost-header-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.825rem;
+  color: #10b981;
+  font-weight: 700;
 }
 
-/* Friends Selection in Trip Planner */
+.trip-planner-cost-body {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  border-top: 1px solid var(--border-color);
+  background: #ffffff;
+}
+
+.trip-planner-scope-selector {
+  display: flex;
+  gap: 0.85rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.trip-planner-scope-selector label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+.trip-planner-scope-selector input {
+  accent-color: var(--primary);
+}
+
+.trip-planner-cost-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.trip-planner-cost-item-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.trip-planner-cost-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: 140px;
+}
+
+.trip-planner-cost-input {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  text-align: right;
+  background: #ffffff;
+  color: var(--text-main);
+  box-sizing: border-box;
+}
+.trip-planner-cost-input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.trip-planner-currency {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.trip-planner-cost-calc-box {
+  margin-top: 0.35rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px dashed rgba(16, 185, 129, 0.4);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.trip-planner-calc-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+}
+.trip-planner-calc-row.total {
+  font-weight: 700;
+  color: #10b981;
+  font-size: 0.88rem;
+  border-top: 1px solid rgba(16, 185, 129, 0.2);
+  padding-top: 0.25rem;
+  margin-top: 0.15rem;
+}
+
+/* Friends Section */
 .trip-planner-friends-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 4px;
+  gap: 0.4rem;
 }
 
 .trip-planner-friend-count-badge {
-  font-size: 11px;
-  background: rgba(14, 165, 233, 0.12);
+  font-size: 0.7rem;
+  background: var(--primary-soft);
   color: var(--primary);
-  padding: 2px 8px;
-  border-radius: 10px;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
   font-weight: 600;
 }
 
 .trip-planner-friends-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  max-height: 140px;
+  gap: 0.4rem;
+  max-height: 110px;
   overflow-y: auto;
-  padding: 8px;
+  padding: 0.45rem;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: #f8fafc;
+  border-radius: var(--radius-sm);
+  background: #fbf9f4;
 }
 
 .trip-planner-friend-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 20px;
-  background: white;
-  border: 1px solid #cbd5e1;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  background: #ffffff;
+  border: 1px solid var(--border-color);
   cursor: pointer;
-  font-size: 12.5px;
-  transition: all 0.15s;
+  font-size: 0.76rem;
+  transition: all 0.15s ease;
 }
-
 .trip-planner-friend-chip:hover {
   border-color: var(--primary);
 }
-
 .trip-planner-friend-chip.selected {
   border-color: var(--primary);
-  background: rgba(14, 165, 233, 0.08);
+  background: var(--primary-soft);
   font-weight: 600;
+  color: var(--primary);
 }
 
 .trip-planner-friend-avatar {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   object-fit: cover;
 }
 
-.trip-planner-friends-hint {
-  font-size: 11.5px;
-  color: #64748b;
+.trip-planner-friends-empty {
+  font-size: 0.75rem;
+  color: var(--text-light);
   margin: 0;
-  line-height: 1.4;
+  padding: 0.25rem 0;
 }
 
-.trip-planner-friends-empty {
-  font-size: 12px;
-  color: #94a3b8;
-  margin: 0;
-  padding: 6px 0;
+.trip-planner-empty-hint {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 1.75rem 0.75rem;
+}
+
+/* --------------------------------------------------------------------------
+   7. RESPONSIVE DESIGN (PREVENTING OVERLAPS ON ALL VIEWPORTS)
+   -------------------------------------------------------------------------- */
+@media (max-width: 1400px) {
+  .trip-planner-columns-container {
+    /* Auto switch columns mode to split if screen cannot accommodate 3 full columns */
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 1100px) {
+  .trip-planner-topbar-center {
+    display: none; /* Hide center stats on narrower screens */
+  }
+  .trip-planner-unified-side-panel {
+    width: 380px;
+    min-width: 340px;
+  }
+  .trip-planner-mode-btn .trip-planner-btn-label {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .trip-planner-split-container {
+    flex-direction: column-reverse;
+    height: auto;
+  }
+  .trip-planner-unified-side-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 100%;
+    height: 480px;
+  }
+  .trip-planner-map-container {
+    height: 320px;
+  }
+  .trip-planner-params-row {
+    grid-template-columns: 1fr;
+  }
 }

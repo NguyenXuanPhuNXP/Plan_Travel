@@ -21,11 +21,13 @@ import {
   Clock,
   Briefcase,
   Plus,
-  Car,
-  Plane,
-  Train,
   CheckSquare,
-  Square
+  Square,
+  Calendar,
+  Columns3,
+  Maximize2,
+  Info,
+  Navigation
 } from 'lucide-react';
 import { format } from 'date-fns';
 import './TripPlanner.css';
@@ -103,13 +105,16 @@ const TripPlanner = () => {
     contingency: 150000
   });
 
-  // 3. Right Panel Active Tab: 'schedule' or 'packing'
+  // Layout mode: 'split' (Left Panel with Tabs + Large Map) or 'columns' (3 Columns on wide screens)
+  const [layoutMode, setLayoutMode] = useState('split');
+
+  // Active Tab: 'schedule', 'info', or 'packing'
   const [activeSideTab, setActiveSideTab] = useState('schedule');
 
-  // 4. Hourly Timeline Activities
+  // Hourly Timeline Activities
   const [scheduleItems, setScheduleItems] = useState([]);
 
-  // 5. Packing Checklist
+  // Packing Checklist
   const [packingList, setPackingList] = useState([]);
   const [packingCategoryFilter, setPackingCategoryFilter] = useState('all');
   const [newPackingName, setNewPackingName] = useState('');
@@ -370,657 +375,805 @@ const TripPlanner = () => {
       ? packingList
       : packingList.filter((item) => item.category === packingCategoryFilter);
 
+  // Render Section 1: Trip Info Form
+  const renderTripInfoForm = () => (
+    <div className="trip-planner-form">
+      {/* Trip Title */}
+      <div className="trip-planner-field">
+        <label className="trip-planner-label">Tên chuyến đi <span className="text-danger">*</span></label>
+        <input
+          type="text"
+          placeholder="Ví dụ: Du lịch Đà Nẵng - Hội An 4 ngày 3 đêm"
+          className="trip-planner-input"
+          value={tripInfo.title}
+          onChange={(e) => setTripInfo({ ...tripInfo, title: e.target.value })}
+        />
+      </div>
+
+      {/* Start and End Locations */}
+      <div className="trip-planner-grid-2">
+        <div className="trip-planner-field">
+          <label className="trip-planner-label">Điểm khởi hành <span className="text-danger">*</span></label>
+          <input
+            type="text"
+            placeholder="TP. Hà Nội"
+            className="trip-planner-input"
+            value={tripInfo.startLocation}
+            onChange={(e) => setTripInfo({ ...tripInfo, startLocation: e.target.value })}
+          />
+        </div>
+        <div className="trip-planner-field">
+          <label className="trip-planner-label">Điểm đến chính</label>
+          <input
+            type="text"
+            placeholder="Đà Nẵng"
+            className="trip-planner-input"
+            value={tripInfo.endLocation}
+            onChange={(e) => setTripInfo({ ...tripInfo, endLocation: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {/* Dates */}
+      <div className="trip-planner-grid-2">
+        <div className="trip-planner-field">
+          <label className="trip-planner-label">Ngày bắt đầu</label>
+          <input
+            type="date"
+            className="trip-planner-date-input"
+            value={tripInfo.startDate}
+            onChange={(e) => setTripInfo({ ...tripInfo, startDate: e.target.value })}
+          />
+        </div>
+        <div className="trip-planner-field">
+          <label className="trip-planner-label">
+            Ngày kết thúc <span className="trip-planner-days-tag">{computeDays()} ngày</span>
+          </label>
+          <input
+            type="date"
+            className="trip-planner-date-input"
+            value={tripInfo.endDate}
+            onChange={(e) => setTripInfo({ ...tripInfo, endDate: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {/* Travelers & Transport */}
+      <div className="trip-planner-grid-2">
+        <div className="trip-planner-field">
+          <label className="trip-planner-label">
+            <Users size={14} /> Số lượng người
+          </label>
+          <div className="trip-planner-counter">
+            <button
+              type="button"
+              className="trip-planner-counter-btn"
+              onClick={() =>
+                setTripInfo((prev) => ({
+                  ...prev,
+                  travelerCount: Math.max(1, prev.travelerCount - 1)
+                }))
+              }
+            >
+              -
+            </button>
+            <span className="trip-planner-counter-val">{tripInfo.travelerCount} người</span>
+            <button
+              type="button"
+              className="trip-planner-counter-btn"
+              onClick={() =>
+                setTripInfo((prev) => ({
+                  ...prev,
+                  travelerCount: prev.travelerCount + 1
+                }))
+              }
+            >
+              +
+            </button>
+          </div>
+        </div>
+
+        <div className="trip-planner-field">
+          <label className="trip-planner-label">
+            <Compass size={14} /> Phương tiện
+          </label>
+          <select
+            className="trip-planner-select"
+            value={tripInfo.transportMode}
+            onChange={(e) => setTripInfo({ ...tripInfo, transportMode: e.target.value })}
+          >
+            {TRANSPORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Travel Preferences */}
+      <div className="trip-planner-field">
+        <label className="trip-planner-label">Sở thích du lịch</label>
+        <div className="trip-planner-prefs-grid">
+          {PREFERENCE_OPTIONS.map((pref) => {
+            const isChecked = tripInfo.preferences.includes(pref.value);
+            return (
+              <label
+                key={pref.value}
+                className={`trip-planner-pref-checkbox-label ${isChecked ? 'checked' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => togglePreference(pref.value)}
+                />
+                <span>{pref.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Collapsible Cost Breakdown Accordion */}
+      <div className="trip-planner-cost-accordion">
+        <div
+          className="trip-planner-cost-header"
+          onClick={() => setShowCostAccordion(!showCostAccordion)}
+        >
+          <div className="trip-planner-cost-header-left">
+            <DollarSign size={16} color="#10b981" />
+            <span>Chi tiết chi phí dự tính</span>
+          </div>
+          <div className="trip-planner-cost-header-summary">
+            <span>{totalCalculatedCost.toLocaleString()} đ</span>
+            <ChevronDown
+              size={16}
+              style={{
+                transform: showCostAccordion ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.2s ease'
+              }}
+            />
+          </div>
+        </div>
+
+        {showCostAccordion && (
+          <div className="trip-planner-cost-body">
+            <div className="trip-planner-scope-selector">
+              <label>
+                <input
+                  type="radio"
+                  name="costScope"
+                  value="PERSON"
+                  checked={costBreakdown.scope === 'PERSON'}
+                  onChange={() => setCostBreakdown({ ...costBreakdown, scope: 'PERSON' })}
+                />
+                Tính theo mỗi người
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="costScope"
+                  value="GROUP"
+                  checked={costBreakdown.scope === 'GROUP'}
+                  onChange={() => setCostBreakdown({ ...costBreakdown, scope: 'GROUP' })}
+                />
+                Tính cho cả đoàn
+              </label>
+            </div>
+
+            <div className="trip-planner-cost-item">
+              <span className="trip-planner-cost-item-label">Di chuyển:</span>
+              <div className="trip-planner-cost-input-wrap">
+                <input
+                  type="number"
+                  step="50000"
+                  className="trip-planner-cost-input"
+                  value={costBreakdown.transport}
+                  onChange={(e) =>
+                    setCostBreakdown({ ...costBreakdown, transport: Number(e.target.value) || 0 })
+                  }
+                />
+                <span className="trip-planner-currency">đ</span>
+              </div>
+            </div>
+
+            <div className="trip-planner-cost-item">
+              <span className="trip-planner-cost-item-label">Ăn uống:</span>
+              <div className="trip-planner-cost-input-wrap">
+                <input
+                  type="number"
+                  step="50000"
+                  className="trip-planner-cost-input"
+                  value={costBreakdown.meals}
+                  onChange={(e) =>
+                    setCostBreakdown({ ...costBreakdown, meals: Number(e.target.value) || 0 })
+                  }
+                />
+                <span className="trip-planner-currency">đ</span>
+              </div>
+            </div>
+
+            <div className="trip-planner-cost-item">
+              <span className="trip-planner-cost-item-label">Vé tham quan:</span>
+              <div className="trip-planner-cost-input-wrap">
+                <input
+                  type="number"
+                  step="50000"
+                  className="trip-planner-cost-input"
+                  value={costBreakdown.attractions}
+                  onChange={(e) =>
+                    setCostBreakdown({ ...costBreakdown, attractions: Number(e.target.value) || 0 })
+                  }
+                />
+                <span className="trip-planner-currency">đ</span>
+              </div>
+            </div>
+
+            <div className="trip-planner-cost-item">
+              <span className="trip-planner-cost-item-label">Lưu trú / Khách sạn:</span>
+              <div className="trip-planner-cost-input-wrap">
+                <input
+                  type="number"
+                  step="50000"
+                  className="trip-planner-cost-input"
+                  value={costBreakdown.accommodation}
+                  onChange={(e) =>
+                    setCostBreakdown({
+                      ...costBreakdown,
+                      accommodation: Number(e.target.value) || 0
+                    })
+                  }
+                />
+                <span className="trip-planner-currency">đ</span>
+              </div>
+            </div>
+
+            <div className="trip-planner-cost-item">
+              <span className="trip-planner-cost-item-label">Dự phòng phát sinh:</span>
+              <div className="trip-planner-cost-input-wrap">
+                <input
+                  type="number"
+                  step="50000"
+                  className="trip-planner-cost-input"
+                  value={costBreakdown.contingency}
+                  onChange={(e) =>
+                    setCostBreakdown({
+                      ...costBreakdown,
+                      contingency: Number(e.target.value) || 0
+                    })
+                  }
+                />
+                <span className="trip-planner-currency">đ</span>
+              </div>
+            </div>
+
+            <div className="trip-planner-cost-calc-box">
+              <div className="trip-planner-calc-row">
+                <span>Mỗi người:</span>
+                <span>{perPersonCostSum.toLocaleString()} đ</span>
+              </div>
+              {costBreakdown.scope === 'PERSON' && (
+                <div className="trip-planner-calc-row">
+                  <span>Số lượng khách:</span>
+                  <span>x {tripInfo.travelerCount}</span>
+                </div>
+              )}
+              <div className="trip-planner-calc-row total">
+                <span>Tổng chi phí dự kiến:</span>
+                <span>{totalCalculatedCost.toLocaleString()} đ</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Friends Selection */}
+      <div className="trip-planner-friends-section">
+        <label className="trip-planner-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Users size={16} color="var(--primary)" /> Mời bạn bè cùng đi
+          </span>
+          {selectedFriendIds.length > 0 && (
+            <span className="trip-planner-friend-count-badge">
+              Đã chọn {selectedFriendIds.length} người
+            </span>
+          )}
+        </label>
+
+        {friendsList.length > 0 ? (
+          <div className="trip-planner-friends-list">
+            {friendsList.map((friend) => {
+              const isSelected = selectedFriendIds.includes(String(friend.id));
+              return (
+                <button
+                  key={friend.id}
+                  type="button"
+                  onClick={() => toggleSelectFriend(String(friend.id))}
+                  className={`trip-planner-friend-chip ${isSelected ? 'selected' : ''}`}
+                >
+                  <img
+                    src={friend.avatar || '/avatars/traveler.svg'}
+                    alt={friend.name}
+                    className="trip-planner-friend-avatar"
+                  />
+                  <span className="trip-planner-friend-name">{friend.name}</span>
+                  {isSelected ? <CheckSquare size={14} color="var(--primary)" /> : <Square size={14} color="#94a3b8" />}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="trip-planner-friends-empty">
+            Chưa có bạn bè trong danh sách. Bạn vẫn có thể tạo link mời sau khi lưu chuyến đi.
+          </p>
+        )}
+      </div>
+
+      {/* Notes */}
+      <div className="trip-planner-field">
+        <label className="trip-planner-label">Ghi chú hành trình</label>
+        <textarea
+          placeholder="Những lưu ý quan trọng cần nhớ..."
+          className="trip-planner-textarea"
+          value={tripInfo.notes}
+          onChange={(e) => setTripInfo({ ...tripInfo, notes: e.target.value })}
+        />
+      </div>
+    </div>
+  );
+
+  // Render Section 2: Hourly Timeline Schedule
+  const renderScheduleTimeline = () => (
+    <div className="trip-planner-schedule-wrapper">
+      <div className="trip-planner-schedule-header">
+        <div className="trip-planner-schedule-hint">
+          <span>Click bản đồ hoặc bấm nút để thêm điểm dừng</span>
+        </div>
+        <button
+          type="button"
+          className="btn btn-outline trip-planner-add-act-btn"
+          onClick={handleAddCustomActivity}
+        >
+          <Plus size={14} /> Thêm hoạt động
+        </button>
+      </div>
+
+      {scheduleItems.length === 0 ? (
+        <div className="trip-planner-empty-hint">
+          <Navigation size={28} style={{ opacity: 0.4, margin: '0 auto 8px auto', display: 'block' }} />
+          <p style={{ fontWeight: 600, color: 'var(--text-main)' }}>Chưa có điểm dừng nào trong lịch trình.</p>
+          <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Hãy nhấp vào bản đồ để chọn địa điểm hoặc bấm nút "+ Thêm hoạt động" bên trên.</p>
+        </div>
+      ) : (
+        <Reorder.Group
+          axis="y"
+          values={scheduleItems}
+          onReorder={setScheduleItems}
+          className="trip-planner-reorder-group"
+        >
+          {scheduleItems.map((item, idx) => (
+            <Reorder.Item key={item.tripLocId} value={item} className="trip-planner-reorder-item">
+              <div className="trip-planner-schedule-item">
+                <div className="trip-planner-item-top">
+                  <div className="trip-planner-drag-handle" title="Kéo để đổi thứ tự">
+                    <GripVertical size={16} />
+                  </div>
+                  <div className="trip-planner-item-badge">{idx + 1}</div>
+                  <input
+                    type="text"
+                    className="trip-planner-item-name-input"
+                    value={item.customName || item.name}
+                    onChange={(e) =>
+                      updateScheduleItem(item.tripLocId, 'customName', e.target.value)
+                    }
+                    placeholder="Tên địa điểm / Hoạt động"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleLocationRemove(item.tripLocId)}
+                    className="trip-planner-item-remove"
+                    title="Xóa điểm này khỏi lịch trình"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+
+                {/* Structured Parameters Row */}
+                <div className="trip-planner-params-row">
+                  <div className="trip-planner-param-col">
+                    <span className="trip-planner-param-label">Giờ đến:</span>
+                    <input
+                      type="time"
+                      className="trip-planner-param-input"
+                      value={item.startTime || '08:00'}
+                      onChange={(e) =>
+                        updateScheduleItem(item.tripLocId, 'startTime', e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="trip-planner-param-col">
+                    <span className="trip-planner-param-label">Thời lượng:</span>
+                    <div className="trip-planner-param-input-wrap">
+                      <input
+                        type="number"
+                        min="10"
+                        step="10"
+                        className="trip-planner-param-input"
+                        value={item.durationMinutes || 60}
+                        onChange={(e) =>
+                          updateScheduleItem(
+                            item.tripLocId,
+                            'durationMinutes',
+                            Number(e.target.value) || 0
+                          )
+                        }
+                      />
+                      <span className="trip-planner-param-suffix">phút</span>
+                    </div>
+                  </div>
+
+                  <div className="trip-planner-param-col">
+                    <span className="trip-planner-param-label">Di chuyển tiếp:</span>
+                    <div className="trip-planner-param-input-wrap">
+                      <input
+                        type="number"
+                        min="0"
+                        step="5"
+                        className="trip-planner-param-input"
+                        value={item.travelMinutes ?? 15}
+                        onChange={(e) =>
+                          updateScheduleItem(
+                            item.tripLocId,
+                            'travelMinutes',
+                            Number(e.target.value) || 0
+                          )
+                        }
+                      />
+                      <span className="trip-planner-param-suffix">phút</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Note for Item */}
+                <input
+                  type="text"
+                  placeholder="Ghi chú (vé tham quan, ăn uống, trang phục...)"
+                  className="trip-planner-item-note-input"
+                  value={item.note || ''}
+                  onChange={(e) =>
+                    updateScheduleItem(item.tripLocId, 'note', e.target.value)
+                  }
+                />
+              </div>
+            </Reorder.Item>
+          ))}
+        </Reorder.Group>
+      )}
+
+      <button
+        type="button"
+        className="trip-planner-add-custom-btn"
+        onClick={handleAddCustomActivity}
+      >
+        <Plus size={16} /> Thêm hoạt động / Điểm dừng tự do
+      </button>
+    </div>
+  );
+
+  // Render Section 3: Packing Checklist
+  const renderPackingList = () => (
+    <div className="trip-planner-packing-wrapper">
+      {/* Category Pills Filter */}
+      <div className="trip-planner-packing-filter">
+        {PACKING_CATEGORIES.map((cat) => (
+          <button
+            key={cat.key}
+            type="button"
+            className={`trip-planner-cat-pill ${
+              packingCategoryFilter === cat.key ? 'active' : ''
+            }`}
+            onClick={() => setPackingCategoryFilter(cat.key)}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Quick toggle all */}
+      <div className="trip-planner-packing-actions">
+        <button
+          type="button"
+          onClick={() => {
+            setPackingList((prev) =>
+              prev.map((p) => {
+                if (packingCategoryFilter === 'all' || p.category === packingCategoryFilter) {
+                  return { ...p, selected: true };
+                }
+                return p;
+              })
+            );
+          }}
+          className="btn btn-outline trip-planner-btn-mini"
+        >
+          Chọn tất cả
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setPackingList((prev) =>
+              prev.map((p) => {
+                if (packingCategoryFilter === 'all' || p.category === packingCategoryFilter) {
+                  return { ...p, selected: false };
+                }
+                return p;
+              })
+            );
+          }}
+          className="btn btn-outline trip-planner-btn-mini"
+        >
+          Bỏ chọn
+        </button>
+      </div>
+
+      {/* Add Custom Packing Item Bar */}
+      <div className="trip-planner-packing-add-bar">
+        <input
+          type="text"
+          placeholder="Thêm món đồ cần chuẩn bị riêng..."
+          className="trip-planner-packing-add-input"
+          value={newPackingName}
+          onChange={(e) => setNewPackingName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleAddCustomPackingItem()}
+        />
+        <button
+          type="button"
+          className="btn btn-primary trip-planner-packing-add-btn"
+          onClick={handleAddCustomPackingItem}
+        >
+          <Plus size={15} /> Thêm
+        </button>
+      </div>
+
+      {/* Checklist Items */}
+      <div className="trip-planner-packing-list">
+        {filteredPackingItems.length === 0 ? (
+          <div className="trip-planner-empty-hint">Không có món đồ nào trong nhóm này.</div>
+        ) : (
+          filteredPackingItems.map((item) => (
+            <div key={item.id} className="trip-planner-packing-row">
+              <input
+                type="checkbox"
+                className="trip-planner-pack-check"
+                checked={Boolean(item.selected)}
+                onChange={() => togglePackingItemSelect(item.id)}
+              />
+              <span
+                className={`trip-planner-pack-name ${item.selected ? '' : 'unchecked'}`}
+                onClick={() => togglePackingItemSelect(item.id)}
+                title={item.itemName}
+              >
+                {item.itemName}
+              </span>
+              <input
+                type="number"
+                min="1"
+                className="trip-planner-pack-qty"
+                title="Số lượng"
+                value={item.quantity}
+                onChange={(e) =>
+                  updatePackingField(item.id, 'quantity', Number(e.target.value) || 1)
+                }
+              />
+              <input
+                type="text"
+                placeholder="Ghi chú"
+                className="trip-planner-pack-notes"
+                value={item.notes || ''}
+                onChange={(e) => updatePackingField(item.id, 'notes', e.target.value)}
+              />
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <Layout>
-      <div className="trip-planner-container">
+    <Layout className="layout-main-planner">
+      <div className="trip-planner-root">
         {toast && (
-          <div className="card" style={{ position: 'fixed', right: 20, top: 80, zIndex: 3000, padding: '0.75rem 1.25rem', backgroundColor: '#ef4444', color: '#fff', fontWeight: 600, borderRadius: 8 }}>
+          <div className="trip-planner-toast">
             {toast}
           </div>
         )}
 
-        {/* LEFT COLUMN: Trip Information & Cost Form */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="card trip-planner-form-card"
-        >
-          <div className="trip-planner-breadcrumb">
-            <Link to="/" className="trip-planner-breadcrumb-link">
-              <ArrowLeft size={14} /> Dashboard
+        {/* TOP TOOLBAR HEADER */}
+        <header className="trip-planner-topbar">
+          <div className="trip-planner-topbar-left">
+            <Link to="/" className="trip-planner-back-btn" title="Quay lại Dashboard">
+              <ArrowLeft size={16} />
             </Link>
-            <ChevronRight size={14} />
-            <span>Lập kế hoạch thủ công</span>
-          </div>
-
-          <h2 className="trip-planner-title">Chi tiết chuyến đi</h2>
-
-          <div className="trip-planner-form">
-            {/* Trip Title */}
-            <div>
-              <label className="trip-planner-label">Tên chuyến đi *</label>
+            <div className="trip-planner-heading-group">
+              <span className="trip-planner-tag">Kế hoạch thủ công</span>
               <input
                 type="text"
-                placeholder="Ví dụ: Du lịch Đà Nẵng - Hội An 4 ngày 3 đêm"
-                className="trip-planner-input"
+                className="trip-planner-topbar-title-input"
+                placeholder="Đặt tên chuyến đi của bạn..."
                 value={tripInfo.title}
                 onChange={(e) => setTripInfo({ ...tripInfo, title: e.target.value })}
               />
             </div>
+          </div>
 
-            {/* Start and End Locations */}
-            <div className="trip-planner-date-grid">
-              <div>
-                <label className="trip-planner-label">Điểm khởi hành *</label>
-                <input
-                  type="text"
-                  placeholder="TP. Hà Nội"
-                  className="trip-planner-input"
-                  value={tripInfo.startLocation}
-                  onChange={(e) => setTripInfo({ ...tripInfo, startLocation: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="trip-planner-label">Điểm đến chính</label>
-                <input
-                  type="text"
-                  placeholder="Đà Nẵng"
-                  className="trip-planner-input"
-                  value={tripInfo.endLocation}
-                  onChange={(e) => setTripInfo({ ...tripInfo, endLocation: e.target.value })}
-                />
-              </div>
+          <div className="trip-planner-topbar-center">
+            <div className="trip-planner-stat-pill" title="Tổng thời gian chuyến đi">
+              <Calendar size={13} />
+              <span>{computeDays()} ngày</span>
             </div>
-
-            {/* Dates */}
-            <div className="trip-planner-date-grid">
-              <div>
-                <label className="trip-planner-label">Ngày bắt đầu</label>
-                <input
-                  type="date"
-                  className="trip-planner-date-input"
-                  value={tripInfo.startDate}
-                  onChange={(e) => setTripInfo({ ...tripInfo, startDate: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="trip-planner-label">Ngày kết thúc ({computeDays()} ngày)</label>
-                <input
-                  type="date"
-                  className="trip-planner-date-input"
-                  value={tripInfo.endDate}
-                  onChange={(e) => setTripInfo({ ...tripInfo, endDate: e.target.value })}
-                />
-              </div>
+            <div className="trip-planner-stat-pill" title="Số điểm dừng trên bản đồ">
+              <MapPin size={13} />
+              <span>{scheduleItems.length} điểm dừng</span>
             </div>
-
-            {/* Travelers & Transport */}
-            <div className="trip-planner-row-2col">
-              <div>
-                <label className="trip-planner-label">
-                  <Users size={14} /> Số lượng người đi
-                </label>
-                <div className="trip-planner-counter">
-                  <button
-                    type="button"
-                    className="trip-planner-counter-btn"
-                    onClick={() =>
-                      setTripInfo((prev) => ({
-                        ...prev,
-                        travelerCount: Math.max(1, prev.travelerCount - 1)
-                      }))
-                    }
-                  >
-                    -
-                  </button>
-                  <span className="trip-planner-counter-val">{tripInfo.travelerCount} người</span>
-                  <button
-                    type="button"
-                    className="trip-planner-counter-btn"
-                    onClick={() =>
-                      setTripInfo((prev) => ({
-                        ...prev,
-                        travelerCount: prev.travelerCount + 1
-                      }))
-                    }
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="trip-planner-label">
-                  <Compass size={14} /> Phương tiện di chuyển
-                </label>
-                <select
-                  className="trip-planner-select"
-                  value={tripInfo.transportMode}
-                  onChange={(e) => setTripInfo({ ...tripInfo, transportMode: e.target.value })}
-                >
-                  {TRANSPORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Travel Preferences Multi-Select */}
-            <div>
-              <label className="trip-planner-label">Sở thích du lịch (chọn nhiều)</label>
-              <div className="trip-planner-prefs-grid">
-                {PREFERENCE_OPTIONS.map((pref) => {
-                  const isChecked = tripInfo.preferences.includes(pref.value);
-                  return (
-                    <label
-                      key={pref.value}
-                      className={`trip-planner-pref-checkbox-label ${isChecked ? 'checked' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => togglePreference(pref.value)}
-                      />
-                      <span>{pref.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Collapsible Cost Breakdown Accordion */}
-            <div className="trip-planner-cost-accordion">
-              <div
-                className="trip-planner-cost-header"
-                onClick={() => setShowCostAccordion(!showCostAccordion)}
-              >
-                <div className="trip-planner-cost-header-left">
-                  <DollarSign size={16} color="#10b981" />
-                  <span>Chi tiết chi phí dự tính</span>
-                </div>
-                <div className="trip-planner-cost-header-summary">
-                  <span>{totalCalculatedCost.toLocaleString()} đ</span>
-                  <ChevronDown
-                    size={16}
-                    style={{
-                      transform: showCostAccordion ? 'rotate(180deg)' : 'none',
-                      transition: 'transform 0.2s ease'
-                    }}
-                  />
-                </div>
-              </div>
-
-              {showCostAccordion && (
-                <div className="trip-planner-cost-body">
-                  <div className="trip-planner-scope-selector">
-                    <label>
-                      <input
-                        type="radio"
-                        name="costScope"
-                        value="PERSON"
-                        checked={costBreakdown.scope === 'PERSON'}
-                        onChange={() => setCostBreakdown({ ...costBreakdown, scope: 'PERSON' })}
-                      />
-                      Tính theo mỗi người
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        name="costScope"
-                        value="GROUP"
-                        checked={costBreakdown.scope === 'GROUP'}
-                        onChange={() => setCostBreakdown({ ...costBreakdown, scope: 'GROUP' })}
-                      />
-                      Tính cho cả đoàn
-                    </label>
-                  </div>
-
-                  <div className="trip-planner-cost-item">
-                    <span className="trip-planner-cost-item-label">Di chuyển:</span>
-                    <input
-                      type="number"
-                      step="50000"
-                      className="trip-planner-cost-input"
-                      value={costBreakdown.transport}
-                      onChange={(e) =>
-                        setCostBreakdown({ ...costBreakdown, transport: Number(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-
-                  <div className="trip-planner-cost-item">
-                    <span className="trip-planner-cost-item-label">Ăn uống:</span>
-                    <input
-                      type="number"
-                      step="50000"
-                      className="trip-planner-cost-input"
-                      value={costBreakdown.meals}
-                      onChange={(e) =>
-                        setCostBreakdown({ ...costBreakdown, meals: Number(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-
-                  <div className="trip-planner-cost-item">
-                    <span className="trip-planner-cost-item-label">Vé tham quan:</span>
-                    <input
-                      type="number"
-                      step="50000"
-                      className="trip-planner-cost-input"
-                      value={costBreakdown.attractions}
-                      onChange={(e) =>
-                        setCostBreakdown({ ...costBreakdown, attractions: Number(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-
-                  <div className="trip-planner-cost-item">
-                    <span className="trip-planner-cost-item-label">Lưu trú / Khách sạn:</span>
-                    <input
-                      type="number"
-                      step="50000"
-                      className="trip-planner-cost-input"
-                      value={costBreakdown.accommodation}
-                      onChange={(e) =>
-                        setCostBreakdown({
-                          ...costBreakdown,
-                          accommodation: Number(e.target.value) || 0
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="trip-planner-cost-item">
-                    <span className="trip-planner-cost-item-label">Dự phòng phát sinh:</span>
-                    <input
-                      type="number"
-                      step="50000"
-                      className="trip-planner-cost-input"
-                      value={costBreakdown.contingency}
-                      onChange={(e) =>
-                        setCostBreakdown({
-                          ...costBreakdown,
-                          contingency: Number(e.target.value) || 0
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="trip-planner-cost-calc-box">
-                    <div className="trip-planner-calc-row">
-                      <span>Mỗi người:</span>
-                      <span>{perPersonCostSum.toLocaleString()} đ</span>
-                    </div>
-                    {costBreakdown.scope === 'PERSON' && (
-                      <div className="trip-planner-calc-row">
-                        <span>Số lượng khách:</span>
-                        <span>x {tripInfo.travelerCount}</span>
-                      </div>
-                    )}
-                    <div className="trip-planner-calc-row total">
-                      <span>Tổng chi phí dự kiến:</span>
-                      <span>{totalCalculatedCost.toLocaleString()} đ</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-
-            {/* Friends / Collaborators Selection */}
-            <div className="trip-planner-friends-section">
-              <label className="trip-planner-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Users size={16} color="var(--primary)" /> Mời bạn bè cùng lập kế hoạch
-                </span>
-                {selectedFriendIds.length > 0 && (
-                  <span className="trip-planner-friend-count-badge">
-                    Đã chọn {selectedFriendIds.length} người
-                  </span>
-                )}
-              </label>
-
-              {friendsList.length > 0 ? (
-                <div className="trip-planner-friends-list">
-                  {friendsList.map((friend) => {
-                    const isSelected = selectedFriendIds.includes(String(friend.id));
-                    return (
-                      <button
-                        key={friend.id}
-                        type="button"
-                        onClick={() => toggleSelectFriend(String(friend.id))}
-                        className={`trip-planner-friend-chip ${isSelected ? 'selected' : ''}`}
-                      >
-                        <img
-                          src={friend.avatar || '/avatars/traveler.svg'}
-                          alt={friend.name}
-                          className="trip-planner-friend-avatar"
-                        />
-                        <span className="trip-planner-friend-name">{friend.name}</span>
-                        {isSelected ? <CheckSquare size={14} color="var(--primary)" /> : <Square size={14} color="#94a3b8" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="trip-planner-friends-empty">
-                  Chưa có bạn bè trong danh sách. Bạn vẫn có thể tạo link mời sau khi lưu chuyến đi.
-                </p>
-              )}
-              <p className="trip-planner-friends-hint">
-                💡 Khi lưu, bạn bè được chọn sẽ tự động được thêm vào nhóm cùng lập kế hoạch và tham gia nhóm chat chung của chuyến đi.
-              </p>
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="trip-planner-label">Ghi chú hành trình</label>
-              <textarea
-                placeholder="Những lưu ý quan trọng cần nhớ..."
-                className="trip-planner-textarea"
-                value={tripInfo.notes}
-                onChange={(e) => setTripInfo({ ...tripInfo, notes: e.target.value })}
-              />
+            <div className="trip-planner-stat-pill" title="Tổng chi phí dự kiến">
+              <DollarSign size={13} />
+              <span>{totalCalculatedCost.toLocaleString()} đ</span>
             </div>
           </div>
 
-          <div className="trip-planner-form-footer">
+          <div className="trip-planner-topbar-right">
             <button
+              type="button"
+              className="btn btn-outline trip-planner-mode-btn"
+              onClick={() => setLayoutMode((prev) => (prev === 'split' ? 'columns' : 'split'))}
+              title={layoutMode === 'split' ? 'Chuyển sang chế độ 3 cột (màn hình rộng)' : 'Chuyển sang chế độ tập trung bản đồ'}
+            >
+              {layoutMode === 'split' ? <Columns3 size={15} /> : <Maximize2 size={15} />}
+              <span className="trip-planner-btn-label">
+                {layoutMode === 'split' ? 'Chế độ 3 cột' : 'Tập trung bản đồ'}
+              </span>
+            </button>
+
+            <button
+              type="button"
               onClick={handleSaveTrip}
               disabled={saving}
               className="btn btn-primary trip-planner-save-btn"
             >
-              <Save size={18} /> {saving ? 'Đang lưu vào CSDL...' : 'Lưu kế hoạch chuyến đi'}
+              <Save size={16} />
+              <span>{saving ? 'Đang lưu...' : 'Lưu kế hoạch'}</span>
             </button>
           </div>
-        </motion.div>
+        </header>
 
-        {/* CENTER COLUMN: Interactive Map */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="trip-planner-map-container"
-        >
-          <MapComponent
-            selectedLocations={scheduleItems.filter((i) => i.latitude && i.longitude)}
-            onLocationAdd={handleLocationAdd}
-            onLocationRemove={(id) => handleLocationRemove(id)}
-          />
-        </motion.div>
+        {/* MAIN WORKSPACE BODY */}
+        {layoutMode === 'split' ? (
+          /* SPLIT MODE: Left Side Panel with 3 Tabs + Large Right Map (Never squeezed!) */
+          <div className="trip-planner-split-container">
+            {/* LEFT TABBED PANEL */}
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="card trip-planner-unified-side-panel"
+            >
+              {/* Tab Navigation */}
+              <div className="trip-planner-tabs">
+                <button
+                  type="button"
+                  className={`trip-planner-tab-btn ${activeSideTab === 'schedule' ? 'active' : ''}`}
+                  onClick={() => setActiveSideTab('schedule')}
+                >
+                  <Clock size={15} />
+                  <span>Lịch trình ({scheduleItems.length})</span>
+                </button>
+                <button
+                  type="button"
+                  className={`trip-planner-tab-btn ${activeSideTab === 'info' ? 'active' : ''}`}
+                  onClick={() => setActiveSideTab('info')}
+                >
+                  <Info size={15} />
+                  <span>Thông tin & Chi phí</span>
+                </button>
+                <button
+                  type="button"
+                  className={`trip-planner-tab-btn ${activeSideTab === 'packing' ? 'active' : ''}`}
+                  onClick={() => setActiveSideTab('packing')}
+                >
+                  <Briefcase size={15} />
+                  <span>Đồ cần mang ({packingList.filter((p) => p.selected).length})</span>
+                </button>
+              </div>
 
-        {/* RIGHT COLUMN: Hourly Timeline & Packing Checklist Tabs */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="card trip-planner-side-card"
-        >
-          {/* Top Tabs */}
-          <div className="trip-planner-tabs">
-            <button
-              className={`trip-planner-tab-btn ${activeSideTab === 'schedule' ? 'active' : ''}`}
-              onClick={() => setActiveSideTab('schedule')}
+              {/* Tab Content Body */}
+              <div className="trip-planner-panel-content">
+                {activeSideTab === 'schedule' && renderScheduleTimeline()}
+                {activeSideTab === 'info' && renderTripInfoForm()}
+                {activeSideTab === 'packing' && renderPackingList()}
+              </div>
+            </motion.div>
+
+            {/* EXPANSIVE INTERACTIVE MAP */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="trip-planner-map-container"
             >
-              <Clock size={15} /> Lịch trình theo giờ ({scheduleItems.length})
-            </button>
-            <button
-              className={`trip-planner-tab-btn ${activeSideTab === 'packing' ? 'active' : ''}`}
-              onClick={() => setActiveSideTab('packing')}
-            >
-              <Briefcase size={15} /> Đồ cần mang ({packingList.filter((p) => p.selected).length})
-            </button>
+              <MapComponent
+                selectedLocations={scheduleItems.filter((i) => i.latitude && i.longitude)}
+                onLocationAdd={handleLocationAdd}
+                onLocationRemove={(id) => handleLocationRemove(id)}
+              />
+              <div className="trip-planner-map-badge">
+                <Navigation size={13} color="var(--primary)" />
+                <span>Bấm vào vị trí bất kỳ trên bản đồ để thêm điểm dừng vào lịch trình</span>
+              </div>
+            </motion.div>
           </div>
+        ) : (
+          /* 3-COLUMN MODE: Left Form + Center Map + Right Schedule/Packing (For large screens) */
+          <div className="trip-planner-columns-container">
+            {/* Column 1: Info Form */}
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="card trip-planner-col-form"
+            >
+              <div className="trip-planner-col-title">
+                <Info size={16} color="var(--primary)" />
+                <span>Chi tiết chuyến đi</span>
+              </div>
+              <div className="trip-planner-panel-content">
+                {renderTripInfoForm()}
+              </div>
+            </motion.div>
 
-          {/* TAB 1: HOURLY TIMELINE */}
-          {activeSideTab === 'schedule' && (
-            <div>
-              <div className="trip-planner-schedule-header">
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Click vào bản đồ hoặc bấm nút để thêm mốc hoạt động
-                </span>
+            {/* Column 2: Center Map */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="trip-planner-map-container"
+            >
+              <MapComponent
+                selectedLocations={scheduleItems.filter((i) => i.latitude && i.longitude)}
+                onLocationAdd={handleLocationAdd}
+                onLocationRemove={(id) => handleLocationRemove(id)}
+              />
+              <div className="trip-planner-map-badge">
+                <Navigation size={13} color="var(--primary)" />
+                <span>Bấm vào bản đồ để thêm điểm dừng</span>
+              </div>
+            </motion.div>
+
+            {/* Column 3: Schedule / Packing Tabs */}
+            <motion.div
+              initial={{ opacity: 0, x: 15 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="card trip-planner-col-side"
+            >
+              <div className="trip-planner-tabs">
                 <button
                   type="button"
-                  className="btn btn-outline"
-                  style={{ padding: '0.25rem 0.6rem', fontSize: '0.775rem' }}
-                  onClick={handleAddCustomActivity}
+                  className={`trip-planner-tab-btn ${activeSideTab === 'schedule' ? 'active' : ''}`}
+                  onClick={() => setActiveSideTab('schedule')}
                 >
-                  <Plus size={14} /> Thêm hoạt động
-                </button>
-              </div>
-
-              {scheduleItems.length === 0 ? (
-                <div className="trip-planner-empty-hint">
-                  <p>Chưa có điểm dừng nào trong lịch trình.</p>
-                  <p>Hãy click vào bản đồ để chọn địa điểm hoặc bấm "+ Thêm hoạt động" để tự tạo.</p>
-                </div>
-              ) : (
-                <Reorder.Group
-                  axis="y"
-                  values={scheduleItems}
-                  onReorder={setScheduleItems}
-                  style={{ listStyle: 'none', padding: 0, marginTop: '0.75rem' }}
-                >
-                  {scheduleItems.map((item, idx) => (
-                    <Reorder.Item key={item.tripLocId} value={item}>
-                      <div className="trip-planner-schedule-item">
-                        <div className="trip-planner-item-top">
-                          <GripVertical size={16} color="var(--text-muted)" style={{ cursor: 'grab' }} />
-                          <div className="trip-planner-item-badge">{idx + 1}</div>
-                          <input
-                            type="text"
-                            className="trip-planner-item-name-input"
-                            value={item.customName || item.name}
-                            onChange={(e) =>
-                              updateScheduleItem(item.tripLocId, 'customName', e.target.value)
-                            }
-                            placeholder="Tên địa điểm / Hoạt động"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleLocationRemove(item.tripLocId)}
-                            className="trip-planner-item-remove"
-                            title="Xóa điểm này"
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-
-                        {/* Hourly Time Inputs */}
-                        <div className="trip-planner-time-row">
-                          <div className="trip-planner-time-col">
-                            <label>Bắt đầu:</label>
-                            <input
-                              type="time"
-                              className="trip-planner-time-input"
-                              value={item.startTime || '08:00'}
-                              onChange={(e) =>
-                                updateScheduleItem(item.tripLocId, 'startTime', e.target.value)
-                              }
-                            />
-                          </div>
-
-                          <div className="trip-planner-time-col">
-                            <label>Thời lượng (phút):</label>
-                            <input
-                              type="number"
-                              min="10"
-                              step="10"
-                              className="trip-planner-time-input"
-                              value={item.durationMinutes || 60}
-                              onChange={(e) =>
-                                updateScheduleItem(
-                                  item.tripLocId,
-                                  'durationMinutes',
-                                  Number(e.target.value) || 0
-                                )
-                              }
-                            />
-                          </div>
-
-                          <div className="trip-planner-time-col">
-                            <label>Di chuyển tiếp (phút):</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="5"
-                              className="trip-planner-time-input"
-                              value={item.travelMinutes ?? 15}
-                              onChange={(e) =>
-                                updateScheduleItem(
-                                  item.tripLocId,
-                                  'travelMinutes',
-                                  Number(e.target.value) || 0
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-
-                        {/* Note for Item */}
-                        <input
-                          type="text"
-                          placeholder="Ghi chú (vé, lưu ý ăn uống, trang phục...)"
-                          className="trip-planner-item-note-input"
-                          value={item.note || ''}
-                          onChange={(e) =>
-                            updateScheduleItem(item.tripLocId, 'note', e.target.value)
-                          }
-                        />
-                      </div>
-                    </Reorder.Item>
-                  ))}
-                </Reorder.Group>
-              )}
-
-              <button
-                type="button"
-                className="trip-planner-add-custom-btn"
-                onClick={handleAddCustomActivity}
-                style={{ marginTop: '0.5rem' }}
-              >
-                <Plus size={16} /> Thêm hoạt động / Điểm dừng tự do
-              </button>
-            </div>
-          )}
-
-          {/* TAB 2: PACKING CHECKLIST */}
-          {activeSideTab === 'packing' && (
-            <div>
-              {/* Category Pills Filter */}
-              <div className="trip-planner-packing-filter">
-                {PACKING_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.key}
-                    type="button"
-                    className={`trip-planner-cat-pill ${
-                      packingCategoryFilter === cat.key ? 'active' : ''
-                    }`}
-                    onClick={() => setPackingCategoryFilter(cat.key)}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Quick toggle all */}
-              <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPackingList(prev => prev.map(p => {
-                      if (packingCategoryFilter === 'all' || p.category === packingCategoryFilter) {
-                        return { ...p, selected: true };
-                      }
-                      return p;
-                    }));
-                  }}
-                  className="btn btn-outline"
-                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-                >
-                  Chọn tất cả
+                  <Clock size={15} />
+                  <span>Lịch trình ({scheduleItems.length})</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPackingList(prev => prev.map(p => {
-                      if (packingCategoryFilter === 'all' || p.category === packingCategoryFilter) {
-                        return { ...p, selected: false };
-                      }
-                      return p;
-                    }));
-                  }}
-                  className="btn btn-outline"
-                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                  className={`trip-planner-tab-btn ${activeSideTab === 'packing' ? 'active' : ''}`}
+                  onClick={() => setActiveSideTab('packing')}
                 >
-                  Bỏ chọn
+                  <Briefcase size={15} />
+                  <span>Đồ cần mang ({packingList.filter((p) => p.selected).length})</span>
                 </button>
               </div>
-
-              {/* Add Custom Packing Item Bar */}
-              <div className="trip-planner-packing-add-bar">
-                <input
-                  type="text"
-                  placeholder="Thêm món đồ cần chuẩn bị riêng..."
-                  className="trip-planner-packing-add-input"
-                  value={newPackingName}
-                  onChange={(e) => setNewPackingName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddCustomPackingItem()}
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                  onClick={handleAddCustomPackingItem}
-                >
-                  <Plus size={15} /> Thêm
-                </button>
+              <div className="trip-planner-panel-content">
+                {activeSideTab === 'packing' ? renderPackingList() : renderScheduleTimeline()}
               </div>
-
-              {/* Checklist Items */}
-              <div className="trip-planner-packing-list" style={{ marginTop: '0.65rem' }}>
-                {filteredPackingItems.length === 0 ? (
-                  <div className="trip-planner-empty-hint">Không có món đồ nào trong nhóm này.</div>
-                ) : (
-                  filteredPackingItems.map((item) => (
-                    <div key={item.id} className="trip-planner-packing-row">
-                      <input
-                        type="checkbox"
-                        className="trip-planner-pack-check"
-                        checked={Boolean(item.selected)}
-                        onChange={() => togglePackingItemSelect(item.id)}
-                      />
-                      <span
-                        className={`trip-planner-pack-name ${item.selected ? '' : 'checked'}`}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => togglePackingItemSelect(item.id)}
-                      >
-                        {item.itemName}
-                      </span>
-                      <input
-                        type="number"
-                        min="1"
-                        className="trip-planner-pack-qty"
-                        title="Số lượng"
-                        value={item.quantity}
-                        onChange={(e) =>
-                          updatePackingField(item.id, 'quantity', Number(e.target.value) || 1)
-                        }
-                      />
-                      <input
-                        type="text"
-                        placeholder="Ghi chú"
-                        className="trip-planner-pack-notes"
-                        value={item.notes || ''}
-                        onChange={(e) => updatePackingField(item.id, 'notes', e.target.value)}
-                      />
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </motion.div>
+            </motion.div>
+          </div>
+        )}
       </div>
     </Layout>
   );
