@@ -1,291 +1,214 @@
-# 🌍 PlanTravel - Ứng dụng Lập kế hoạch Du lịch AI
+# PlanTravel
 
-[![React](https://img.shields.io/badge/React-19-brightgreen)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-8-orange)](https://vitejs.dev/)
-[![Node.js](https://img.shields.io/badge/Node.js-20-blue)](https://nodejs.org/)
-[![MySQL](https://img.shields.io/badge/MySQL-8-purple)](https://mysql.com/)
-[![Gemini AI](https://img.shields.io/badge/Gemini-AI-yellow)](https://ai.google.dev/)
+Ứng dụng lập kế hoạch du lịch Việt Nam với lịch trình theo ngày, bản đồ, bạn đồng hành, danh sách đồ mang theo và quản lý từng khoản chi. Frontend dùng React/Vite; API dùng Express, Prisma và MySQL. Dịch vụ Python cung cấp các API AI, tìm kiếm và thời tiết.
 
-**PlanTravel** là ứng dụng web **full-stack** giúp người dùng **lập kế hoạch du lịch cá nhân hóa** với sự hỗ trợ của **AI (Gemini)**, quản lý lịch trình chuyến đi với bản đồ tương tác, timeline chỉnh sửa trực tiếp, và chia sẻ lịch trình.
+Luồng lập kế hoạch thủ công hoạt động với frontend, API Node.js và MySQL. Màn lập kế hoạch AI hiện hiển thị lịch trình mẫu, có ghi rõ trên giao diện; không cần khóa Gemini để dùng luồng mẫu này.
 
-## ✨ Tính năng chính
+## Yêu cầu
 
-- **🔐 Xác thực người dùng**: Đăng nhập/đăng ký/quản lý profile (JWT)
-- **📊 Dashboard**: Tổng quan chuyến đi, thống kê, điểm đến hot
-- **🤖 AI Gợi ý thông minh**:
-  - Nhập địa điểm → AI gợi ý những nơi nên đi
-  - Tự động tạo lịch trình theo ngày (Gemini AI)
-  - Xếp hạng địa điểm theo sở thích, ngân sách
-- **🗺️ Lập kế hoạch chuyến đi (Wizard 3 bước)**:
-  - Bước 1: Nhập địa điểm, số ngày, ngân sách, sở thích
-  - Bước 2: Chọn từ danh sách gợi ý AI + bản đồ tương tác
-  - Bước 3: Chỉnh sửa timeline (kéo thả, inline edit thời gian/ghi chú)
-- **📋 Timeline trực quan**: Drag & drop, đánh dấu, chỉnh sửa tại chỗ
-- **🗺️ Bản đồ tương tác**: Leaflet + markers phân biệt (gợi ý/đã chọn)
-- **🔗 Chia sẻ lịch trình**:
-  - Public plan (link chia sẻ cho mọi người xem)
-  - Collaborative plan (mời người khác cùng chỉnh sửa)
-- **🌤️ Dự báo thời tiết**: Tích hợp Weather API
+| Thành phần | Yêu cầu |
+| --- | --- |
+| Node.js | Node 24 hoặc Node 22 từ phiên bản 22.12 trở lên, kèm npm |
+| Database | MySQL 8.0, chạy local hoặc qua Docker Compose |
+| Git | Để tải và cập nhật mã nguồn |
+| Python | Python 3.11 nếu cần chạy dịch vụ AI/thời tiết |
 
-## 🛠️ Tech Stack
+Các lệnh bên dưới chạy từ **thư mục gốc `Plan_Travel`**, trừ phần Python có ghi rõ thư mục riêng. Ví dụ sao chép file và tạo môi trường Python dùng PowerShell trên Windows.
 
-| Phần | Công nghệ |
-|------|-----------|
-| **Frontend** | React 19, Vite 8, React Router, Framer Motion, Leaflet, Lucide React |
-| **Backend** | Node.js, Express.js, Prisma ORM, MySQL |
-| **AI** | Google Gemini AI (gợi ý + tạo lịch trình) |
-| **Maps** | Leaflet + React-Leaflet, Geoapify API, OSRM Routing |
-| **Auth** | JWT (Access + Refresh tokens), BCrypt |
-| **DevOps** | Docker Compose |
+## Cài đặt lần đầu
 
-## 🚀 Cài đặt & Chạy
+### 1. Tải mã nguồn và tạo file cấu hình
 
-### 1. Backend
-```bash
-cd backend
-npm install
-npx prisma generate
-npx prisma db push    # Đồng bộ schema với MySQL
-npm run dev           # http://localhost:5000
+```powershell
+git clone --branch Develops https://github.com/NguyenXuanPhuNXP/Plan_Travel.git
+cd Plan_Travel
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend/.env.example frontend/.env
 ```
 
-### 2. Frontend
-```bash
-cd frontend
-npm install
-npm run dev           # http://localhost:5173
-```
+Nếu đã có mã nguồn và file `.env`, giữ lại các file đang dùng. Trên macOS/Linux có thể thay `Copy-Item` bằng `cp`.
 
-### 3. Cấu hình .env (backend/.env)
-```env
+Sửa `backend/.env`:
+
+```dotenv
+DATABASE_URL="mysql://root:YOUR_MYSQL_PASSWORD@127.0.0.1:3306/travel_planner"
 PORT=5000
-DATABASE_URL="mysql://root:password@localhost:3306/travel_planner"
-GEOAPIFY_API_KEY=your_key
-JWT_SECRET=your_secret
-GEMINI_API_KEY=your_gemini_key   # Tùy chọn, để trống vẫn chạy (rule-based fallback)
+FRONTEND_URL=http://localhost:5173
+FRONTEND_ORIGIN=http://localhost:5173
+JWT_SECRET=replace-with-a-long-random-secret
+GOOGLE_CLIENT_ID=
+ADMIN_EMAIL=
+ADMIN_PASSWORD=
 ```
 
-### 4. Docker (Tùy chọn)
-```bash
-docker compose -f backend/compose.yml up
+Thay `YOUR_MYSQL_PASSWORD` bằng mật khẩu MySQL của máy. Nếu dùng Docker Compose của dự án, mật khẩu mặc định là `123456`. Nếu mật khẩu chứa ký tự đặc biệt như `@`, `#`, `/`, cần mã hóa URL phần mật khẩu. Đổi `JWT_SECRET` thành chuỗi bí mật riêng; không commit các file `.env`.
+
+Sửa `frontend/.env`:
+
+```dotenv
+VITE_API_URL=http://localhost:5000/api
+VITE_GOOGLE_CLIENT_ID=
 ```
 
-## 📁 Cấu trúc dự án
-```
-Plan_Travel/
-├── backend/                      # Node.js API
-│   ├── src/
-│   │   ├── server.js             # Entry point
-│   │   ├── config/               # DB, regions
-│   │   ├── routes/               # Auth, Locations, Itineraries, Suggestions, Sharing
-│   │   ├── services/             # Business logic + AI
-│   │   ├── middleware/           # Auth JWT
-│   │   └── scripts/              # Seed data
-│   ├── prisma/schema.prisma      # Database schema
-│   └── .env
-├── frontend/                     # React App
-│   └── src/
-│       ├── pages/                # PlannerWizard, Dashboard, TripDetails, SharedView...
-│       ├── Components/           # Map, Layout
-│       ├── context/              # Auth, Trip (backend-connected)
-│       ├── services/             # API clients
-│       └── hooks/                # Geolocation
-├── docker-compose.yml
-└── README.md
-```
+### 2. Khởi động MySQL
 
-## 🛣️ Roadmap
-- [x] Frontend UI hoàn chỉnh
-- [x] Backend Auth API (JWT)
-- [x] Backend Locations API (Geoapify)
-- [x] AI Suggestion Service (Gemini)
-- [x] Itinerary CRUD API
-- [x] Timeline Editor (drag & drop)
-- [x] Public/Collaborative sharing
-- [x] Folder restructure (backend/frontend)
-- [ ] Mobile responsive optimization
-- [ ] Deploy (Vercel + Railway)
-- [ ] Notification system
+Chọn **một** trong hai cách:
 
----
+- **MySQL local:** khởi động MySQL 8.0 trên cổng `3306`. Tài khoản trong `DATABASE_URL` cần quyền tạo database khi chạy `db:init` lần đầu.
+- **Docker:** bật Docker Desktop rồi chạy:
 
-*Built with ❤️ for travel lovers* 🇻🇳✈️
-# 🧭 PLAN TRAVEL (LỮ HÀNH) - SỔ TAY KHÁM PHÁ & LẬP LỊCH TRÌNH VIỆT NAM
+  ```powershell
+  npm run db:up
+  docker compose -f backend/compose.yml logs mysql
+  ```
 
-> Nền tảng lập kế hoạch du lịch thông minh, tối ưu lộ trình và ghi lại nhật ký hành trình qua các địa danh Việt Nam.
+  Đợi MySQL báo sẵn sàng nhận kết nối rồi tiếp tục. Compose chỉ chạy MySQL và phpMyAdmin, không tự chạy API, frontend hay migrations. phpMyAdmin ở `http://localhost:8080`, tài khoản `root`, mật khẩu `123456`.
 
----
+Nếu cổng `3306` đã được MySQL local sử dụng, dùng dịch vụ đó hoặc dừng nó trước khi bật MySQL bằng Docker.
 
-## 🏗️ 1. Kiến Trúc Hệ Thống (Tech Stack)
+### 3. Cài dependencies và khởi tạo database
 
-* **Frontend**: React 19, Vite, Framer Motion, Leaflet & React-Leaflet, Lucide Icons, Date-fns.
-* **Backend API**: Node.js, Express, MySQL2, JWT, Bcryptjs, Google Auth Library.
-* **Weather & Search Microservice**: Python FastAPI, OpenWeatherMap API, Sentence-Transformers.
-* **Cơ sở dữ liệu (Database)**: MySQL 8.0+ (hỗ trợ kiểu dữ liệu không gian `POINT SRID 4326`).
-
----
-
-## 🗄️ 2. Hướng Dẫn Chạy Cơ Sở Dữ Liệu (MySQL Database)
-
-Dự án sử dụng **MySQL** để lưu trữ người dùng, phân loại và các địa điểm du lịch.
-
-### 2.1. Cấu hình biến môi trường kết nối Database
-Thông tin kết nối nằm trong file `backend/.env` (hoặc `backend/.env`):
-
-```env
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=123456
-DB_NAME=travel_planner
-PORT=5000
-JWT_SECRET=travel_planner_secret_jwt_key_2026
-```
-
-> **Lưu ý quan trọng**: Nên dùng `DB_HOST=127.0.0.1` thay vì `localhost` để tránh lỗi phân giải IPv6 (`::1`) trên Windows với Node.js.
-
----
-
-### 2.2. Cơ chế Tự Động Khởi Tạo (Auto-Migration & Seeding)
-
-Sau khi cấu hình `backend/.env` và bật MySQL local, chạy `npm run db:init` tại thư mục gốc. Lệnh tạo DB nếu thiếu, áp dụng Prisma migrations và seed tài khoản, địa điểm demo. Chạy lại không xóa dữ liệu hay đổi mật khẩu hiện có.
-
-Backend không tự tạo toàn bộ DB khi `npm start`. Xem [hướng dẫn DB và tài khoản demo](backend/database/README.md).
-
----
-
-### 2.3. Các cách chạy MySQL trên máy của bạn
-
-#### 👉 Cách 1: Sử dụng MySQL Service có sẵn trên Windows (Khuyên dùng)
-Máy tính của bạn đã có dịch vụ `MySQL80` cài sẵn:
-1. Kiểm tra trạng thái dịch vụ (mở PowerShell):
-   ```powershell
-   Get-Service -Name *mysql*
-   ```
-2. Nếu trạng thái chưa phải `Running`, khởi động dịch vụ:
-   ```powershell
-   Start-Service -Name MySQL80
-   ```
-3. Đảm bảo mật khẩu tài khoản `root` trùng khớp với `DB_PASSWORD` trong file `.env` (mặc định là `123456`).
-
-#### 👉 Cách 2: Sử dụng Docker Compose (Nếu máy cài Docker)
-Dự án đã có sẵn file `backend/compose.yml` chuẩn:
-1. Mở terminal tại thư mục gốc của dự án:
-   ```bash
-   docker compose -f backend/compose.yml up -d
-   ```
-2. Lệnh trên sẽ tự động:
-   * Chạy container **MySQL 8.0** trên cổng `3306`.
-   * Sau khi MySQL sẵn sàng, chạy `npm run db:init` để áp dụng cấu trúc và dữ liệu hiện tại.
-   * Chạy **phpMyAdmin** tại `http://localhost:8080` (Tài khoản: `root`, Mật khẩu: `123456`) để bạn xem và quản lý bảng trực quan trên web.
-
-#### 👉 Cách 3: Dùng MySQL của XAMPP / Laragon
-Cập nhật `DATABASE_URL` trong `backend/.env`, rồi chạy `npm run db:init`. File `backend/database/schema.sql` thuộc cấu trúc cũ, chỉ dùng tham khảo; không import vào DB của API mới.
-
----
-
-### 2.4. Đăng nhập và kết nối DB
-
-Đăng nhập cần API và MySQL hoạt động. Khi kết nối lỗi, ứng dụng báo lỗi thay vì tạo phiên đăng nhập giả. Google cần OAuth Client ID thật, giống nhau trong frontend và backend; giá trị mẫu không dùng để đăng nhập được.
-
----
-
-## 📊 3. Cấu Trúc Bảng Dữ Liệu (Database Schema)
-
-```mermaid
-erDiagram
-    USERS ||--o{ TRIPS : "tạo"
-    CATEGORIES ||--o{ LOCATIONS : "phân loại"
-    TRIPS ||--o{ TRIP_LOCATIONS : "chứa"
-    LOCATIONS ||--o{ TRIP_LOCATIONS : "tham chiếu"
-
-    USERS {
-        int id PK
-        string google_id "Định danh Google"
-        string email "Email người dùng"
-        string password_hash "Mật khẩu mã hóa bcrypt"
-        string name "Tên lữ khách"
-        text avatar "Ảnh đại diện"
-        string role "user / admin"
-        string auth_provider "local / google"
-    }
-
-    CATEGORIES {
-        int id PK
-        string name "Tên danh mục"
-        string description "Mô tả"
-    }
-
-    LOCATIONS {
-        int id PK
-        string name "Tên địa điểm"
-        string address "Địa chỉ"
-        decimal latitude "Vĩ độ"
-        decimal longitude "Kinh độ"
-        point geo_point "Tọa độ không gian SRID 4326"
-        int category_id FK
-    }
-
-    TRIPS {
-        string id PK
-        int user_id FK
-        string title "Tên chuyến đi"
-        date start_date "Ngày bắt đầu"
-        date end_date "Ngày kết thúc"
-        string status "upcoming / ongoing / completed"
-    }
-
-    TRIP_LOCATIONS {
-        int id PK
-        string trip_id FK
-        decimal latitude
-        decimal longitude
-        int stop_order "Thứ tự trạm dừng"
-    }
-```
-
----
-
-## 🚀 4. Hướng Dẫn Khởi Chạy Toàn Bộ Dự Án
-
-### Bước 1: Khởi động Backend API (Port 5000)
-Mở Terminal 1:
 ```powershell
-cd "F:\DuAn\Plan_Travel\backend"
-npm start
-```
-*Kết quả thông báo thành công:*
-```text
-🚀 Plan Travel Backend running on http://localhost:5000
-✅ MySQL Database connected successfully (127.0.0.1:3306).
-✅ Tables (users, categories, locations) ready in MySQL.
+npm run install:all
+npm run db:generate
+npm run db:init
 ```
 
-### Bước 2: Khởi động Weather Microservice (Python FastAPI - Port 8000)
-Mở Terminal 2 (tùy chọn, phục vụ lấy dữ liệu thời tiết thực tế):
+- `install:all`: cài dependencies theo lockfile của `frontend/` và `backend/` bằng `npm ci`.
+- `db:generate`: tạo Prisma Client theo schema hiện tại.
+- `db:init`: tạo database local nếu thiếu, áp dụng toàn bộ migrations rồi thêm dữ liệu demo. Chạy lại không xóa dữ liệu hoặc đổi mật khẩu tài khoản đã tồn tại.
+
+Prisma migrations là nguồn cấu trúc database chính thức. Không dùng `prisma db push` thay cho bước này và không import `backend/database/schema.sql` vào database hiện tại; file SQL đó thuộc cấu trúc cũ.
+
+### 4. Chạy API và frontend
+
+Mở hai terminal tại thư mục gốc:
+
+**Terminal 1 — API Node.js:**
+
 ```powershell
-cd "F:\DuAn\Plan_Travel\backend\src"
-python -m uvicorn Weather:app --reload --port 8000
+npm run backend:dev
 ```
 
-### Bước 3: Khởi động Frontend (React 19 - Port 5173)
-Mở Terminal 3:
+**Terminal 2 — frontend:**
+
 ```powershell
-cd "F:\DuAn\Plan_Travel\Fornt End\Plan_travel"
 npm run dev
 ```
 
-Truy cập trình duyệt tại: **`http://localhost:5173`** để bắt đầu trải nghiệm!
+| Dịch vụ | Địa chỉ |
+| --- | --- |
+| Giao diện | http://localhost:5173 |
+| Kiểm tra API Node.js | http://localhost:5000/ |
+| API chính | http://localhost:5000/api |
+| phpMyAdmin, nếu dùng Docker | http://localhost:8080 |
 
----
+API không tự khởi tạo toàn bộ database khi chạy `npm start`; cần hoàn thành bước 3 trước khi đăng nhập.
 
-## 🔑 5. Cấu Hình Đăng Nhập Bằng Google (Google OAuth)
+### 5. Đăng nhập bằng tài khoản demo
 
-1. Mặc định trong môi trường phát triển: Nút **"Tiếp tục với Google"** trên giao diện hỗ trợ chế độ tương tác một chạm (Google One-Tap Simulator), cho phép chọn tài khoản Google mẫu để đăng nhập ngay lập tức.
-2. Khi muốn kích hoạt tài khoản Google thật:
-   * Lấy `Client ID` từ [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
-   * Điền vào file `Fornt End/Plan_travel/.env`:
-     ```env
-     VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-     ```
-   * Hệ thống sẽ tự động chuyển sang luồng xác thực chính thức của Google.
+Sau khi `db:init` thành công:
+
+| Email | Mật khẩu | Quyền |
+| --- | --- | --- |
+| `admin@plantravel.com` | `admin123456` | Admin |
+| `an.nguyen.traveler@gmail.com` | `travel123456` | User |
+| `linh.le.wanderlust@gmail.com` | `travel123456` | User |
+
+Đây là tài khoản demo local. Nếu tài khoản đã có và được đổi mật khẩu, seed giữ nguyên mật khẩu đó. Xem thêm [hướng dẫn database](backend/database/README.md).
+
+## Cập nhật mã nguồn trên máy đã cài
+
+Dừng API và frontend bằng `Ctrl+C` trong các terminal đang chạy, rồi thực hiện từ thư mục gốc trên nhánh cần cập nhật:
+
+```powershell
+git pull --ff-only
+npm run install:all
+npm run db:generate
+npm run db:migrate
+```
+
+Sau đó khởi động lại bằng `npm run backend:dev` và `npm run dev`. Với database đã có dữ liệu, dùng `db:migrate` để áp dụng migration mới; không cần seed lại. Bản hiện tại có migration `20261111160000_add_trip_expenses` để lưu từng khoản chi, người trả và người cùng chia.
+
+## Dịch vụ Python AI/thời tiết — tùy chọn
+
+Không cần chạy phần này để đăng ký, đăng nhập bằng mật khẩu, lập lịch thủ công, quản lý ngân sách hoặc dùng lịch trình mẫu. Thời tiết thực tế cần dịch vụ Python và khóa OpenWeatherMap; khi dịch vụ không hoạt động, giao diện dùng trạng thái dự phòng, không có dữ liệu thời tiết xác thực.
+
+Thêm các biến cần dùng vào **`backend/.env`**. Python đọc các biến `DB_*` riêng, nên chúng phải trỏ đến cùng database với `DATABASE_URL`:
+
+```dotenv
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=YOUR_MYSQL_PASSWORD
+DB_NAME=travel_planner
+OPEN_WEATHER_KEY=
+GEMINI_API_KEY=
+GEOAPIFY_API_KEY=
+```
+
+Điền `OPEN_WEATHER_KEY` để lấy thời tiết; `GEMINI_API_KEY` cho các API gọi Gemini; `GEOAPIFY_API_KEY` cho chức năng lấy địa điểm qua Geoapify ở API Node.js. Khi gọi Gemini, đặt thêm `GEMINI_MODEL` thành tên model mà khóa API của bạn hỗ trợ.
+
+Mở terminal thứ ba từ thư mục gốc:
+
+```powershell
+cd backend/python_service
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r src/requirements.txt
+cd src
+..\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8001
+```
+
+Trên macOS/Linux, tạo môi trường bằng `python3.11 -m venv .venv`, dùng `.venv/bin/python` để cài requirements và `../.venv/bin/python` khi chạy từ `src/`.
+
+Tài liệu API Python: `http://localhost:8001/docs`. Frontend hiện gọi dịch vụ này trên cổng `8001`; không dùng cổng `8000` trong hướng dẫn cũ. Dependencies có PyTorch và Sentence Transformers nên bước cài đặt/tải model có thể mất thời gian.
+
+## Đăng nhập Google — tùy chọn
+
+Đặt cùng một OAuth Client ID hợp lệ vào:
+
+- `GOOGLE_CLIENT_ID` trong `backend/.env`.
+- `VITE_GOOGLE_CLIENT_ID` trong `frontend/.env`.
+
+Thêm origin frontend đang chạy, ví dụ `http://localhost:5173`, vào danh sách JavaScript origins của OAuth client trong Google Cloud Console. Khởi động lại API và Vite sau khi sửa `.env`.
+
+Google login xác minh token thật ở backend; không có chế độ đăng nhập Google giả lập. Không cấu hình Google vẫn đăng ký/đăng nhập được bằng email và mật khẩu.
+
+## Build và kiểm thử
+
+```powershell
+npm run build
+npm run lint
+npm test
+```
+
+Build frontend nằm trong `frontend/dist/`. `npm test` có các bài kiểm tra tích hợp cần MySQL và dữ liệu demo; nên chạy trên database local dành cho kiểm thử, đã áp dụng migrations và seed.
+
+## Lỗi thường gặp
+
+| Hiện tượng | Cách kiểm tra |
+| --- | --- |
+| Vite báo phiên bản Node không hỗ trợ | Chạy `node -v`; dùng Node 24 hoặc Node 22 từ 22.12 trở lên. |
+| API không kết nối được MySQL | Kiểm tra MySQL đang chạy, cổng, mật khẩu và `DATABASE_URL` trong `backend/.env`. |
+| Thiếu bảng hoặc cột `expenses` | Chạy `npm run db:migrate`; với máy mới, chạy đủ các bước khởi tạo database. |
+| Prisma generate báo `EPERM` trên Windows | Dừng tiến trình API đang dùng Prisma Client bằng `Ctrl+C`, chạy lại `npm run db:generate`, rồi khởi động lại API. |
+| Cổng `5000`, `5173` hoặc `8001` bị chiếm | Kiểm tra terminal đang chạy dịch vụ trùng; dừng bản chạy cũ trước khi khởi động lại. |
+| Frontend báo lỗi API/CORS | `VITE_API_URL` phải có đuôi `/api`; `FRONTEND_URL` phải khớp origin frontend, kể cả `localhost` hoặc `127.0.0.1`. Khởi động lại sau khi đổi `.env`. |
+| Thời tiết không có dữ liệu | Kiểm tra Python ở cổng `8001` và `OPEN_WEATHER_KEY`. |
+
+## Cấu trúc thư mục
+
+```text
+Plan_Travel/
+├── frontend/                   # React, Vite và frontend/.env
+├── backend/
+│   ├── src/                    # Express API, services và scripts
+│   ├── prisma/                 # Schema và migrations
+│   ├── tests/                  # Kiểm thử Node.js/frontend và tích hợp MySQL
+│   ├── python_service/src/     # FastAPI: main.py, requirements.txt, ai/
+│   ├── database/README.md      # Hướng dẫn database và seed
+│   ├── compose.yml            # MySQL + phpMyAdmin
+│   └── .env                   # Cấu hình API và dịch vụ Python
+├── package.json               # Các lệnh chạy từ thư mục gốc
+└── README.md
+```
