@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { LogOut, User, Bell, Search, MapPin, Sparkles, Loader2, Users, ChevronDown, Compass, Shield } from 'lucide-react';
+import { LogOut, User, Bell, Search, MapPin, Menu, Loader2, Users, ChevronDown, Compass, Shield } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { locationService } from '../../services/locationService';
 import FriendModal from './FriendModal';
 import './Navbar.css';
 
-const Navbar = () => {
+const Navbar = ({ onOpenMenu }) => {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
@@ -104,6 +104,7 @@ const Navbar = () => {
     <>
       <header className="glass navbar-header">
         <div className="navbar-left">
+          <button type="button" className="navbar-menu-toggle" aria-label="Mở menu" aria-haspopup="dialog" aria-controls="mobile-navigation" onClick={onOpenMenu}><Menu size={22} /></button>
           <Link to="/" className="navbar-brand">
             <div className="navbar-brand-badge">
               <Compass size={20} />
@@ -115,6 +116,7 @@ const Navbar = () => {
             <Search size={16} className="navbar-search-icon" />
             <input
               type="text"
+              aria-label="Tìm kiếm điểm đến"
               placeholder="Tìm kiếm điểm đến..."
               className="navbar-search-input"
               value={searchQuery}
@@ -132,7 +134,7 @@ const Navbar = () => {
                 ) : searchResults.length > 0 ? (
                   <div className="navbar-search-results">
                     {searchResults.map(loc => (
-                      <div
+                      <button type="button"
                         key={loc.id || loc.name}
                         className="navbar-search-item"
                         onClick={() => handleResultClick(loc)}
@@ -142,7 +144,7 @@ const Navbar = () => {
                           <div className="navbar-search-item-name">{loc.name}</div>
                           <div className="navbar-search-item-region">{loc.region || loc.address || 'Việt Nam'}</div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 ) : (
@@ -175,7 +177,7 @@ const Navbar = () => {
 
           {user ? (
             <div className="navbar-user" ref={userDropdownRef}>
-              <div
+              <button type="button" aria-label="Menu tài khoản" aria-expanded={showUserDropdown}
                 className="navbar-user-trigger"
                 onClick={() => setShowUserDropdown(prev => !prev)}
               >
@@ -186,28 +188,28 @@ const Navbar = () => {
                   src={avatarSrc}
                   alt={userName}
                   className="navbar-user-avatar"
-                  onError={() => setAvatarSrc('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200')}
+                  onError={() => setAvatarSrc('/avatars/traveler.svg')}
                 />
                 <ChevronDown size={15} className={`navbar-chevron ${showUserDropdown ? 'open' : ''}`} />
-              </div>
+              </button>
 
               {showUserDropdown && (
                 <div className="navbar-user-dropdown glass">
-                  <div className="navbar-user-dropdown-item" onClick={handleGoToProfile}>
+                  <button type="button" className="navbar-user-dropdown-item" onClick={handleGoToProfile}>
                     <User size={15} /> <span>Trang cá nhân</span>
-                  </div>
-                  <div className="navbar-user-dropdown-item" onClick={handleOpenFriendModal}>
+                  </button>
+                  <button type="button" className="navbar-user-dropdown-item" onClick={handleOpenFriendModal}>
                     <Users size={15} /> <span>Bạn bè & Lời mời</span>
-                  </div>
+                  </button>
                   {isAdmin && (
-                    <div className="navbar-user-dropdown-item" onClick={handleGoToAdmin}>
+                    <button type="button" className="navbar-user-dropdown-item" onClick={handleGoToAdmin}>
                       <Shield size={15} /> <span>Quản trị hệ thống</span>
-                    </div>
+                    </button>
                   )}
                   <div className="navbar-user-dropdown-divider" />
-                  <div className="navbar-user-dropdown-item navbar-user-dropdown-logout" onClick={handleLogout}>
+                  <button type="button" className="navbar-user-dropdown-item navbar-user-dropdown-logout" onClick={handleLogout}>
                     <LogOut size={15} /> <span>Đăng xuất</span>
-                  </div>
+                  </button>
                 </div>
               )}
             </div>

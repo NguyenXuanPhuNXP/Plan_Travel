@@ -14,6 +14,8 @@
   overflow-y: auto;
 }
 
+.sidebar-image-credits { color: var(--text-muted); font-size: 0.75rem; text-decoration: underline; }
+
 .sidebar-group {
   display: flex;
   flex-direction: column;
@@ -24,7 +26,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-light);
+  color: var(--text-muted);
   margin-bottom: 0.75rem;
   padding-left: 0.5rem;
 }

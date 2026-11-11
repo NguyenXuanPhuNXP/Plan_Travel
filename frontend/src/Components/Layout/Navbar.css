@@ -281,3 +281,26 @@
   display: flex;
   gap: 0.65rem;
 }
+
+.navbar-menu-toggle { display: none; }
+.navbar-search-item, .navbar-user-dropdown-item { text-align: left; width: 100%; }
+@media (max-width: 900px) {
+  .navbar-header { padding-inline: 1rem; }
+  .navbar-left, .navbar-right { gap: 0.5rem; }
+  .navbar-menu-toggle { display: grid; place-items: center; width: 40px; height: 44px; flex: none; color: var(--text-main); }
+  .navbar-user-info { display: none; }
+  .navbar-user { padding-left: 0; border: 0; }
+  .navbar-bell, .navbar-user-trigger { min-width: 44px; min-height: 44px; }
+  .navbar-search-container { width: 220px; }
+}
+@media (max-width: 600px) {
+  :root { --header-height: 120px; }
+  .navbar-header { align-items: flex-start; padding-top: 8px; }
+  .navbar-left { height: 44px; }
+  .navbar-brand { gap: 0.4rem; }
+  .navbar-brand-name { font-size: 1rem; }
+  .navbar-brand-badge { width: 30px; height: 30px; }
+  .navbar-chevron { display: none; }
+  .navbar-search-container { position: absolute; top: 64px; left: 16px; right: 16px; width: auto; }
+  .navbar-search-input { height: 44px; font-size: 16px; }
+}

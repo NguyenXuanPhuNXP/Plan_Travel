@@ -39,12 +39,14 @@ import {
   Edit3,
   GripVertical
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { sharingService } from '../services/sharingService';
 import { friendService } from '../services/friendService';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import './TripDetails.css';
+import { tripStatusLabel } from '../utils/tripStatus';
+import { destinationImage, handleImageError, DESTINATION_PLACEHOLDER } from '../utils/destinationImages';
 
 
 
@@ -53,7 +55,8 @@ const TripDetails = () => {
   const editorRef = useRef(null);
   const [liveDraft, setLiveDraft] = useState(null);
   const [showPackingPicker, setShowPackingPicker] = useState(false);
-  const { getTripById, updateTrip, fetchTrips } = useTrips();
+  const { getTripById, fetchTrips } = useTrips();
+  const [statusSaving, setStatusSaving] = useState(false);
   const { user } = useAuth();
   const { pushNotification } = useNotifications();
   const { location: _currentPos, error: geoError, loading: geoLoading, getLocation } = useGeolocation();
@@ -64,7 +67,7 @@ const TripDetails = () => {
   const [isLoadingTrip, setIsLoadingTrip] = useState(!trip);
   const [savedPackingItems, setPackingItems] = useState(trip?.packingItems || []);
   const packingItems = liveDraft?.packingItems || savedPackingItems;
-  const [selectedDayTab, setSelectedDayTab] = useState('all');
+  const [selectedDayTab, setSelectedDayTab] = useState(null);
 
   useEffect(() => {
     async function loadFreshTrip() {
@@ -137,7 +140,7 @@ const TripDetails = () => {
       lat: hasValidCoords ? lat : null,
       lng: hasValidCoords ? lng : null,
       hasRealCoords: hasValidCoords,
-      image: source.image || source.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
+      image: source.image || source.imageUrl || DESTINATION_PLACEHOLDER,
       suggestedDuration: source.suggestedDuration || null,
       estimatedCost: Number(source.estimatedCost || 0)
     };
@@ -202,18 +205,19 @@ const TripDetails = () => {
   const getDaysLeft = (dateStr) => {
     try {
       if (!dateStr) return '';
-      const diff = differenceInDays(new Date(dateStr), new Date());
+      const diff = differenceInCalendarDays(new Date(dateStr), new Date());
       if (diff > 0) return `Còn ${diff} ngày nữa`;
       if (diff === 0) return 'Khởi hành hôm nay!';
-      return 'Đã kết thúc';
+      return 'Đã qua ngày khởi hành';
     } catch {
       return '';
     }
   };
 
-  const visibleDayGroups = selectedDayTab === 'all'
+  const activeDayTab = selectedDayTab ?? groupedLocationsByDay[0]?.day ?? 1;
+  const visibleDayGroups = activeDayTab === 'all'
     ? groupedLocationsByDay
-    : groupedLocationsByDay.filter(dg => dg.day === selectedDayTab);
+    : groupedLocationsByDay.filter(dg => dg.day === activeDayTab);
 
   useEffect(() => {
     if (trip && locations.length > 0) {
@@ -309,9 +313,19 @@ const TripDetails = () => {
     );
   };
 
-  const handleFinishTrip = () => {
+  const changeStatus = async status => {
+    setStatusSaving(true);
+    try {
+      const updated = await editorRef.current?.saveStatus(status);
+      if (!updated) setToast('Chưa đổi được trạng thái. Hãy kiểm tra thông báo trong phần chỉnh sửa.');
+      return updated;
+    } catch (error) { setToast(error.message); return null; }
+    finally { setStatusSaving(false); }
+  };
+
+  const handleFinishTrip = async () => {
     if (completionResult && completionResult.success) {
-      updateTrip(trip.id, { status: 'completed' });
+      if (!await changeStatus('completed')) return;
       setIsConfirming(false);
       pushNotification('Chúc mừng bạn đã hoàn thành chuyến đi!', 'success');
     }
@@ -505,20 +519,18 @@ const TripDetails = () => {
 
         {/* Hero Info - Signature Web Framing */}
         <div className="trip-details-featured-hero">
-          <div
+          <img alt="" onError={handleImageError}
             className="trip-details-hero-bg"
-            style={{
-              backgroundImage: `url(${locations[0]?.image || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=1400'})`
-            }}
+            src={destinationImage(trip.destination, locations[0]?.image)}
           />
           <div className="trip-details-hero-overlay" />
           <div className="trip-details-hero-content">
             <div className="trip-details-hero-top">
-              <span className={`badge ${trip.status === 'upcoming' ? 'badge-gold' : (trip.status === 'ongoing' ? 'badge-forest' : 'badge-completed')}`}>
-                {trip.status === 'upcoming' ? 'CHUYẾN ĐI SẮP TỚI' : (trip.status === 'ongoing' ? 'ĐANG DIỄN RA' : 'ĐÃ HOÀN THÀNH')}
+              <span className={`badge ${trip.status === 'generated' ? 'badge-forest' : 'badge-completed'}`}>
+                {tripStatusLabel(trip.status)}
               </span>
               <div className="trip-details-hero-top-right">
-                {trip.startDate && (
+                {trip.startDate && !['completed', 'cancelled'].includes(trip.status) && (
                   <span className="trip-details-hero-countdown">
                     <Clock size={13} /> {getDaysLeft(trip.startDate)}
                   </span>
@@ -577,16 +589,17 @@ const TripDetails = () => {
                   <Edit3 size={16} /> Chỉnh sửa kế hoạch
                 </button>
               )}
-              {canEditTrip && trip.status !== 'completed' && (
+              {canEditTrip && ['draft', 'generated'].includes(trip.status) && (
                 <button
-                  onClick={() => updateTrip(trip.id, { status: trip.status === 'upcoming' ? 'ongoing' : 'upcoming' })}
-                  className={`btn ${trip.status === 'upcoming' ? 'btn-primary' : 'btn-outline trip-details-glass-btn'}`}
+                  disabled={statusSaving}
+                  onClick={() => changeStatus(trip.status === 'draft' ? 'generated' : 'draft')}
+                  className="btn btn-outline trip-details-glass-btn"
                 >
-                  {trip.status === 'upcoming' ? 'Bắt đầu chuyến đi' : 'Tạm dừng chuyến đi'}
+                  {statusSaving ? 'Đang lưu…' : trip.status === 'draft' ? 'Sẵn sàng khởi hành' : 'Chuyển về bản nháp'}
                 </button>
               )}
-              {canEditTrip && trip.status !== 'completed' && (
-                <button onClick={handleVerifyLocation} className="btn trip-details-action-finish">
+              {canEditTrip && ['draft', 'generated'].includes(trip.status) && (
+                <button disabled={statusSaving} onClick={handleVerifyLocation} className="btn trip-details-action-finish">
                   <CheckCircle size={16} /> Hoàn thành chuyến đi
                 </button>
               )}
@@ -683,7 +696,7 @@ const TripDetails = () => {
               <div className="trip-details-map-view">
                 <MapComponent
                   selectedLocations={(isEditingInfo ? editingLocations : locations).map(normalizeMapLoc)}
-                  onLocationAdd={canEditTrip ? location => editorRef.current?.addStop(location, selectedDayTab === 'all' ? 1 : selectedDayTab) : undefined}
+                  onLocationAdd={canEditTrip ? location => editorRef.current?.addStop(location, activeDayTab === 'all' ? 1 : activeDayTab) : undefined}
                   onLocationRemove={canEditTrip ? key => editorRef.current?.removeStop(key) : undefined}
                 />
               </div>
@@ -699,13 +712,14 @@ const TripDetails = () => {
                   <p className="trip-details-timeline-subtitle">
                     {canEditTrip ? 'Chọn địa điểm trên bản đồ hoặc thêm hoạt động riêng. Kéo thả để đổi thứ tự, như khi lập lịch thủ công.' : 'Bấm vào từng điểm dừng để xem dự báo thời tiết và chi tiết hoạt động'}
                   </p>
-                  {canEditTrip && <button type="button" className="btn btn-outline trip-stop-add" onClick={() => editorRef.current?.addStop(null, selectedDayTab === 'all' ? 1 : selectedDayTab)}><Plus size={14} /> Thêm hoạt động</button>}
+                  {canEditTrip && <button type="button" className="btn btn-outline trip-stop-add" onClick={() => editorRef.current?.addStop(null, activeDayTab === 'all' ? 1 : activeDayTab)}><Plus size={14} /> Thêm hoạt động</button>}
                 </div>
                 {groupedLocationsByDay.length > 1 && (
                   <div className="trip-details-day-tabs">
                     <button
                       type="button"
-                      className={`trip-details-day-tab ${selectedDayTab === 'all' ? 'active' : ''}`}
+                      className={`trip-details-day-tab ${activeDayTab === 'all' ? 'active' : ''}`}
+                      aria-pressed={activeDayTab === 'all'}
                       onClick={() => setSelectedDayTab('all')}
                     >
                       Tất cả ngày ({locations.length})
@@ -714,7 +728,8 @@ const TripDetails = () => {
                       <button
                         key={dg.day}
                         type="button"
-                        className={`trip-details-day-tab ${selectedDayTab === dg.day ? 'active' : ''}`}
+                        className={`trip-details-day-tab ${activeDayTab === dg.day ? 'active' : ''}`}
+                        aria-pressed={activeDayTab === dg.day}
                         onClick={() => setSelectedDayTab(dg.day)}
                       >
                         Ngày {dg.day} ({dg.items.length})
@@ -754,12 +769,10 @@ const TripDetails = () => {
                             <div className="trip-details-timeline-body">
                               <div className="trip-details-timeline-thumb-box">
                                 <img
-                                  src={loc.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'}
+                                  src={destinationImage(loc.name, loc.image)}
                                   alt={loc.name}
                                   className="trip-details-timeline-img"
-                                  onError={(e) => {
-                                    e.target.src = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1';
-                                  }}
+                                  onError={handleImageError}
                                 />
                               </div>
 
@@ -1053,7 +1066,7 @@ const TripDetails = () => {
                   <button onClick={() => setIsConfirming(false)} className="btn btn-outline trip-details-modal-btn">Hủy</button>
                   <button
                     onClick={handleFinishTrip}
-                    disabled={!completionResult?.success}
+                    disabled={!completionResult?.success || statusSaving}
                     className="btn btn-primary trip-details-modal-btn trip-details-modal-btn-confirm"
                   >
                     Xác nhận hoàn thành

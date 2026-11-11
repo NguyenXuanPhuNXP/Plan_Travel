@@ -12,6 +12,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Search, Loader2, Thermometer, CloudRain } from 'lucide-react';
 import { WeatherService } from '../../services/WeatherService';
+import { DESTINATION_PLACEHOLDER, handleImageError } from '../../utils/destinationImages';
 
 // Fix Leaflet icon issue
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -76,7 +77,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
           address: display_name,
           lat: parseFloat(lat),
           lng: parseFloat(lon),
-          image: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800'
+          image: DESTINATION_PLACEHOLDER
         });
         setSearchQuery('');
       }
@@ -184,7 +185,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
               address: `Vĩ độ: ${latlng.lat.toFixed(4)}, Kinh độ: ${latlng.lng.toFixed(4)}`,
               lat: latlng.lat,
               lng: latlng.lng,
-              image: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800'
+              image: DESTINATION_PLACEHOLDER
             });
           }
         }} />
@@ -199,7 +200,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
           >
             <Popup>
               <div style={{ padding: '0.5rem' }}>
-                <img src={loc.image} alt={loc.name} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '4px', marginBottom: '0.5rem' }} />
+                <img src={loc.image || DESTINATION_PLACEHOLDER} onError={handleImageError} alt={loc.name} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '4px', marginBottom: '0.5rem' }} />
                 <h4 style={{ margin: '0 0 0.25rem 0' }}>{loc.name}</h4>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 0.5rem 0' }}>{loc.address}</p>
                 

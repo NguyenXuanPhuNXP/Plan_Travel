@@ -114,6 +114,19 @@ test('Editor keeps all five sections as a draft, survives save failure and sends
         await change('Tên kế hoạch', 'Second inline save');
         await click('Lưu toàn bộ thay đổi');
         assert.equal(inlineSaved.name, 'Second inline save');
+        await act(async () => { await editorRef.current.saveStatus('generated'); });
+        assert.equal(fixture.calls.at(-1).status, 'generated');
+        assert.equal(inlineSaved.status, 'generated', 'Header status action must update the displayed trip after saving');
+        assert.equal(field('Trạng thái', 'select').props.value, 'generated');
+        const statusSaveCount = fixture.calls.length;
+        await change('Tên kế hoạch', 'Keep this unsaved edit');
+        await assert.rejects(() => editorRef.current.saveStatus('draft'), /Hãy lưu hoặc bỏ/);
+        assert.equal(fixture.calls.length, statusSaveCount, 'Status actions must not overwrite unsaved changes');
+        assert.equal(field('Tên kế hoạch').props.value, 'Keep this unsaved edit');
+        await click('Bỏ thay đổi');
+        fixture.fail = true;
+        await act(async () => { await editorRef.current.saveStatus('completed'); });
+        assert.equal(inlineSaved.status, 'generated', 'A failed status save must not claim the trip is completed');
     } finally {
         if (renderer) await act(async () => renderer.unmount());
         globalThis.__planEditor = previous.fixture;

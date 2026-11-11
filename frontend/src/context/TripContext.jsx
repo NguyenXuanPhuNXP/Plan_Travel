@@ -25,7 +25,7 @@ function normalizeTrip(trip) {
     items,
     budget,
     totalCost,
-    status: trip.status || 'upcoming',
+    status: trip.status || 'draft',
     startDate: trip.startDate || trip.tripDate || null,
     endDate: trip.endDate || null,
     packingItems: Array.isArray(trip.packingItems) ? trip.packingItems : [],

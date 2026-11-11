@@ -1315,6 +1315,16 @@
 .trip-stop-name:focus { outline: 2px solid var(--primary); border-radius: 5px; }
 .trip-stop-add { margin-top: 12px; }
 .trip-stop-fields { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color, #ddd); }
+.trip-details-hero-bg { width: 100%; height: 100%; object-fit: cover; }
+.trip-details-hero-title { overflow-wrap: anywhere; }
+#plan-editor, [data-editor-section] { scroll-margin-top: calc(var(--header-height) + 16px); }
+@media (max-width: 600px) {
+  .trip-details-hero-content { padding: 1.25rem; }
+  .trip-details-hero-title { font-size: 1.6rem; }
+  .trip-details-hero-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .trip-details-hero-actions .btn { min-height: 44px; white-space: normal; }
+  .trip-details-hero-top { flex-wrap: wrap; gap: 0.5rem; }
+}
 .trip-stop-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .trip-stop-inputs label { display: flex; flex-direction: column; gap: 5px; font-size: .78rem; color: var(--text-muted); }
 .trip-stop-inputs input, .trip-stop-note, .trip-draft-packing-form input { width: 100%; min-width: 0; padding: 8px; font: inherit; color: var(--text-main); border: 1px solid var(--border-color, #ddd); border-radius: 7px; background: var(--bg-card, #fff); }
