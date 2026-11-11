@@ -5,6 +5,7 @@ import { useTrips } from '../context/TripContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { itineraryService } from '../services/itineraryService';
 import { locationService } from '../services/locationService';
+import { DESTINATION_PLACEHOLDER } from '../utils/destinationImages';
 import { friendService } from '../services/friendService';
 import { motion, Reorder } from 'framer-motion';
 import {
@@ -264,7 +265,7 @@ const TripPlanner = () => {
         longitude: loc.longitude || 105.8542,
         category: 'manual',
         region: tripInfo.endLocation || 'Việt Nam',
-        imageUrl: loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
+        imageUrl: loc.imageUrl || loc.image || DESTINATION_PLACEHOLDER,
         estimatedCost: 0,
         suggestedDuration: `${loc.durationMinutes || 60} phút`
       });
@@ -999,6 +1000,7 @@ const TripPlanner = () => {
               <input
                 type="text"
                 className="trip-planner-topbar-title-input"
+                aria-label="Tên chuyến đi"
                 placeholder="Đặt tên chuyến đi của bạn..."
                 value={tripInfo.title}
                 onChange={(e) => setTripInfo({ ...tripInfo, title: e.target.value })}

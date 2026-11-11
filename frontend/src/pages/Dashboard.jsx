@@ -9,18 +9,19 @@ import {
   ArrowRight,
   Plus,
   Clock,
-  Navigation,
-  Flame
+  Navigation
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import './Dashboard.css';
+import { tripStatusLabel } from '../utils/tripStatus';
+import { destinationImage, handleImageError } from '../utils/destinationImages';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const { trips } = useTrips();
 
-  const upcomingTrip = trips.find(t => t.status === 'upcoming') || trips[0];
+  const upcomingTrip = trips.find(t => t.status === 'generated') || trips.find(t => t.status === 'draft');
 
   const recentTrips = [...trips]
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -29,10 +30,10 @@ const Dashboard = () => {
   const getDaysLeft = (dateStr) => {
     try {
       if (!dateStr) return '';
-      const diff = differenceInDays(new Date(dateStr), new Date());
+      const diff = differenceInCalendarDays(new Date(dateStr), new Date());
       if (diff > 0) return `Còn ${diff} ngày nữa`;
       if (diff === 0) return 'Khởi hành hôm nay!';
-      return 'Đã kết thúc';
+      return 'Đã qua ngày khởi hành';
     } catch {
       return '';
     }
@@ -59,7 +60,7 @@ const Dashboard = () => {
         <div className="dashboard-header">
           <div className="dashboard-welcome">
             <h1 className="dashboard-title">
-              {getGreeting()}, {user?.name?.split(' ')[0] || 'bạn'} 👋
+              {getGreeting()}, {(user?.fullName || user?.name)?.split(' ').at(-1) || 'bạn'}
             </h1>
             <p className="dashboard-subtitle">
               Khám phá các điểm đến và quản lý lịch trình cho chuyến đi tiếp theo của bạn.
@@ -81,11 +82,9 @@ const Dashboard = () => {
         {/* Featured Trip Card */}
         {upcomingTrip ? (
           <div className="dashboard-featured-hero">
-            <div
+            <img alt="" onError={handleImageError}
               className="dashboard-hero-bg"
-              style={{
-                backgroundImage: `url(${getLocationsArray(upcomingTrip)[0]?.image || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=1200'})`
-              }}
+              src={destinationImage(upcomingTrip.destination, getLocationsArray(upcomingTrip)[0]?.image)}
             />
             <div className="dashboard-hero-overlay" />
             <div className="dashboard-hero-content">
@@ -126,7 +125,7 @@ const Dashboard = () => {
         ) : (
           <div className="dashboard-hero-empty">
             <div className="dashboard-hero-empty-content">
-              <h2 className="dashboard-hero-empty-title">Bạn chưa có kế hoạch nào</h2>
+              <h2 className="dashboard-hero-empty-title">{trips.length ? 'Sẵn sàng cho hành trình tiếp theo?' : 'Bạn chưa có kế hoạch nào'}</h2>
               <p className="dashboard-hero-empty-desc">
                 Bắt đầu tạo lịch trình và lựa chọn các điểm đến thú vị ngay hôm nay.
               </p>
@@ -185,12 +184,13 @@ const Dashboard = () => {
                   <Link key={trip.id} to={`/trip/${trip.id}`} className="card dashboard-trip-postcard">
                     <div className="dashboard-postcard-img-box">
                       <img
-                        src={locs[0]?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'}
+                        src={destinationImage(trip.destination, locs[0]?.image)}
+                        onError={handleImageError} loading="lazy"
                         alt={trip.title || trip.name}
                         className="dashboard-postcard-img"
                       />
                       <div className="dashboard-postcard-tag">
-                        {trip.status === 'upcoming' ? 'Sắp tới' : (trip.status === 'ongoing' ? 'Đang đi' : 'Đã đi')}
+                        {tripStatusLabel(trip.status)}
                       </div>
                     </div>
 
@@ -229,16 +229,13 @@ const Dashboard = () => {
 
           <div className="dashboard-destinations-grid">
             {TRENDING_DESTINATIONS.map((dest) => (
-              <div key={dest.id} className="dashboard-dest-card">
-                <img src={dest.image} alt={dest.name} className="dashboard-dest-img" />
+              <Link to={`/explore?q=${encodeURIComponent(dest.name)}`} key={dest.id} className="dashboard-dest-card">
+                <img src={destinationImage(dest.name)} alt={dest.name} className="dashboard-dest-img" onError={handleImageError} loading="lazy" />
                 <div className="dashboard-dest-overlay" />
                 <div className="dashboard-dest-info">
-                  <div className="dashboard-dest-tag">
-                    <Flame size={12} /> {dest.trips}+ kế hoạch
-                  </div>
                   <h3 className="dashboard-dest-name">{dest.name}</h3>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </section>

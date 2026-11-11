@@ -18,7 +18,7 @@ function Field({ label, children }) { return <label className="plan-edit-field">
 function EditorFrame({ embedded, children }) { return embedded ? <>{children}</> : <Layout>{children}</Layout>; }
 function EditorSection({ embedded, title, section, visible, children }) {
   if (embedded && ['schedule', 'packing'].includes(section)) return null;
-  if (embedded) return <details id={`plan-editor-${section}`} data-editor-section={section} className="plan-edit-inline-section" open={title === 'Thông tin'}><summary>{title}</summary><div>{children}</div></details>;
+  if (embedded) return <details id={`plan-editor-${section}`} data-editor-section={section} className="plan-edit-inline-section"><summary>{title}</summary><div>{children}</div></details>;
   return visible ? <>{children}</> : null;
 }
 
@@ -64,6 +64,11 @@ export default function TripEdit({ embedded = false, onSaved, onCancel, onDraftC
   const change = (key, value) => { setDirty(true); setDraft(previous => ({ ...previous, [key]: value })); };
   useEffect(() => { if (draft) onDraftChange?.(draft); }, [draft, onDraftChange]);
   useImperativeHandle(editorRef, () => ({
+    saveStatus: async status => {
+      if (saving) return null;
+      if (dirty) throw new Error('Hãy lưu hoặc bỏ các thay đổi đang chỉnh sửa trước khi đổi trạng thái.');
+      return save({ ...draft, status });
+    },
     openSection: section => {
       const target = rootRef.current?.querySelector(`[data-editor-section="${section}"]`);
       if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
@@ -144,14 +149,15 @@ export default function TripEdit({ embedded = false, onSaved, onCancel, onDraftC
     if (embedded) { setDraft(createPlanDraft(trip)); setDirty(false); setError(''); onCancel?.(); }
     else navigate(`/trip/${id}`);
   };
-  const save = async () => {
+  const save = async (nextDraft = draft) => {
     setError('');
     if (!draft.name.trim()) { setError('Hãy đặt tên cho kế hoạch.'); setTab('general'); return; }
     if (draft.startDate && draft.endDate && new Date(draft.endDate) < new Date(draft.startDate)) { setError('Ngày kết thúc phải sau ngày bắt đầu.'); setTab('general'); return; }
     setSaving(true);
     try {
-      const updated = await itineraryService.savePlan(id, planPayload(draft, trip, isOwner));
+      const updated = await itineraryService.savePlan(id, planPayload(nextDraft, trip, isOwner));
       addTrip(updated); setTrip(updated); setDraft(createPlanDraft(updated)); setDirty(false); if (embedded) onSaved?.(updated); else navigate(`/trip/${id}`, { replace: true });
+      return updated;
     } catch (err) { setError(err.response?.data?.message || 'Chưa lưu được thay đổi. Dữ liệu bạn đang nhập vẫn được giữ.'); }
     finally { setSaving(false); }
   };
@@ -201,6 +207,6 @@ export default function TripEdit({ embedded = false, onSaved, onCancel, onDraftC
         {isOwner && <Field label="Chia sẻ kế hoạch"><select value={draft.visibility} onChange={event => change('visibility', event.target.value)}><option value="private">Riêng tư / thành viên đã mời</option><option value="shared">Chia sẻ với nhóm</option><option value="public_view">Ai có liên kết đều được xem</option><option value="public_edit">Ai có liên kết và đăng nhập được sửa</option></select></Field>}
       </EditorSection>
     </fieldset>
-    <footer className="plan-edit-savebar"><span>{dirty ? 'Thay đổi chưa được lưu' : <><Check size={16} /> Chưa có thay đổi</>}</span><div><button type="button" className="btn btn-outline" onClick={cancel} disabled={saving}>{embedded ? 'Bỏ thay đổi' : 'Hủy chỉnh sửa'}</button><button type="button" className="btn btn-primary" onClick={save} disabled={saving || !dirty}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Lưu toàn bộ thay đổi</button></div></footer>
+    <footer className="plan-edit-savebar"><span>{dirty ? 'Thay đổi chưa được lưu' : <><Check size={16} /> Chưa có thay đổi</>}</span><div><button type="button" className="btn btn-outline" onClick={cancel} disabled={saving}>{embedded ? 'Bỏ thay đổi' : 'Hủy chỉnh sửa'}</button><button type="button" className="btn btn-primary" onClick={() => save()} disabled={saving || !dirty}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Lưu toàn bộ thay đổi</button></div></footer>
   </div></EditorFrame>;
 }

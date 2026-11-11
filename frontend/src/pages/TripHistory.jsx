@@ -18,6 +18,8 @@ import {
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import './TripHistory.css';
+import { tripStatusLabel } from '../utils/tripStatus';
+import { destinationImage, handleImageError } from '../utils/destinationImages';
 
 const TripHistory = () => {
   const safeFormatDate = (value) => {
@@ -49,8 +51,9 @@ const TripHistory = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'upcoming': return 'var(--primary)';
-      case 'ongoing': return 'var(--secondary)';
+      case 'draft': return 'var(--text-muted)';
+      case 'generated': return 'var(--secondary)';
+      case 'cancelled': return 'var(--accent-danger)';
       case 'completed': return 'var(--text-muted)';
       default: return 'var(--text-main)';
     }
@@ -58,9 +61,10 @@ const TripHistory = () => {
 
   const tabs = [
     { id: 'all', label: 'Tất cả', icon: TrendingUp },
-    { id: 'upcoming', label: 'Sắp tới', icon: CalendarDays },
-    { id: 'ongoing', label: 'Đang đi', icon: Clock },
+    { id: 'draft', label: 'Bản nháp', icon: Clock },
+    { id: 'generated', label: 'Sẵn sàng', icon: CalendarDays },
     { id: 'completed', label: 'Hoàn thành', icon: CheckCircle2 },
+    { id: 'cancelled', label: 'Đã hủy', icon: Trash2 },
   ];
 
   return (
@@ -84,6 +88,7 @@ const TripHistory = () => {
             <input
               type="text"
               placeholder="Tìm kiếm chuyến đi..."
+              aria-label="Tìm kiếm chuyến đi"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="trip-history-search-input"
@@ -94,6 +99,7 @@ const TripHistory = () => {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
+                aria-pressed={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`trip-history-tab ${activeTab === tab.id ? 'active' : ''}`}
               >
@@ -120,7 +126,7 @@ const TripHistory = () => {
               const firstLocName = (locations[0]?.name || locations[0]?.customName || 'Chưa có điểm').split(',')[0];
               const budgetVal = Number(trip.budget != null ? trip.budget : (trip.totalCost != null ? trip.totalCost : 0));
 
-              const tripImage = locations[0]?.image || locations[0]?.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800';
+              const tripImage = destinationImage(trip.destination, locations[0]?.image || locations[0]?.imageUrl);
 
               return (
               <motion.div
@@ -136,13 +142,13 @@ const TripHistory = () => {
                     src={tripImage}
                     alt={tripTitle}
                     className="trip-history-img"
-                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800'; }}
+                    onError={handleImageError} loading="lazy"
                   />
                   <div
                     className="trip-history-img-badge"
                     style={{ color: getStatusColor(trip.status) }}
                   >
-                    {tabs.find(t => t.id === trip.status)?.label || (trip.status === 'upcoming' ? 'Sắp tới' : (trip.status === 'ongoing' ? 'Đang đi' : 'Đã đi'))}
+                    {tripStatusLabel(trip.status)}
                   </div>
                   {trip.owner && String(trip.owner.id) !== String(user?.id) && (
                     <div className="trip-history-badge-shared-float">

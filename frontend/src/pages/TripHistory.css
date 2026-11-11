@@ -81,7 +81,7 @@
 
 .trip-history-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 1.5rem;
 }
 
@@ -151,12 +151,28 @@
 }
 
 .trip-history-footer {
+  flex-wrap: wrap;
+  gap: 0.75rem;
   margin-top: 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding-top: 1rem;
   border-top: 1px solid var(--border-color);
+}
+
+.trip-history-budget { flex-basis: 100%; order: -1; }
+.trip-history-detail-link { white-space: nowrap; }
+.trip-history-card-title { overflow-wrap: anywhere; }
+.trip-history-filters { flex-wrap: wrap; }
+.trip-history-search { min-width: min(240px, 100%); }
+.trip-history-tabs { flex-wrap: wrap; border-left: 0; padding-left: 0; }
+@media (max-width: 600px) {
+  .trip-history-header { align-items: flex-start; flex-direction: column; gap: 1rem; }
+  .trip-history-title { font-size: 1.5rem; }
+  .trip-history-filters { padding: 1rem; gap: 1rem; }
+  .trip-history-search { flex-basis: 100%; }
+  .trip-history-tab { min-height: 44px; padding: 0.5rem 0.65rem; }
 }
 
 .trip-history-budget {

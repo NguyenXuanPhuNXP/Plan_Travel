@@ -113,6 +113,7 @@ const Sidebar = () => {
           </Link>
         </div>
       </div>
+      <a href="/images/credits.html" target="_blank" rel="noreferrer" className="sidebar-image-credits">Nguồn ảnh điểm đến</a>
     </aside>
   );
 };

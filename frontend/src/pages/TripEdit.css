@@ -526,10 +526,13 @@
 
   .plan-edit-savebar div {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .plan-edit-savebar button {
     flex: 1;
+    min-height: 44px;
+    white-space: normal;
   }
 
   .plan-edit-search {

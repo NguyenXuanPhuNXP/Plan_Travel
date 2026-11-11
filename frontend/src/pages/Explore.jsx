@@ -10,8 +10,7 @@ import {
   Thermometer, X, MapPin
 } from 'lucide-react';
 import './Explore.css';
-
-const DEFAULT_LOCATION_IMAGE = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800';
+import { destinationImage, handleImageError } from '../utils/destinationImages';
 
 const CATEGORY_TO_VIBE_TAGS = {
   tourism: ['culture'],
@@ -94,7 +93,7 @@ const normalizeExploreDestination = (loc, fallbackPlanCount = 0) => {
     ...template,
     ...loc,
     id: String(loc.id),
-    image: loc.imageUrl || loc.image_url || loc.image || template?.image || DEFAULT_LOCATION_IMAGE,
+    image: destinationImage(loc.name, loc.imageUrl || loc.image_url || loc.image),
     planCount,
     trips: planCount,
     latitude: loc.latitude ?? loc.lat ?? template?.latitude,
@@ -102,7 +101,7 @@ const normalizeExploreDestination = (loc, fallbackPlanCount = 0) => {
     bestSeason: loc.bestSeason || template?.bestSeason || 'Quanh năm',
     avgCost: locationCost || template?.avgCost || 0,
     idealDays: loc.suggestedDuration || loc.suggested_duration || loc.idealDays || template?.idealDays || '2-4 giờ',
-    landmarkSlides: gallerySlides.length ? gallerySlides : (loc.landmarkSlides || template?.landmarkSlides || []),
+    landmarkSlides: gallerySlides.filter(slide => !slide.image.includes('images.unsplash.com')),
     tags: tags.length ? tags : ['culture'],
     description: loc.description || template?.description || loc.address || 'Địa điểm đang được đồng bộ từ khu vực quản trị.'
   };
@@ -308,8 +307,8 @@ const Explore = () => {
               <div className="explore-stat-label">Điểm đến</div>
             </div>
             <div className="explore-stat">
-              <div className="explore-stat-value">{totalPlans.toLocaleString()}+</div>
-              <div className="explore-stat-label">Kế hoạch đã tạo</div>
+              <div className="explore-stat-value">{totalPlans.toLocaleString('vi-VN')}</div>
+              <div className="explore-stat-label">Lượt dùng điểm đến trong kế hoạch</div>
             </div>
             <div className="explore-stat">
               <div className="explore-stat-value">{allTags.length}</div>
@@ -322,6 +321,7 @@ const Explore = () => {
             <Search size={18} />
             <input
               type="text"
+              aria-label="Tìm điểm đến để khám phá"
               className="explore-search-input"
               placeholder="Tìm kiếm điểm đến, ví dụ: Đà Nẵng, biển, núi..."
               value={searchQuery}
@@ -369,6 +369,8 @@ const Explore = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.06 }}
                 className="explore-card"
+                role="button" tabIndex={0} aria-label={`Xem ${dest.name}`}
+                onKeyDown={event => { if (event.target === event.currentTarget && ['Enter', ' '].includes(event.key)) { event.preventDefault(); openDestinationDetail(dest); } }}
                 onClick={() => openDestinationDetail(dest)}
                 onMouseEnter={() => {
                   setHoveredCardId(dest.id);
@@ -382,9 +384,7 @@ const Explore = () => {
                     src={landmarkVisual.image}
                     alt={dest.name}
                     className="explore-card-img"
-                    onError={(e) => {
-                      e.currentTarget.src = DEFAULT_LOCATION_IMAGE;
-                    }}
+                    onError={handleImageError} loading="lazy"
                   />
                   <div className="explore-card-overlay">
                     <h3 className="explore-card-name">{dest.name}</h3>
@@ -408,7 +408,7 @@ const Explore = () => {
                   {/* Plans Badge */}
                   <div className="explore-card-plans-badge">
                     <Users size={11} />
-                    {planCount.toLocaleString()}+ kế hoạch
+                    {planCount.toLocaleString('vi-VN')} kế hoạch
                   </div>
                 </div>
 
@@ -517,9 +517,7 @@ const Explore = () => {
                   src={selectedDestination.image}
                   alt={selectedDestination.name}
                   className="explore-modal-img"
-                  onError={(e) => {
-                    e.currentTarget.src = DEFAULT_LOCATION_IMAGE;
-                  }}
+                  onError={handleImageError}
                 />
                 <button
                   type="button"
