@@ -33,6 +33,19 @@ test('Editor keeps all five sections as a draft, survives save failure and sends
     try {
         const reactUrl = new URL('../../frontend/node_modules/react/index.js', import.meta.url).href;
         const utilsUrl = new URL('../../frontend/src/utils/planDraft.js', import.meta.url).href;
+        const expensesUrl = new URL('../../frontend/src/utils/tripExpenses.js', import.meta.url).href;
+        const loadUi = async (name, replacements = {}) => {
+            let source = await readFile(new URL(`../../frontend/src/Components/Layout/${name}.jsx`, import.meta.url), 'utf8');
+            source = `import React from '${reactUrl}';\n` + source.replace(/from 'react'/, `from '${reactUrl}'`)
+                .replace(/import \{ ([^}]+) \} from 'lucide-react';/, (_, names) => names.split(',').map(name => `const ${name.trim()} = () => null;`).join('\n'))
+                .replace("from '../../utils/tripExpenses'", `from '${expensesUrl}'`).replace(/import '[^']+\.css';/g, '');
+            for (const [from, to] of Object.entries(replacements)) source = source.replace(`from '${from}'`, `from '${to}'`);
+            const { code } = await transform(`${name}.jsx`, source, { jsx: { runtime: 'classic' } });
+            return `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+        };
+        const dialogUrl = await loadUi('PlanDialog');
+        const expenseDialogUrl = await loadUi('ExpenseDialog', { './PlanDialog': dialogUrl });
+        const budgetUrl = await loadUi('TripBudget', { './PlanDialog': dialogUrl, './ExpenseDialog': expenseDialogUrl });
         let source = await readFile(new URL('../../frontend/src/pages/TripEdit.jsx', import.meta.url), 'utf8');
         source = `import React from '${reactUrl}';\n` + source.replace(/from 'react'/, `from '${reactUrl}'`)
             .replace(/import \{ Link, useNavigate, useParams \} from '[^']+';/, "const Link = ({children}) => React.createElement('a', null, children); const useParams = () => ({id:'5'}); const useNavigate = () => globalThis.__planEditor.navigate;")
@@ -44,31 +57,43 @@ test('Editor keeps all five sections as a draft, survives save failure and sends
             .replace(/import \{ friendService \} from '[^']+';/, 'const friendService = {getFriends: async () => []};')
             .replace(/import apiClient from '[^']+';/, 'const apiClient = {get: async () => ({data:[]})};')
             .replace("from '../utils/planDraft'", `from '${utilsUrl}'`)
+            .replace("from '../Components/Layout/TripBudget'", `from '${budgetUrl}'`)
+            .replace("from '../Components/Layout/PlanDialog'", `from '${dialogUrl}'`)
+            .replace("from '../utils/tripExpenses'", `from '${expensesUrl}'`)
             .replace(/import '[^']+\.css';/, '');
         const { code } = await transform('TripEdit.jsx', source, { jsx: { runtime: 'classic' } });
         const { default: Editor } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
         await act(async () => { renderer = create(React.createElement(Editor)); });
         const root = () => renderer.root;
+        const nodeText = node => typeof node === 'string' ? node : (node.children || []).map(nodeText).join('');
         const click = async text => act(async () => {
-            const button = root().findAllByType('button').find(node => node.children.some(child => typeof child === 'string' && child.includes(text)));
+            const button = root().findAllByType('button').find(node => nodeText(node).includes(text));
             assert.ok(button, `Button ${text} should exist`);
             button.props.onClick();
         });
         const field = (name, tag = 'input', index = 0) => root().findAllByType('label')
-            .filter(node => node.findAllByType('span').some(span => span.children.join('') === name))[index].findByType(tag);
+            .filter(node => node.findAllByType('span').some(span => span.children.filter(child => typeof child === 'string').join('').trim() === name))[index].findByType(tag);
         const change = async (name, value, tag = 'input', index = 0) => act(async () => { field(name, tag, index).props.onChange({ target: { value } }); });
+        assert.equal(root().findAllByType('dialog').length, 0, 'Trip information is visible and editable directly without opening a popup');
+        assert.equal(field('Tên kế hoạch').props.value, 'Original');
         await change('Tên kế hoạch', 'Personal journey');
-        await click('Chi phí');
-        await change('Ăn uống (VNĐ)', '50000');
+        await click('Ngân sách');
+        await click('Thêm chi phí');
+        await act(async () => { root().findByProps({ 'aria-label': 'Số tiền chi phí' }).props.onChange({ target: { value: '50000' } }); });
+        await click('Chọn mục');
+        await click('Ẩm thực');
+        await act(async () => { root().findAllByType('form').at(-1).props.onSubmit({ preventDefault() {} }); });
         await click('Lịch trình');
         await click('Thêm hoạt động riêng');
         await change('Tên riêng cho điểm dừng', 'Visit my favourite cafe', 'input', 1);
         await click('Đồ mang theo');
         await click('Thêm đồ riêng');
         await change('Tên vật dụng', 'My notebook', 'input', 1);
-        await click('Thành viên');
+        await click('Ngân sách');
+        await click('Thêm bạn đồng hành');
         await change('Hoặc email tài khoản', 'friend@example.com');
         await click('Thêm vào danh sách');
+        await act(async () => { root().findAllByType('button').find(node => nodeText(node) === 'Xong' && node.props.onClick).props.onClick(); });
         assert.equal(fixture.calls.length, 0, 'Changing fields, packing and members must not save automatically');
         await click('Lưu toàn bộ thay đổi');
         assert.equal(fixture.path, null);
@@ -79,7 +104,8 @@ test('Editor keeps all five sections as a draft, survives save failure and sends
         await click('Lưu toàn bộ thay đổi');
         assert.equal(fixture.path, '/trip/5');
         const payload = fixture.calls.at(-1);
-        assert.equal(payload.costMeals, '50000');
+        assert.equal(payload.costMeals, 50000);
+        assert.equal(payload.expenses[0].title, 'Ẩm thực');
         assert.equal(payload.items[0].id, '10');
         assert.equal(payload.items[1].customName, 'Visit my favourite cafe');
         assert.equal(payload.packingItems[1].itemName, 'My notebook');
@@ -90,8 +116,8 @@ test('Editor keeps all five sections as a draft, survives save failure and sends
         const editorRef = { current: null };
         await act(async () => { renderer.update(React.createElement(Editor, { embedded: true, editorRef, onSaved: updated => { inlineSaved = updated; } })); });
         assert.equal(root().findAllByType('nav').length, 0, 'Inline editor must keep the original page layout without tab navigation');
-        assert.equal(root().findAllByType('details').length, 3, 'Schedule and packing belong in the existing lower cards, not duplicate top sections');
-        assert.deepEqual(root().findAllByType('summary').map(node => node.children.join('')), ['Thông tin', 'Chi phí', 'Thành viên']);
+        const sections = root().findAll(node => typeof node.type === 'string' && node.props['data-editor-section']);
+        assert.ok(sections.every(node => ['general', 'costs', 'members'].includes(node.props['data-editor-section'])), 'Schedule and packing must not duplicate the workspace cards');
         await change('Tên kế hoạch', 'Saved inline');
         await act(async () => { editorRef.current.togglePacking('20'); });
         await act(async () => { editorRef.current.setPackingQuantity('20', '4'); });

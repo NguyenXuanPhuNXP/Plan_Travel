@@ -195,9 +195,9 @@
 }
 
 .trip-details-glass-btn {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border: 1px solid rgba(255, 255, 255, 0.28) !important;
-  color: #FFFFFF !important;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #FFFFFF;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   font-weight: 600;
@@ -205,19 +205,19 @@
 }
 
 .trip-details-glass-btn:hover {
-  background: rgba(255, 255, 255, 0.22) !important;
-  border-color: rgba(255, 255, 255, 0.45) !important;
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.45);
   transform: translateY(-1px);
 }
 
 .trip-details-action-finish {
-  background: var(--secondary) !important;
-  border-color: var(--secondary) !important;
-  color: #FFFFFF !important;
+  background: var(--secondary);
+  border-color: var(--secondary);
+  color: #FFFFFF;
 }
 
 .trip-details-action-finish:hover {
-  background: var(--secondary-hover) !important;
+  background: var(--secondary-hover);
 }
 
 /* Inline Edit Info Form */

@@ -1,0 +1,14 @@
+.trip-place-search { position: relative; width: 100%; color: #252a2e; }
+.trip-place-search form { display: flex; align-items: center; gap: 8px; background: white; border: 1px solid #d6d9dc; border-radius: 8px; padding: 6px 8px 6px 12px; }
+.trip-place-search form > svg { flex-shrink: 0; }
+.trip-place-search input { flex: 1; min-width: 0; padding: 6px 0; border: 0; background: white; color: #252a2e; }
+.trip-place-search button { color: #252a2e; }
+.trip-place-search form button { display: grid; place-items: center; min-height: 32px; min-width: 40px; border-radius: 6px; padding: 4px 8px; background: #f0f1f2; font-weight: 600; }
+.trip-place-search form button:disabled { opacity: .5; cursor: default; }
+.trip-place-search > ul { position: absolute; top: 100%; width: 100%; z-index: 1100; list-style: none; margin: 4px 0 0; padding: 4px; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #d6d9dc; border-radius: 8px; box-shadow: 0 4px 12px #0001; }
+.trip-place-search li button { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 10px 8px; text-align: left; border-radius: 6px; }
+.trip-place-search li button:hover { background: #f2f3f4; }
+.trip-place-search li svg { flex-shrink: 0; margin-top: 3px; }
+.trip-place-search strong { display: block; font-size: 15px; }
+.trip-place-search small { display: block; font-size: 12px; color: #687078; }
+.trip-place-search > p { padding: 8px 10px; margin: 4px 0 0; background: white; border-radius: 6px; font-size: 13px; }

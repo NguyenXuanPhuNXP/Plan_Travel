@@ -7,6 +7,11 @@
   margin: 0 auto;
   padding: 2rem 1rem;
 }
+.wizard-setup-heading { margin-bottom: 24px; }
+.wizard-setup-heading h1 { font-size: 28px; }
+.wizard-setup-heading p { color: var(--text-muted); }
+.wizard-setup-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 24px; }
+.wizard-container .wizard-step-circle, .wizard-container .wizard-step-indicator.current .wizard-step-circle { background: #f0f1f2; color: #252a2e; border-color: #b5bcc2; box-shadow: none; }
 
 /* Progress Steps */
 .wizard-progress {

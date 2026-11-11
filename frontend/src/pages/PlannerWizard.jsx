@@ -11,34 +11,13 @@ import { itineraryService } from '../services/itineraryService';
 import { friendService } from '../services/friendService';
 import { useTrips } from '../context/TripContext';
 import DestinationPicker from './DestinationPicker';
+import TripSetupForm from '../Components/Layout/TripSetupForm';
 import TimelineEditor from './TimelineEditor';
 import { aiTripDates, aiPlanItems } from '../utils/aiPlan';
-import { aiPlanCosts, aiPlanDescription } from '../utils/aiPlanDetails';
+import { aiPlanDescription } from '../utils/aiPlanDetails';
 import AiPlanOverview from '../Components/AiPlanOverview';
 import { createSampleAiPlan } from '../services/sampleAiPlan';
 import './PlannerWizard.css';
-
-const PREFERENCE_OPTIONS = [
-  { value: 'beach', label: 'Biển' },
-  { value: 'mountain', label: 'Núi' },
-  { value: 'food', label: 'Ẩm thực' },
-  { value: 'culture', label: 'Văn hóa' },
-  { value: 'nature', label: 'Thiên nhiên' },
-  { value: 'shopping', label: 'Mua sắm' },
-  { value: 'nightlife', label: 'Về đêm' },
-  { value: 'adventure', label: 'Mạo hiểm' },
-  { value: 'relax', label: 'Nghỉ dưỡng' },
-  { value: 'photography', label: 'Chụp ảnh' },
-];
-
-const TRANSPORT_OPTIONS = [
-  { value: 'flight', label: 'Máy bay' },
-  { value: 'coach', label: 'Xe khách / Xe du lịch' },
-  { value: 'train', label: 'Tàu hỏa' },
-  { value: 'motorbike', label: 'Xe máy' },
-  { value: 'car', label: 'Ô tô tự lái' },
-  { value: 'other', label: 'Khác / Đi bộ' }
-];
 
 const PlannerWizard = () => {
   const navigate = useNavigate();
@@ -72,18 +51,12 @@ const PlannerWizard = () => {
     transportMode: 'flight'
   });
 
-  const [_friendsList, setFriendsList] = useState([]);
+  const [friendsList, setFriendsList] = useState([]);
   const [selectedFriendIds, setSelectedFriendIds] = useState([]);
 
   useEffect(() => {
     friendService.getFriends().then(f => setFriendsList(f || [])).catch(() => {});
   }, []);
-
-  const _toggleSelectFriend = (friendId) => {
-    setSelectedFriendIds(prev =>
-      prev.includes(friendId) ? prev.filter(id => id !== friendId) : [...prev, friendId]
-    );
-  };
 
   // Step 2: Suggestions + selection
   const [suggestions, setSuggestions] = useState([]);
@@ -104,15 +77,6 @@ const PlannerWizard = () => {
       return diff > 0 ? diff : tripInfo.totalDays;
     }
     return tripInfo.totalDays;
-  };
-
-  const togglePreference = (pref) => {
-    setTripInfo(prev => ({
-      ...prev,
-      preferences: prev.preferences.includes(pref)
-        ? prev.preferences.filter(p => p !== pref)
-        : [...prev.preferences, pref]
-    }));
   };
 
   useEffect(() => {
@@ -151,6 +115,7 @@ const PlannerWizard = () => {
   // Step 1: AI generates an initial editable plan
   const handleNextToStep2 = async () => {
     if (loading) return;
+    if (!tripInfo.startDate || !tripInfo.endDate) { setToast('Hãy chọn ngày xuất phát và ngày kết thúc.'); return; }
     try { aiTripDates(tripInfo.startDate, tripInfo.endDate, computeDays()); }
     catch (error) { setToast(error.message); return; }
     if (!Number.isFinite(Number(tripInfo.budget || 0)) || Number(tripInfo.budget || 0) < 0) { setToast('Ngân sách phải là số không âm.'); return; }
@@ -194,7 +159,7 @@ const PlannerWizard = () => {
       travelerCount: Number(tripInfo.travelerCount) || 1,
       transportMode: tripInfo.transportMode || 'flight',
       costScope: 'GROUP',
-      ...aiPlanCosts(currentPlan),
+
       preferences: tripInfo.preferences,
       packingItems: [],
       collaboratorIds: selectedFriendIds,
@@ -222,11 +187,11 @@ const PlannerWizard = () => {
       travelerCount: Number(tripInfo.travelerCount) || 1,
       transportMode: tripInfo.transportMode || 'flight',
       costScope: 'GROUP',
-      ...aiPlanCosts(finalPlan),
+
       preferences: tripInfo.preferences,
       packingItems: [],
       collaboratorIds: selectedFriendIds,
-      description: aiPlanDescription(finalPlan),
+      description: aiPlanDescription({ ...finalPlan, costAllocation: null }),
       items: allItems
     });
 
@@ -244,7 +209,7 @@ const PlannerWizard = () => {
         addTrip(itinerary);
       }
       await fetchTrips();
-      navigate('/history');
+      navigate(`/trip/${itinerary.id}`);
     } catch (error) {
       console.error('Save error:', error);
       setToast('Có lỗi khi lưu. Vui lòng thử lại.');
@@ -289,208 +254,11 @@ const PlannerWizard = () => {
               exit={{ opacity: 0, x: -30 }}
               className="wizard-step-content"
             >
-              {/* Quick Switch Banner to Manual Planner */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '1rem 1.25rem',
-                background: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)',
-                borderRadius: '12px',
-                border: '1px solid #c7d2fe',
-                marginBottom: '1.25rem',
-                gap: '1rem',
-                flexWrap: 'wrap'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <MapPin size={24} color="#4338ca" />
-                  <div>
-                    <div style={{ fontWeight: 700, color: '#1e3a8a', fontSize: '1rem' }}>
-                      Bạn muốn tự do thiết kế lịch trình trên bản đồ?
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: '#4338ca' }}>
-                      Chọn điểm dừng trực quan, phân chia chi phí từng người và chỉnh sửa thời gian cụ thể.
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate('/planner/map')}
-                  className="btn btn-primary"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap' }}
-                >
-                  <MapPin size={16} /> Lập kế hoạch thủ công →
-                </button>
-              </div>
-
-              <div className="card wizard-form-card">
-                <div className="wizard-form-header">
-                  <div className="wizard-form-icon-wrap">
-                    <MapPin size={24} />
-                  </div>
-                  <div>
-                    <h2 className="wizard-form-title">Thông tin kế hoạch chuyến đi</h2>
-                    <p className="wizard-form-subtitle">Điền thông tin cơ bản hoặc để AI hỗ trợ gợi ý lịch trình thông minh.</p>
-                  </div>
-                </div>
-
-                <div className="wizard-form-body">
-                  {/* Destination - Required */}
-                  <div className="wizard-field wizard-field-highlight">
-                    <label className="wizard-label">
-                      <MapPin size={16} /> Địa điểm đến <span className="wizard-required">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ví dụ: Vũng Tàu, Đà Nẵng, Phú Quốc, Sapa..."
-                      className="wizard-input wizard-input-lg"
-                      value={tripInfo.destination}
-                      onChange={(e) => setTripInfo({ ...tripInfo, destination: e.target.value })}
-                      autoFocus
-                    />
-                  </div>
-
-                  {/* Trip Name */}
-                  <div className="wizard-field">
-                    <label className="wizard-label">
-                      <Tag size={16} /> Tên chuyến đi
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ví dụ: Du lịch biển cuối tuần cùng bạn bè"
-                      className="wizard-input"
-                      value={tripInfo.name}
-                      onChange={(e) => setTripInfo({ ...tripInfo, name: e.target.value })}
-                    />
-                  </div>
-
-                  {/* Dates */}
-                  <div className="wizard-field-row">
-                    <div className="wizard-field">
-                      <label className="wizard-label">
-                        <Calendar size={16} /> Ngày đi
-                      </label>
-                      <input
-                        type="date"
-                        className="wizard-input"
-                        value={tripInfo.startDate}
-                        onChange={(e) => setTripInfo({ ...tripInfo, startDate: e.target.value })}
-                      />
-                    </div>
-                    <div className="wizard-field">
-                      <label className="wizard-label">
-                        <Calendar size={16} /> Ngày về
-                      </label>
-                      <input
-                        type="date"
-                        className="wizard-input"
-                        value={tripInfo.endDate}
-                        onChange={(e) => setTripInfo({ ...tripInfo, endDate: e.target.value })}
-                      />
-                    </div>
-                    <div className="wizard-field wizard-field-small">
-                      <label className="wizard-label">Số ngày</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="30"
-                        className="wizard-input"
-                        value={tripInfo.totalDays}
-                        onChange={(e) => setTripInfo({ ...tripInfo, totalDays: Number(e.target.value) })}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Travelers & Transport */}
-                  <div className="wizard-field-row">
-                    <div className="wizard-field">
-                      <label className="wizard-label">
-                        <Users size={16} /> Số lượng người đi
-                      </label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <button
-                          type="button"
-                          className="btn btn-outline"
-                          style={{ padding: '0.5rem 0.75rem' }}
-                          onClick={() => setTripInfo(p => ({ ...p, travelerCount: Math.max(1, (Number(p.travelerCount) || 1) - 1) }))}
-                        >
-                          <Minus size={14} />
-                        </button>
-                        <input
-                          type="number"
-                          min="1"
-                          max="100"
-                          className="wizard-input"
-                          style={{ textAlign: 'center', fontWeight: 700 }}
-                          value={tripInfo.travelerCount}
-                          onChange={(e) => setTripInfo({ ...tripInfo, travelerCount: Math.max(1, Number(e.target.value) || 1) })}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-outline"
-                          style={{ padding: '0.5rem 0.75rem' }}
-                          onClick={() => setTripInfo(p => ({ ...p, travelerCount: (Number(p.travelerCount) || 1) + 1 }))}
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="wizard-field">
-                      <label className="wizard-label">
-                        <Car size={16} /> Phương tiện di chuyển
-                      </label>
-                      <select
-                        className="wizard-input"
-                        value={tripInfo.transportMode}
-                        onChange={(e) => setTripInfo({ ...tripInfo, transportMode: e.target.value })}
-                      >
-                        {TRANSPORT_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="wizard-field">
-                    <label className="wizard-label" htmlFor="ai-total-budget"><DollarSign size={16} /> Tổng ngân sách cả chuyến đi (VNĐ)</label>
-                    <input id="ai-total-budget" className="wizard-input" type="number" min="0" max="999999999999" value={tripInfo.budget} onChange={e => setTripInfo(p => ({ ...p, budget: e.target.value }))} placeholder="Ví dụ: 10000000" />
-                    <p className="text-muted">Tổng cho tất cả thành viên. AI sẽ đề xuất phân bổ di chuyển, lưu trú, ăn uống, hoạt động và dự phòng.</p>
-                  </div>
-                  {/* Preferences */}
-                  <div className="wizard-field">
-                    <label className="wizard-label">
-                      <Sparkles size={16} /> Sở thích du lịch (Chọn nhiều)
-                    </label>
-                    <div className="wizard-prefs-grid">
-                      {PREFERENCE_OPTIONS.map((pref) => (
-                        <button
-                          key={pref.value}
-                          className={`wizard-pref-tag ${tripInfo.preferences.includes(pref.value) ? 'active' : ''}`}
-                          onClick={() => togglePreference(pref.value)}
-                          type="button"
-                        >
-                          {pref.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                </div>
-                <div className="wizard-form-footer">
-                  <button
-                    onClick={handleNextToStep2}
-                    disabled={loading || !tripInfo.destination.trim()}
-                    className="btn btn-primary wizard-next-btn"
-                  >
-                    {loading ? (
-                      <><Loader2 className="animate-spin" size={18} /> AI đang tạo kế hoạch...</>
-                    ) : (
-                      <><Wand2 size={18} /> Xem kế hoạch mẫu</>
-                    )}
-                  </button>
-                </div>
-              </div>
+              <form className="card wizard-form-card" onSubmit={event => { event.preventDefault(); handleNextToStep2(); }}>
+                <header className="wizard-setup-heading"><h1>Chuyến đi của bạn</h1><p>Chọn điểm đến, ngày đi và bạn cùng lập kế hoạch.</p></header>
+                <TripSetupForm info={tripInfo} onChange={setTripInfo} friends={friendsList} selectedFriendIds={selectedFriendIds} onFriendsChange={setSelectedFriendIds} />
+                <footer className="wizard-setup-footer"><button type="button" className="btn btn-outline" onClick={() => navigate('/planner/map')}><MapPin size={16} /> Tự lập lịch trình</button><button className="btn btn-primary"><Wand2 size={16} /> Xem lịch trình mẫu <ChevronRight size={16} /></button></footer>
+              </form>
             </motion.div>
           )}
 
@@ -541,7 +309,7 @@ const PlannerWizard = () => {
               className="wizard-step-content"
             >
               {planNotice && <p role="status" className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>{planNotice}</p>}
-              <AiPlanOverview plan={currentPlan} budget={getEffectiveBudget()} />
+              <AiPlanOverview plan={currentPlan} budget={getEffectiveBudget()} showCosts={false} />
               <TimelineEditor
                 plan={currentPlan}
                 selectedLocations={selectedLocations}
