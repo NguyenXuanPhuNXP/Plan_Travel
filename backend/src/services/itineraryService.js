@@ -592,6 +592,7 @@ function serializeItinerary(it) {
         costAccommodation: it.cost_accommodation ? Number(it.cost_accommodation) : 0,
         costContingency: it.cost_contingency ? Number(it.cost_contingency) : 0,
         totalCost: resolvedTotalCost,
+        expenses: Array.isArray(it.expenses) ? it.expenses : null,
         preferences: it.preferences,
         description: it.description,
         status: it.status,

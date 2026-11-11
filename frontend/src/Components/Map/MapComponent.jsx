@@ -5,12 +5,14 @@ import {
   Marker, 
   Popup, 
   useMapEvents, 
+  useMap,
   Polyline, 
   ZoomControl 
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, Loader2, Thermometer, CloudRain } from 'lucide-react';
+import PlaceSearch from './PlaceSearch';
+import { Thermometer, CloudRain } from 'lucide-react';
 import { WeatherService } from '../../services/WeatherService';
 import { DESTINATION_PLACEHOLDER, handleImageError } from '../../utils/destinationImages';
 
@@ -41,9 +43,24 @@ const MapEventsHandler = ({ onMapClick }) => {
   return null;
 };
 
-const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove, showRoute = true }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
+function MapViewport({ coordinates, focusedLocation }) {
+  const map = useMap();
+  useEffect(() => {
+    const points = coordinates ? coordinates.split(';').map(point => point.split(',').map(Number).reverse()) : [];
+    if (points.length) map.fitBounds(points, { padding: [48, 48], maxZoom: 13 });
+  }, [map, coordinates]);
+  useEffect(() => {
+    if (focusedLocation?.hasRealCoords) map.setView([focusedLocation.lat, focusedLocation.lng], 15);
+  }, [map, focusedLocation]);
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
+const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove, showRoute = true, focusedLocation, numberMarkers = false, searchContext = '' }) => {
   const [weatherData, setWeatherData] = useState({});
 
   // Filter only valid locations with finite lat/lng to prevent Leaflet LatLng crash
@@ -61,33 +78,6 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
     ? [validLocations[0].lat, validLocations[0].lng]
     : [21.0285, 105.8542]; // Default to Hanoi
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim() || typeof onLocationAdd !== 'function') return;
-    
-    setIsSearching(true);
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`);
-      const data = await response.json();
-      if (data && data.length > 0) {
-        const { lat, lon, display_name } = data[0];
-        onLocationAdd({
-          id: `search_${Date.now()}`,
-          name: display_name.split(',')[0],
-          address: display_name,
-          lat: parseFloat(lat),
-          lng: parseFloat(lon),
-          image: DESTINATION_PLACEHOLDER
-        });
-        setSearchQuery('');
-      }
-    } catch (err) {
-      console.error('Search error:', err);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   const fetchWeatherForLocation = async (id, lat, lng) => {
     if (!id || !Number.isFinite(lat) || !Number.isFinite(lng) || weatherData[id]) return;
     try {
@@ -98,14 +88,13 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
     }
   };
 
-  const [routeGeometry, setRouteGeometry] = useState([]);
+  const [routeGeometry, setRouteGeometry] = useState({ coordinates: '', points: [] });
 
   // Depend on coordinate values, not a new array allocated on every render.
   const routeCoordinates = validLocations.map(loc => `${loc.lng},${loc.lat}`).join(';');
 
   useEffect(() => {
     const controller = new AbortController();
-    setRouteGeometry(previous => previous.length ? [] : previous);
     if (!showRoute || !routeCoordinates.includes(';')) return;
 
     const fetchRoute = async () => {
@@ -115,7 +104,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
         if (!response.ok) return;
         const data = await response.json();
         if (!controller.signal.aborted && data.routes?.[0]?.geometry?.coordinates) {
-          setRouteGeometry(data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]));
+          setRouteGeometry({ coordinates: routeCoordinates, points: data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]) });
         }
       } catch (err) {
         if (err.name !== 'AbortError') console.warn('Lỗi khi lấy lộ trình:', err);
@@ -128,42 +117,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
 
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
-      {/* Search Overlay */}
-      {typeof onLocationAdd === 'function' && (
-        <div style={{ 
-          position: 'absolute', 
-          top: '20px', 
-          left: '50%', 
-          transform: 'translateX(-50%)', 
-          zIndex: 1000, 
-          width: '90%', 
-          maxWidth: '500px' 
-        }}>
-          <form onSubmit={handleSearch} className="glass" style={{ 
-            display: 'flex', 
-            padding: '0.5rem', 
-            borderRadius: 'var(--radius-lg)', 
-            boxShadow: 'var(--shadow-lg)' 
-          }}>
-            <input 
-              type="text" 
-              placeholder="Tìm địa điểm du lịch..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ 
-                flex: 1, 
-                border: 'none', 
-                background: 'transparent', 
-                padding: '0.5rem 1rem', 
-                fontSize: '0.9rem' 
-              }}
-            />
-            <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)' }}>
-              {isSearching ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
-            </button>
-          </form>
-        </div>
-      )}
+      {typeof onLocationAdd === 'function' && <div style={{ position: 'absolute', top: 16, left: '5%', width: '90%', zIndex: 1000 }}><PlaceSearch context={searchContext} onSelect={onLocationAdd} /></div>}
 
       <MapContainer 
         center={center} 
@@ -177,6 +131,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
         />
         
         <ZoomControl position="bottomright" />
+        <MapViewport coordinates={routeCoordinates} focusedLocation={focusedLocation} />
         <MapEventsHandler onMapClick={(latlng) => {
           if (typeof onLocationAdd === 'function') {
             onLocationAdd({
@@ -194,6 +149,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
           <Marker 
             key={loc.id || `loc_${idx}`} 
             position={[loc.lat, loc.lng]}
+            {...(numberMarkers ? { icon: L.divIcon({ className: 'trip-map-number', html: `<span>${Number(loc.stopNumber) || idx + 1}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] }) } : {})}
             eventHandlers={{
               click: () => fetchWeatherForLocation(loc.id, loc.lat, loc.lng)
             }}
@@ -247,8 +203,8 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
           </Marker>
         ))}
 
-        {showRoute && routeGeometry.length > 1 && (
-          <Polyline positions={routeGeometry} color="var(--primary)" weight={5} opacity={0.8} />
+        {showRoute && routeGeometry.coordinates === routeCoordinates && routeGeometry.points.length > 1 && (
+          <Polyline positions={routeGeometry.points} color="var(--primary)" weight={5} opacity={0.8} />
         )}
       </MapContainer>
     </div>

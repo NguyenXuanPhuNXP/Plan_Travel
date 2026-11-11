@@ -14,6 +14,7 @@ export const createPlanDraft = trip => ({
   status: ['draft', 'generated', 'completed', 'cancelled'].includes(trip.status) ? trip.status : 'draft',
   visibility: trip.visibility || 'private', budget: trip.budget ?? 0,
   costScope: trip.costScope || 'PERSON',
+  expenses: Array.isArray(trip.expenses) ? trip.expenses : undefined,
   ...Object.fromEntries(['Transport', 'Meals', 'Attractions', 'Accommodation', 'Contingency'].map(key => [`cost${key}`, trip[`cost${key}`] ?? 0])),
   preferences: Array.isArray(trip.preferences) ? trip.preferences.join(', ') : '',
   items: (trip.items || []).map(item => ({
@@ -31,6 +32,7 @@ export const createPlanDraft = trip => ({
 export const planPayload = (draft, trip, isOwner) => ({
   ...draft,
   startDate: fromLocal(draft.startDate), endDate: fromLocal(draft.endDate),
+  travelerCount: Math.max(Number(draft.travelerCount) || 1, draft.collaborators.length + 1),
   startCalendarDate: draft.startDate ? draft.startDate.slice(0, 10) : null,
   endCalendarDate: draft.endDate ? draft.endDate.slice(0, 10) : null,
   expectedUpdatedAt: trip.updatedAt,

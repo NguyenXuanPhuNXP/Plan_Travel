@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../Components/Layout/Layout';
 import { useParams, Link } from 'react-router-dom';
 import TripEdit from './TripEdit';
+import TripBudget from '../Components/Layout/TripBudget';
+import PlaceSearch from '../Components/Map/PlaceSearch';
+import PlanDialog from '../Components/Layout/PlanDialog';
 import PackingDraftPicker from '../Components/Layout/PackingDraftPicker';
 import TripStopFields from '../Components/Layout/TripStopFields';
 import { useTrips } from '../context/TripContext';
@@ -37,15 +40,18 @@ import {
   Search,
   Check,
   Edit3,
+  Info,
   GripVertical
 } from 'lucide-react';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { format, differenceInCalendarDays, addDays } from 'date-fns';
 import { sharingService } from '../services/sharingService';
 import { friendService } from '../services/friendService';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import './TripDetails.css';
+import './TripWorkspace.css';
 import { tripStatusLabel } from '../utils/tripStatus';
+import { completeItineraryDays } from '../utils/itineraryDays';
 import { destinationImage, handleImageError, DESTINATION_PLACEHOLDER } from '../utils/destinationImages';
 
 
@@ -67,7 +73,12 @@ const TripDetails = () => {
   const [isLoadingTrip, setIsLoadingTrip] = useState(!trip);
   const [savedPackingItems, setPackingItems] = useState(trip?.packingItems || []);
   const packingItems = liveDraft?.packingItems || savedPackingItems;
-  const [selectedDayTab, setSelectedDayTab] = useState(null);
+  const [selectedDayTab, setSelectedDayTab] = useState('all');
+  const [workspaceTab, setWorkspaceTab] = useState('schedule');
+  const [mobileMap, setMobileMap] = useState(false);
+  const [focusedLocation, setFocusedLocation] = useState(null);
+  const [editingStopKey, setEditingStopKey] = useState(null);
+  const [addingDay, setAddingDay] = useState(null);
 
   useEffect(() => {
     async function loadFreshTrip() {
@@ -155,7 +166,7 @@ const TripDetails = () => {
   const stripDayMarker = (note) => String(note || '').replace(/\[DAY:\d+\]\s*/gi, '').trim();
 
   // Group locations by day
-  const groupedLocationsByDay = (() => {
+  const groupedLocationsByDay = completeItineraryDays((() => {
     if (isEditingInfo) {
       return [{ day: 1, items: editingLocations.map(normalizeMapLoc).filter(Boolean).map((loc, idx) => ({ loc, idx, note: '' })) }];
     }
@@ -172,7 +183,7 @@ const TripDetails = () => {
           lat: null,
           lng: null
         });
-        const normalized = normalizeMapLoc(locRaw);
+        const normalized = normalizeMapLoc({ ...item, location: locRaw });
         if (!normalized) return;
         const day = Number(item.day) || parseDayFromNote(item?.note);
         const cleanNote = stripDayMarker(item?.note);
@@ -192,7 +203,7 @@ const TripDetails = () => {
     }
 
     return [{ day: 1, items: [] }];
-  })();
+  })(), liveDraft?.totalDays || trip?.totalDays || 1);
 
   const lastLocation = locations[locations.length - 1];
   const displayEndLocation = trip?.endLocation || lastLocation?.name || trip?.destination || 'Chưa có điểm đến';
@@ -214,10 +225,17 @@ const TripDetails = () => {
     }
   };
 
-  const activeDayTab = selectedDayTab ?? groupedLocationsByDay[0]?.day ?? 1;
+  const activeDayTab = selectedDayTab === 'all' || groupedLocationsByDay.some(group => group.day === selectedDayTab)
+    ? selectedDayTab : groupedLocationsByDay[0]?.day ?? 1;
   const visibleDayGroups = activeDayTab === 'all'
     ? groupedLocationsByDay
     : groupedLocationsByDay.filter(dg => dg.day === activeDayTab);
+  const stopCount = groupedLocationsByDay.reduce((sum, group) => sum + group.items.length, 0);
+  const editingStop = groupedLocationsByDay.flatMap(group => group.items.map(entry => ({ ...entry, day: group.day }))).find(entry => String(entry.rawItem?.id || entry.rawItem?.key) === editingStopKey);
+  const openEditorSection = section => {
+    setWorkspaceTab(section === 'members' || section === 'costs' ? 'budget' : 'overview');
+    requestAnimationFrame(() => editorRef.current?.openSection(section));
+  };
 
   useEffect(() => {
     if (trip && locations.length > 0) {
@@ -503,8 +521,8 @@ const TripDetails = () => {
   }
 
   return (
-    <Layout>
-      <div className="trip-details-container">
+    <Layout className="trip-workspace-layout">
+      <div className={`trip-details-container trip-workspace trip-workspace-${workspaceTab} ${mobileMap ? 'trip-workspace-show-map' : ''}`}>
         {toast && (
           <div className="card" style={{ position: 'fixed', right: 20, top: 90, zIndex: 3000, padding: '0.75rem 1rem' }}>
             {toast}
@@ -542,7 +560,7 @@ const TripDetails = () => {
               <h1 className="trip-details-hero-title">{trip.title || trip.name}</h1>
               <p className="trip-details-hero-route">
                 <MapPin size={16} />
-                <span>{trip.startLocation || 'Chưa có điểm đi'} → {displayEndLocation} · {locations.length} điểm dừng</span>
+                <span>{trip.startLocation ? `${trip.startLocation} → ` : ''}{displayEndLocation} · {stopCount} điểm dừng</span>
               </p>
 
               <div className="trip-details-hero-meta">
@@ -575,15 +593,11 @@ const TripDetails = () => {
               )}
             </div>
 
-            <div className="trip-details-hero-actions">
+            <details className="trip-workspace-actions"><summary>Quản lý chuyến đi <ChevronRight size={14} /></summary><div className="trip-details-hero-actions">
               {canEditTrip && (
                 <button
                   type="button"
-                  onClick={() => {
-                    editorRef.current?.openSection('general');
-                    const el = document.getElementById('plan-editor');
-                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }}
+                  onClick={() => openEditorSection('general')}
                   className="btn btn-outline trip-details-glass-btn"
                 >
                   <Edit3 size={16} /> Chỉnh sửa kế hoạch
@@ -603,7 +617,7 @@ const TripDetails = () => {
                   <CheckCircle size={16} /> Hoàn thành chuyến đi
                 </button>
               )}
-              <button onClick={() => canEditTrip ? editorRef.current?.openSection('members') : openGroupModal()} className="btn btn-outline trip-details-glass-btn">
+              <button onClick={() => canEditTrip ? openEditorSection('members') : openGroupModal()} className="btn btn-outline trip-details-glass-btn">
                 <Users size={16} /> Nhóm kế hoạch
               </button>
               <button
@@ -617,85 +631,48 @@ const TripDetails = () => {
               >
                 <MessageCircle size={16} /> Nhóm chat
               </button>
-            </div>
+            </div></details>
           </div>
         </div>
 
-        {/* Edit Info Form Card */}
+        <nav className="trip-workspace-tabs" aria-label="Nội dung kế hoạch">
+          {[
+            ['schedule', Clock, 'Lịch trình'],
+            ['overview', Info, 'Thông tin'],
+            ['budget', DollarSign, 'Lập ngân sách'],
+            ['packing', Briefcase, 'Chuẩn bị']
+          ].map(([key, Icon, label]) => <button key={key} type="button" aria-pressed={workspaceTab === key} className={workspaceTab === key ? 'active' : ''} onClick={() => setWorkspaceTab(key)}><Icon size={16} />{label}</button>)}
+        </nav>
+        {workspaceTab === 'schedule' && <button type="button" className="trip-workspace-map-toggle" aria-pressed={mobileMap} onClick={() => setMobileMap(!mobileMap)}><MapPin size={16} />{mobileMap ? 'Xem lịch trình' : 'Xem bản đồ'}</button>}
+
+        {/* Keep the editor mounted so drafts survive switching views. */}
         {canEditTrip && <div className="card trip-details-edit-form-card" id="plan-editor">
           <TripEdit embedded editorRef={editorRef} onDraftChange={setLiveDraft} onSaved={updated => { setDbTrip(updated); setPackingItems(updated.packingItems || []); setGroupMembers(null); }} />
         </div>}
         
 
-        {/* Cost Breakdown Card */}
-        {(Number(trip.costTransport) > 0 || Number(trip.costMeals) > 0 || Number(trip.costAttractions) > 0 || Number(trip.costAccommodation) > 0 || Number(trip.costContingency) > 0 || Number(trip.totalCost) > 0) && (
-          <div className="card trip-details-cost-card">
-            <div className="trip-details-cost-header">
-              <div>
-                <h3 className="trip-details-cost-title">
-                  <DollarSign size={18} color="var(--primary)" /> Dự toán chi phí chi tiết
-                </h3>
-                <p className="trip-details-cost-subtitle">
-                  {trip.costScope === 'PERSON'
-                    ? `Tính trên đầu người (nhân với ${trip.travelerCount || 1} người)`
-                    : 'Tổng chi phí dự tính cho toàn bộ đoàn'}
-                </p>
-              </div>
-              <div className="trip-details-cost-total-badge">
-                <span>Tổng dự kiến:</span>
-                <strong>{Number(trip.totalCost ?? trip.budget ?? 0).toLocaleString()} VNĐ</strong>
-              </div>
-            </div>
-
-            <div className="trip-details-cost-grid">
-              <div className="trip-details-cost-col">
-                <span className="cost-col-label">🚗 Di chuyển</span>
-                <strong className="cost-col-val">{Number(trip.costTransport || 0).toLocaleString()} VNĐ</strong>
-              </div>
-              <div className="trip-details-cost-col">
-                <span className="cost-col-label">🍜 Ăn uống</span>
-                <strong className="cost-col-val">{Number(trip.costMeals || 0).toLocaleString()} VNĐ</strong>
-              </div>
-              <div className="trip-details-cost-col">
-                <span className="cost-col-label">🎟️ Tham quan</span>
-                <strong className="cost-col-val">{Number(trip.costAttractions || 0).toLocaleString()} VNĐ</strong>
-              </div>
-              <div className="trip-details-cost-col">
-                <span className="cost-col-label">🏨 Lưu trú</span>
-                <strong className="cost-col-val">{Number(trip.costAccommodation || 0).toLocaleString()} VNĐ</strong>
-              </div>
-              <div className="trip-details-cost-col">
-                <span className="cost-col-label">🛡️ Dự phòng</span>
-                <strong className="cost-col-val">{Number(trip.costContingency || 0).toLocaleString()} VNĐ</strong>
-              </div>
-            </div>
-          </div>
-        )}
+        {!canEditTrip && workspaceTab === 'budget' && <TripBudget plan={trip} memberCount={collaborators.length + 1} onMembersClick={openGroupModal} />}
 
         <div className="trip-details-grid">
           {/* Main Itinerary Column */}
           <div className="trip-details-main-column">
             {/* Interactive Route Map */}
             <div className="card trip-details-map-card">
-              <div className="trip-details-map-header">
-                <div>
-                  <h3 className="trip-details-map-title">
-                    <MapPin size={18} color="var(--primary)" /> Bản đồ lộ trình ({locations.length} điểm dừng)
-                  </h3>
-                  <p className="trip-details-map-subtitle">
-                    {canEditTrip ? 'Bấm trên bản đồ hoặc tìm địa điểm để thêm vào bản nháp lịch trình.' : 'Theo dõi tuyến đường di chuyển trực quan.'}
-                  </p>
-                </div>
+              {isEditingInfo && <div className="trip-details-map-header">
                 {isEditingInfo && (
                   <div className="trip-details-map-actions">
                     <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.825rem' }} onClick={handleSaveTimeline}>Lưu lịch trình</button>
                     <button className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', fontSize: '0.825rem' }} onClick={() => setEditingLocations(locations.map(normalizeMapLoc))}>Khôi phục</button>
                   </div>
                 )}
-              </div>
+              </div>}
               <div className="trip-details-map-view">
                 <MapComponent
-                  selectedLocations={(isEditingInfo ? editingLocations : locations).map(normalizeMapLoc)}
+                  selectedLocations={visibleDayGroups.flatMap(group => group.items.map((entry, index) => ({ ...entry.loc, stopNumber: index + 1 })))}
+                  focusedLocation={focusedLocation}
+                  searchContext={trip.destination}
+                  numberMarkers
+                  showRoute={activeDayTab !== 'all'}
                   onLocationAdd={canEditTrip ? location => editorRef.current?.addStop(location, activeDayTab === 'all' ? 1 : activeDayTab) : undefined}
                   onLocationRemove={canEditTrip ? key => editorRef.current?.removeStop(key) : undefined}
                 />
@@ -710,9 +687,8 @@ const TripDetails = () => {
                     <Clock size={20} color="var(--primary)" /> Lịch trình chi tiết
                   </h3>
                   <p className="trip-details-timeline-subtitle">
-                    {canEditTrip ? 'Chọn địa điểm trên bản đồ hoặc thêm hoạt động riêng. Kéo thả để đổi thứ tự, như khi lập lịch thủ công.' : 'Bấm vào từng điểm dừng để xem dự báo thời tiết và chi tiết hoạt động'}
+                    {canEditTrip ? 'Tìm điểm đến cho từng ngày, kéo để sắp xếp thứ tự.' : 'Chọn một điểm dừng để xem vị trí trên bản đồ.'}
                   </p>
-                  {canEditTrip && <button type="button" className="btn btn-outline trip-stop-add" onClick={() => editorRef.current?.addStop(null, activeDayTab === 'all' ? 1 : activeDayTab)}><Plus size={14} /> Thêm hoạt động</button>}
                 </div>
                 {groupedLocationsByDay.length > 1 && (
                   <div className="trip-details-day-tabs">
@@ -722,7 +698,7 @@ const TripDetails = () => {
                       aria-pressed={activeDayTab === 'all'}
                       onClick={() => setSelectedDayTab('all')}
                     >
-                      Tất cả ngày ({locations.length})
+                      Tất cả ngày ({stopCount})
                     </button>
                     {groupedLocationsByDay.map((dg) => (
                       <button
@@ -730,7 +706,7 @@ const TripDetails = () => {
                         type="button"
                         className={`trip-details-day-tab ${activeDayTab === dg.day ? 'active' : ''}`}
                         aria-pressed={activeDayTab === dg.day}
-                        onClick={() => setSelectedDayTab(dg.day)}
+                        onClick={() => { setSelectedDayTab(dg.day); setFocusedLocation(null); }}
                       >
                         Ngày {dg.day} ({dg.items.length})
                       </button>
@@ -746,9 +722,12 @@ const TripDetails = () => {
                     <div className="trip-details-day-heading">
                       <span className="trip-details-day-tag">Ngày {dayGroup.day}</span>
                       <span className="trip-details-day-meta">
+                        {(liveDraft?.startDate || trip.startDate) && `${safeFormatDate(addDays(new Date(liveDraft?.startDate || trip.startDate), dayGroup.day - 1))} · `}
                         {dayGroup.items.length} điểm dừng
                       </span>
                     </div>
+
+                    {dayGroup.items.length === 0 && <div className="trip-workspace-empty"><MapPin size={24} /><p>Ngày này chưa có điểm dừng.</p>{canEditTrip && <span>Tìm điểm đến bên dưới hoặc nhập tên thủ công.</span>}</div>}
 
                     <Reorder.Group axis="y" values={dayGroup.items.map(entry => entry.rawItem)} onReorder={items => { if (canEditTrip) editorRef.current?.reorderDay(dayGroup.day, items); }} className="trip-details-day-items trip-stop-reorder-list">
                       {dayGroup.items.map(({ loc, idx, note, rawItem }, itemIndex) => {
@@ -759,7 +738,7 @@ const TripDetails = () => {
                             dragListener={canEditTrip}
                             key={rawItem?.id || rawItem?.key || `${dayGroup.day}_${loc.tripLocId || loc.id}_${idx}`}
                             className={`trip-details-timeline-item ${isStopActive ? 'active' : ''}`}
-                            onClick={() => fetchWeather(loc.id, loc.lat, loc.lng)}
+                            onClick={() => { setFocusedLocation(loc); fetchWeather(loc.id, loc.lat, loc.lng); }}
                           >
                             <div className="trip-details-timeline-badge">
                               {canEditTrip && <GripVertical size={13} />}
@@ -778,7 +757,8 @@ const TripDetails = () => {
 
                               <div className="trip-details-timeline-info">
                                 <div className="trip-details-timeline-title-row">
-                                  {canEditTrip && rawItem ? <input className="trip-stop-name" aria-label="Tên điểm dừng" value={rawItem.customName || loc.name} maxLength={255} onClick={event => event.stopPropagation()} onChange={event => editorRef.current?.updateStop(rawItem.id || rawItem.key, { customName: event.target.value })} /> : <h4 className="trip-details-timeline-name">{rawItem?.customName || loc.name}</h4>}
+                                  {canEditTrip && rawItem ? <button type="button" className="trip-stop-name" aria-label={`Sửa điểm dừng ${rawItem.customName || rawItem.location?.name || ''}`} onClick={event => { event.stopPropagation(); setEditingStopKey(String(rawItem.id || rawItem.key)); }}>{rawItem.customName || rawItem.location?.name || 'Nhập điểm đến'}</button> : <h4 className="trip-details-timeline-name">{rawItem?.customName || loc.name}</h4>}
+                                  {canEditTrip && rawItem && <button type="button" className="trip-stop-delete" aria-label={`Xóa điểm dừng ${rawItem.customName || loc.name}`} title="Xóa điểm dừng" onClick={event => { event.stopPropagation(); editorRef.current?.removeStop(rawItem.id || rawItem.key); }}><Trash2 size={17} /></button>}
                                   <button
                                     type="button"
                                     className={`trip-details-weather-trigger ${isStopActive ? 'active' : ''}`}
@@ -795,6 +775,7 @@ const TripDetails = () => {
                                 <p className="trip-details-timeline-address">
                                   <MapPin size={13} /> {loc.address || 'Chưa có địa chỉ chi tiết'}
                                 </p>
+                                {loc.hasRealCoords && <button type="button" className="trip-workspace-locate" onClick={event => { event.stopPropagation(); setFocusedLocation({ ...loc }); setMobileMap(true); }}><Navigation size={13} /> Xem trên bản đồ</button>}
 
                                 {(rawItem?.startTime || rawItem?.endTime || loc.startTime || rawItem?.durationMinutes || rawItem?.travelMinutes) && (
                                   <div className="trip-details-schedule-chips">
@@ -818,7 +799,7 @@ const TripDetails = () => {
                                   </div>
                                 )}
 
-                                {note && !canEditTrip && (
+                                {note && (
                                   <div className="trip-details-timeline-note">
                                     <StickyNote size={13} />
                                     <span>{note}</span>
@@ -827,20 +808,14 @@ const TripDetails = () => {
 
                                 <div className="trip-details-timeline-tags">
                                   <span className="trip-details-tag-duration">
-                                    <Clock size={11} /> Gợi ý: {loc.suggestedDuration || '2 giờ'}
+                                    <Clock size={11} /> {loc.suggestedDuration || 'Chưa có gợi ý thời lượng'}
                                   </span>
                                   <span className="trip-details-tag-cost">
-                                    <DollarSign size={11} /> Phí: {loc.estimatedCost ? `${Number(loc.estimatedCost).toLocaleString()} VNĐ` : 'Miễn phí'}
+                                    <DollarSign size={11} /> {loc.estimatedCost ? `Phí dự kiến: ${Number(loc.estimatedCost).toLocaleString()} VNĐ` : 'Chưa có giá tham khảo'}
                                   </span>
                                 </div>
 
-                                {canEditTrip && rawItem && <TripStopFields item={rawItem} startDate={liveDraft?.startDate || trip.startDate} onChange={changes => editorRef.current?.updateStop(rawItem.id || rawItem.key, changes)} onRemove={() => editorRef.current?.removeStop(rawItem.id || rawItem.key)} onMove={direction => {
-                                  const items = dayGroup.items.map(entry => entry.rawItem);
-                                  const target = itemIndex + direction;
-                                  if (target < 0 || target >= items.length) return;
-                                  [items[itemIndex], items[target]] = [items[target], items[itemIndex]];
-                                  editorRef.current?.reorderDay(dayGroup.day, items);
-                                }} />}
+                                {canEditTrip && rawItem && <button type="button" className="trip-workspace-stop-editor" onClick={event => { event.stopPropagation(); setEditingStopKey(String(rawItem.id || rawItem.key)); }}>Sửa ngày, giờ & ghi chú</button>}
                                 {isEditingInfo && (
                                   <div className="trip-details-actions" style={{ marginTop: '0.6rem', gap: '0.4rem' }}>
                                     <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }} onClick={(e) => { e.stopPropagation(); moveLocation(idx, idx - 1); }}>Lên</button>
@@ -854,6 +829,7 @@ const TripDetails = () => {
                         );
                       })}
                     </Reorder.Group>
+                    {canEditTrip && <div className="trip-day-add"><button type="button" className="trip-stop-add" onClick={() => setAddingDay(dayGroup.day)}><Plus size={16} /> Thêm điểm đến</button></div>}
                   </div>
                 ))}
               </div>
@@ -1023,7 +999,7 @@ const TripDetails = () => {
           </div>
         </div>
 
-        {showPackingPicker && canEditTrip && <PackingDraftPicker catalog={editorRef.current?.packingCatalog || []} selected={packingItems} onAdd={item => editorRef.current?.addPacking(item)} onClose={() => setShowPackingPicker(false)} />}
+        {showPackingPicker && canEditTrip && <PackingDraftPicker catalog={editorRef.current?.packingCatalog || []} selected={packingItems} onAdd={item => editorRef.current?.addPacking(item)} onRemove={key => editorRef.current?.removePacking(key)} onClose={() => setShowPackingPicker(false)} />}
         {/* Confirmation Modal */}
         <AnimatePresence>
           {isConfirming && (
@@ -1058,7 +1034,7 @@ const TripDetails = () => {
                   )}
 
                   {geoError && (
-                    <div className="trip-details-modal-error">⚠️ {geoError}</div>
+                      <div className="trip-details-modal-error"><AlertTriangle size={16} /> {geoError}</div>
                   )}
                 </div>
 
@@ -1217,7 +1193,15 @@ const TripDetails = () => {
           )}
         </AnimatePresence>
 
-
+        {canEditTrip && addingDay !== null && <PlanDialog title={`Thêm điểm đến · Ngày ${addingDay}`} onClose={() => setAddingDay(null)}><PlaceSearch context={trip.destination} onSelect={location => { editorRef.current?.addStop(location, addingDay); setAddingDay(null); }} /><button type="button" className="btn btn-outline trip-stop-add" onClick={() => { const key = editorRef.current?.addStop(null, addingDay); setAddingDay(null); if (key) setEditingStopKey(key); }}><Plus size={15} /> Nhập điểm đến thủ công</button></PlanDialog>}
+        {canEditTrip && editingStop?.rawItem && <PlanDialog title="Sửa điểm dừng" onClose={() => setEditingStopKey(null)}><label>Tên điểm đến<input autoFocus aria-label="Tên điểm dừng" placeholder="Nhập điểm đến" maxLength={255} value={editingStop.rawItem.customName || editingStop.rawItem.location?.name || ''} onChange={event => editorRef.current?.updateStop(editingStopKey, { customName: event.target.value })} /></label><TripStopFields item={editingStop.rawItem} startDate={liveDraft?.startDate || trip.startDate} onChange={changes => editorRef.current?.updateStop(editingStopKey, changes)} onRemove={() => { editorRef.current?.removeStop(editingStopKey); setEditingStopKey(null); }} onMove={direction => {
+          const items = groupedLocationsByDay.find(group => group.day === editingStop.day).items.map(entry => entry.rawItem);
+          const index = items.findIndex(item => String(item.id || item.key) === editingStopKey);
+          const target = index + direction;
+          if (target < 0 || target >= items.length) return;
+          [items[index], items[target]] = [items[target], items[index]];
+          editorRef.current?.reorderDay(editingStop.day, items);
+        }} /><footer><button type="button" className="btn btn-primary" onClick={() => setEditingStopKey(null)}>Xong</button></footer></PlanDialog>}
       </div>
     </Layout>
   );

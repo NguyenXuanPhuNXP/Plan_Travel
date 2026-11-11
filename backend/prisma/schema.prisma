@@ -79,6 +79,7 @@ model itineraries {
   cost_accommodation Decimal?                  @default(0) @db.Decimal(12, 0)
   cost_contingency   Decimal?                  @default(0) @db.Decimal(12, 0)
   total_cost         Decimal?                  @default(0) @db.Decimal(12, 0)
+  expenses           Json?
   preferences        Json?
   description        String?                   @db.Text
   visibility         String                    @default("private") @db.VarChar(20)

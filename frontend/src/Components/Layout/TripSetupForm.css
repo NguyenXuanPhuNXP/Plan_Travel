@@ -1,0 +1,27 @@
+.trip-setup-page { max-width: 740px; margin: 0 auto; padding: 12px 0 48px; }
+.trip-setup-page > header { margin-bottom: 24px; }
+.trip-setup-page h1 { margin: 16px 0 4px; font-size: 30px; }
+.trip-setup-page > header p { color: var(--text-muted); }
+.trip-setup-page > form { background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 28px; }
+.trip-setup-page form > footer { display: flex; justify-content: flex-end; margin-top: 24px; }
+.trip-setup-page .btn svg { color: currentColor; }
+.trip-setup-form { display: flex; flex-direction: column; gap: 24px; }
+.trip-setup-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.trip-setup-field { display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
+.trip-setup-field > span, .trip-setup-companions h3 { display: flex; align-items: center; gap: 8px; color: #252a2e; font-size: 16px; font-weight: 600; }
+.trip-setup-field input { padding: 12px 14px; min-width: 0; width: 100%; border: 1px solid #d6d9dc; border-radius: 8px; background: white; color: #202427; }
+.trip-setup-companions p { margin: 4px 0 12px; color: #687078; font-size: 14px; }
+.trip-setup-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.trip-setup-choices button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid #dfe1e4; border-radius: 8px; background: white; color: #252a2e; font-size: 14px; }
+.trip-setup-choices button[aria-pressed="true"] { border-color: #252a2e; background: #f0f1f2; font-weight: 600; }
+.trip-setup-form svg { color: #252a2e; flex-shrink: 0; }
+.trip-setup-more { border-top: 1px solid #e5e7e9; padding-top: 16px; }
+.trip-setup-more summary { cursor: pointer; color: #525a61; }
+.trip-setup-more[open] > .trip-setup-row { margin-top: 20px; }
+.trip-setup-form fieldset { border: 0; padding: 0; margin: 20px 0 0; min-width: 0; }
+.trip-setup-form legend { font-weight: 600; margin-bottom: 10px; color: #252a2e; }
+@media (max-width: 600px) {
+  .trip-setup-page > form { padding: 20px 16px; }
+  .trip-setup-row { grid-template-columns: 1fr; }
+  .trip-setup-page h1 { font-size: 26px; }
+}

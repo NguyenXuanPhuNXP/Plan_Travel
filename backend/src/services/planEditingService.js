@@ -1,6 +1,7 @@
 import prisma from '../config/db.js';
 import { getItineraryById } from './itineraryService.js';
 import { createHash } from 'node:crypto';
+import { normalizeTripExpenses } from './tripExpenseInput.js';
 
 const fail = message => { throw { status: 400, message }; };
 const text = (value, limit, label, required = false) => {
@@ -53,10 +54,22 @@ export async function savePlan(itineraryId, userId, draft) {
         if (travelerCount < 1) fail('Cần ít nhất một người tham gia.');
         if (!['PERSON', 'GROUP'].includes(draft.costScope)) fail('Phạm vi chi phí không hợp lệ.');
         if (!['draft', 'generated', 'completed', 'cancelled'].includes(draft.status)) fail('Trạng thái kế hoạch không hợp lệ.');
-        const costs = Object.fromEntries(['Transport', 'Meals', 'Attractions', 'Accommodation', 'Contingency'].map(key => [key, number(draft[`cost${key}`], 'Chi phí')]));
+        let ledger = null;
+        if (draft.expenses != null || Array.isArray(existing.expenses)) {
+            const members = [String(existing.user_id)];
+            if (draft.collaborators !== undefined) {
+                if (!Array.isArray(draft.collaborators) || draft.collaborators.length > 100) fail('Danh sách thành viên không hợp lệ.');
+                for (const member of draft.collaborators) {
+                    const target = member.userId ? await tx.users.findUnique({ where: { id: id(member.userId) } }) : await tx.users.findUnique({ where: { email: String(member.email || '').trim().toLowerCase() } });
+                    if (target?.is_active) members.push(String(target.id));
+                }
+            } else members.push(...existing.collaborators.map(member => String(member.user_id)));
+            ledger = normalizeTripExpenses(draft.expenses ?? existing.expenses, members);
+        }
+        const costs = ledger?.costs || Object.fromEntries(['Transport', 'Meals', 'Attractions', 'Accommodation', 'Contingency'].map(key => [key, number(draft[`cost${key}`], 'Chi phí')]));
         if (draft.preferences !== undefined && (!Array.isArray(draft.preferences) || draft.preferences.length > 30 || draft.preferences.some(value => typeof value !== 'string' || value.length > 80))) fail('Sở thích không hợp lệ.');
         const sum = Object.values(costs).reduce((total, value) => total + value, 0);
-        const total = number(sum * (draft.costScope === 'PERSON' ? travelerCount : 1), 'Tổng chi phí');
+        const total = ledger?.total ?? number(sum * (draft.costScope === 'PERSON' ? travelerCount : 1), 'Tổng chi phí');
         const update = {
             name: text(draft.name, 200, 'Tên kế hoạch', true), destination: text(draft.destination, 200, 'Điểm đến'),
             start_location: text(draft.startLocation, 255, 'Điểm khởi hành'), end_location: text(draft.endLocation, 255, 'Điểm kết thúc'),
@@ -65,7 +78,8 @@ export async function savePlan(itineraryId, userId, draft) {
             traveler_count: travelerCount, transport_mode: text(draft.transportMode, 100, 'Phương tiện'),
             description: text(draft.description, 20000, 'Ghi chú'), status: draft.status,
             ...(draft.preferences !== undefined ? { preferences: draft.preferences } : {}),
-            budget: number(draft.budget, 'Ngân sách'), cost_scope: draft.costScope,
+            budget: number(draft.budget, 'Ngân sách'), cost_scope: ledger ? 'GROUP' : draft.costScope,
+            ...(ledger ? { expenses: ledger.expenses } : {}),
             cost_transport: costs.Transport, cost_meals: costs.Meals, cost_attractions: costs.Attractions,
             cost_accommodation: costs.Accommodation, cost_contingency: costs.Contingency, total_cost: total, updated_at: new Date()
         };
