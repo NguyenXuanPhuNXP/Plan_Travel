@@ -9,9 +9,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 1.75rem;
-  background: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -36,7 +34,7 @@
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 2px 8px var(--primary-glow);
+  box-shadow: none;
 }
 
 .navbar-brand-name {

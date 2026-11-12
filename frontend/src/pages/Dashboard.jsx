@@ -89,9 +89,7 @@ const Dashboard = () => {
             <div className="dashboard-hero-overlay" />
             <div className="dashboard-hero-content">
               <div className="dashboard-hero-top">
-                <span className="badge badge-gold">
-                  CHUYẾN ĐI TIÊU ĐIỂM
-                </span>
+                <span className="dashboard-hero-status">{tripStatusLabel(upcomingTrip.status)}</span>
                 <span className="dashboard-hero-countdown">
                   <Clock size={13} /> {getDaysLeft(upcomingTrip.startDate)}
                 </span>
@@ -129,7 +127,7 @@ const Dashboard = () => {
               <p className="dashboard-hero-empty-desc">
                 Bắt đầu tạo lịch trình và lựa chọn các điểm đến thú vị ngay hôm nay.
               </p>
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <div className="dashboard-empty-actions">
                 <Link to="/planner/map" className="btn btn-primary">
                   <MapPin size={18} /> Lập kế hoạch thủ công
                 </Link>
@@ -138,6 +136,10 @@ const Dashboard = () => {
                 </Link>
               </div>
             </div>
+            <Link to="/explore?q=H%E1%BB%99i%20An" className="dashboard-inspiration" aria-label="Khám phá Hội An">
+              <img src={destinationImage('Hội An')} alt="Phố cổ Hội An" onError={handleImageError} />
+              <span>Hội An, Việt Nam <ArrowRight size={20} /></span>
+            </Link>
           </div>
         )}
 

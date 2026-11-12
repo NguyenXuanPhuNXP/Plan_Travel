@@ -24,8 +24,8 @@
 .sidebar-section-title {
   font-size: 0.725rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--text-muted);
   margin-bottom: 0.75rem;
   padding-left: 0.5rem;
@@ -57,9 +57,9 @@
 }
 
 .sidebar-link.active {
-  color: var(--primary);
-  background: var(--primary-soft);
-  border-color: rgba(200, 90, 50, 0.15);
+  color: var(--forest);
+  background: var(--forest-soft);
+  border-color: transparent;
   font-weight: 700;
 }
 
@@ -97,7 +97,7 @@
   background: var(--forest);
   color: #FFFFFF;
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 14px var(--forest-glow);
+  box-shadow: none;
 }
 
 .sidebar-cta-title {
