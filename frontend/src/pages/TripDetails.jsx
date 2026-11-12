@@ -137,7 +137,7 @@ const TripDetails = () => {
 
   const normalizeMapLoc = (loc) => {
     if (!loc) return null;
-    const source = loc.location || loc;
+    const source = loc.manualLocation || loc.location || loc;
     const rawLat = source.lat ?? source.latitude;
     const rawLng = source.lng ?? source.longitude;
     const lat = rawLat == null ? null : Number(rawLat);

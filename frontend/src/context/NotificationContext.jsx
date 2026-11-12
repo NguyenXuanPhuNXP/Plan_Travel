@@ -34,12 +34,22 @@ export const NotificationProvider = ({ children }) => {
   const { user } = useAuth();
   const STORAGE_KEY = 'travel_notifications:' + (user?.id || 'guest');
   const ENABLED_KEY = 'travel_notifications_enabled:' + (user?.id || 'guest');
+  const EMAIL_ENABLED_KEY = 'travel_notifications_email_enabled:' + (user?.id || 'guest');
   const [notifications, setNotifications] = useState(() => user?.id ? readStored(STORAGE_KEY) : []);
   const [enabled, setEnabled] = useState(localStorage.getItem(ENABLED_KEY) !== 'false');
+  const [emailEnabled, setEmailEnabled] = useState(localStorage.getItem(EMAIL_ENABLED_KEY) !== 'false');
   const [toast, setToast] = useState(null);
   const seenUpdates = useRef(new Map());
   const seenCollaborators = useRef(new Map());
   const initialized = useRef(false);
+
+  useEffect(() => {
+    const storedInApp = localStorage.getItem(ENABLED_KEY);
+    const storedByEmail = localStorage.getItem(EMAIL_ENABLED_KEY);
+    setEnabled(storedInApp === null ? user?.notifyInApp !== false : storedInApp !== 'false');
+    setEmailEnabled(storedByEmail === null ? user?.notifyByEmail === true : storedByEmail !== 'false');
+    setNotifications(user?.id ? readStored(STORAGE_KEY) : []);
+  }, [user?.id]);
 
   const pushNotification = useCallback((item, showPopup = true) => {
     setNotifications((prev) => {
@@ -78,6 +88,10 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     if (user?.id) localStorage.setItem(ENABLED_KEY, String(enabled));
   }, [enabled, ENABLED_KEY, user?.id]);
+
+  useEffect(() => {
+    if (user?.id) localStorage.setItem(EMAIL_ENABLED_KEY, String(emailEnabled));
+  }, [emailEnabled, EMAIL_ENABLED_KEY, user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -178,6 +192,8 @@ export const NotificationProvider = ({ children }) => {
     unreadCount,
     enabled,
     setEnabled,
+    emailEnabled,
+    setEmailEnabled,
     pushNotification,
     markRead: (id) => {
       setNotifications((prev) => {

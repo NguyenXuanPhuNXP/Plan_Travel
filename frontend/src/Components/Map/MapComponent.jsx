@@ -80,6 +80,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
 
   // Filter only valid locations with finite lat/lng to prevent Leaflet LatLng crash
   const validLocations = (Array.isArray(selectedLocations) ? selectedLocations : [])
+    .map((loc, index) => loc && ({ ...loc, stopNumber: index + 1 }))
     .filter((loc) => loc && (loc.lat ?? loc.latitude) != null && (loc.lng ?? loc.longitude) != null && Number.isFinite(Number(loc.lat ?? loc.latitude)) && Number.isFinite(Number(loc.lng ?? loc.longitude)))
     .map((loc) => ({
       ...loc,
@@ -161,7 +162,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
 
         {validLocations.map((loc, idx) => (
           <Marker 
-            key={loc.id || `loc_${idx}`} 
+            key={`${loc.id || 'stop'}_${idx}`}
             position={[loc.lat, loc.lng]}
             {...(numberMarkers ? { icon: L.divIcon({ className: 'trip-map-number', html: `<span>${Number(loc.stopNumber) || idx + 1}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] }) } : {})}
             eventHandlers={{

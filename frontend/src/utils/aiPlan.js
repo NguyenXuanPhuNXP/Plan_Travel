@@ -10,23 +10,27 @@ export function aiTripDates(startDate, endDate, days, now = new Date()) {
   return { startDate: start, endDate: calendarDate(last) };
 }
 
+export function stopDateTime(startDate, dayNumber, value) {
+  if (!value) return null;
+  const match = String(value).match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) throw new Error('Giờ trong lịch trình không hợp lệ. Hãy kiểm tra trước khi lưu.');
+  const date = new Date(`${startDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) throw new Error('Ngày khởi hành không hợp lệ.');
+  date.setDate(date.getDate() + dayNumber - 1);
+  date.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return date;
+}
+
 export function aiPlanItems(plan, startDate) {
   return (plan?.days || []).flatMap((day, index) => (day.items || []).map(item => {
     const dayNumber = Number(day.dayNumber || index + 1);
     if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 30) throw new Error('Ngày trong lịch trình AI không hợp lệ.');
-    const clock = value => {
-      if (!value) return null;
-      const match = String(value).match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-      if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) throw new Error('Giờ trong lịch trình không hợp lệ. Hãy kiểm tra trước khi lưu.');
-      const date = new Date(`${startDate}T00:00:00`);
-      date.setDate(date.getDate() + dayNumber - 1);
-      date.setHours(Number(match[1]), Number(match[2]), 0, 0);
-      return date;
-    };
-    const start = clock(item.startTime), end = clock(item.endTime);
+    const start = stopDateTime(startDate, dayNumber, item.startTime);
+    const end = stopDateTime(startDate, dayNumber, item.endTime);
     if (start && end && end < start) end.setDate(end.getDate() + 1);
     const candidateId = item.locationId || item.location?.id;
     return {
+      day: dayNumber,
       locationId: /^\d+$/.test(String(candidateId)) ? String(candidateId) : null,
       customName: item.customName || item.locationName || item.location?.name || item.name || null,
       startTime: start?.toISOString() || null, endTime: end?.toISOString() || null,
