@@ -1,4 +1,5 @@
 import prisma from "../config/db.js";
+import { ensureDestinationLocations } from '../services/aiSuggestionService.js';
 import { geocodeRegionInVietnam, fetchPlacesByBbox } from "../services/geoapify.js";
 import {
     mapGeoapifyFeatureToLocation,
@@ -193,6 +194,13 @@ export async function createManualLocation(req, res) {
     });
 }
 
+export async function ensureDestinationCatalog(req, res) {
+    const region = typeof req.body?.region === 'string' ? req.body.region.trim() : '';
+    if (!region || region.length > 200) throw { status: 400, message: 'Hãy nhập điểm đến hợp lệ trong tối đa 200 ký tự.' };
+    const locations = await ensureDestinationLocations(region);
+    res.json({ region, total: locations.length });
+}
+
 export async function cacheLocations(req, res) {
     const {
         region = "Da Nang",
@@ -204,6 +212,7 @@ export async function cacheLocations(req, res) {
 
     const features = await fetchPlacesByBbox({
         bbox: geocoded.bbox,
+        center: geocoded.center,
         categories,
         limit: Number(limit),
         offset: 0

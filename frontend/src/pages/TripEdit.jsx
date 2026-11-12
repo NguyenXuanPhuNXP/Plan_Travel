@@ -5,6 +5,7 @@ import Layout from '../Components/Layout/Layout';
 import TripBudget from '../Components/Layout/TripBudget';
 import { expenseTotals } from '../utils/tripExpenses';
 import { useAuth } from '../context/AuthContext';
+import DestinationInput from '../Components/Map/DestinationInput';
 import { useTrips } from '../context/TripContext';
 import { itineraryService } from '../services/itineraryService';
 import { friendService } from '../services/friendService';
@@ -181,7 +182,7 @@ export default function TripEdit({ embedded = false, onSaved, onCancel, onDraftC
     <fieldset className="plan-edit-panel" disabled={saving}>
       <EditorSection embedded={embedded} title="Thông tin" section="general" visible={tab === 'general'}><div className="plan-edit-grid">
         <Field label="Tên kế hoạch">{input('name', 'text', { maxLength: 200 })}</Field>
-        <Field label="Điểm đến">{input('destination', 'text', { maxLength: 200 })}</Field>
+        <Field label="Điểm đến"><DestinationInput maxLength={200} value={draft.destination} onChange={event => change('destination', event.target.value)} /></Field>
         <Field label="Ngày, giờ bắt đầu">{input('startDate', 'datetime-local')}</Field><Field label="Ngày, giờ kết thúc">{input('endDate', 'datetime-local')}</Field>
       </div><details className="trip-info-more"><summary>Thông tin khác</summary><div className="plan-edit-grid">
         <Field label="Điểm khởi hành">{input('startLocation')}</Field><Field label="Điểm kết thúc">{input('endLocation')}</Field>

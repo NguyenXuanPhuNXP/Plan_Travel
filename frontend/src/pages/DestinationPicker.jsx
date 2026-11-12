@@ -39,11 +39,12 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
 
   // Map locations for MapComponent
   const mapSelectedLocations = selectedLocations.map(loc => ({
+    ...loc,
     id: loc.id,
     name: loc.name,
     address: loc.address || '',
-    lat: loc.latitude,
-    lng: loc.longitude,
+    lat: loc.latitude ?? loc.lat,
+    lng: loc.longitude ?? loc.lng,
     image: loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800'
   }));
 
@@ -198,6 +199,7 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
         {showMap && (
           <div className="picker-map-panel">
             <MapComponent
+              searchContext={destination}
               selectedLocations={mapSelectedLocations}
               suggestedLocations={filteredSuggestions.map(loc => ({
                 id: getLocKey(loc),
@@ -212,8 +214,9 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
                 const matched = suggestions.find(s =>
                   s.latitude === loc.lat && s.longitude === loc.lng
                 );
-                if (matched && !isSelected(matched)) {
-                  onSelect({ ...matched, _clientKey: getLocKey(matched) });
+                const place = matched || loc;
+                if (!isSelected(place)) {
+                  onSelect({ ...place, latitude: place.latitude ?? place.lat, longitude: place.longitude ?? place.lng, _clientKey: getLocKey(place) });
                 }
               }}
               onLocationRemove={(locId) => onDeselect(String(locId))}

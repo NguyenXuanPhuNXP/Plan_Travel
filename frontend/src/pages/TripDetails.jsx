@@ -74,6 +74,7 @@ const TripDetails = () => {
   const [savedPackingItems, setPackingItems] = useState(trip?.packingItems || []);
   const packingItems = liveDraft?.packingItems || savedPackingItems;
   const [selectedDayTab, setSelectedDayTab] = useState('all');
+  const [expandedDay, setExpandedDay] = useState(1);
   const [workspaceTab, setWorkspaceTab] = useState('schedule');
   const [mobileMap, setMobileMap] = useState(false);
   const [focusedLocation, setFocusedLocation] = useState(null);
@@ -670,10 +671,10 @@ const TripDetails = () => {
                 <MapComponent
                   selectedLocations={visibleDayGroups.flatMap(group => group.items.map((entry, index) => ({ ...entry.loc, stopNumber: index + 1 })))}
                   focusedLocation={focusedLocation}
-                  searchContext={trip.destination}
+                  searchContext={liveDraft?.destination ?? trip.destination}
                   numberMarkers
                   showRoute={activeDayTab !== 'all'}
-                  onLocationAdd={canEditTrip ? location => editorRef.current?.addStop(location, activeDayTab === 'all' ? 1 : activeDayTab) : undefined}
+                  onLocationAdd={canEditTrip ? location => editorRef.current?.addStop(location, activeDayTab === 'all' ? expandedDay || 1 : activeDayTab) : undefined}
                   onLocationRemove={canEditTrip ? key => editorRef.current?.removeStop(key) : undefined}
                 />
               </div>
@@ -706,7 +707,7 @@ const TripDetails = () => {
                         type="button"
                         className={`trip-details-day-tab ${activeDayTab === dg.day ? 'active' : ''}`}
                         aria-pressed={activeDayTab === dg.day}
-                        onClick={() => { setSelectedDayTab(dg.day); setFocusedLocation(null); }}
+                        onClick={() => { setSelectedDayTab(dg.day); setExpandedDay(dg.day); setFocusedLocation(null); }}
                       >
                         Ngày {dg.day} ({dg.items.length})
                       </button>
@@ -719,14 +720,16 @@ const TripDetails = () => {
                 <div className="trip-details-timeline-line" />
                 {visibleDayGroups.map((dayGroup) => (
                   <div key={`day_${dayGroup.day}`} className="trip-details-day-group">
-                    <div className="trip-details-day-heading">
+                    <button type="button" className="trip-details-day-heading trip-day-toggle" aria-expanded={expandedDay === dayGroup.day} aria-controls={`trip-day-${dayGroup.day}`} onClick={() => setExpandedDay(current => current === dayGroup.day ? null : dayGroup.day)}>
                       <span className="trip-details-day-tag">Ngày {dayGroup.day}</span>
                       <span className="trip-details-day-meta">
                         {(liveDraft?.startDate || trip.startDate) && `${safeFormatDate(addDays(new Date(liveDraft?.startDate || trip.startDate), dayGroup.day - 1))} · `}
                         {dayGroup.items.length} điểm dừng
                       </span>
-                    </div>
+                      <ChevronRight size={17} aria-hidden="true" />
+                    </button>
 
+                    <div id={`trip-day-${dayGroup.day}`} className="trip-day-content" hidden={expandedDay !== dayGroup.day}>
                     {dayGroup.items.length === 0 && <div className="trip-workspace-empty"><MapPin size={24} /><p>Ngày này chưa có điểm dừng.</p>{canEditTrip && <span>Tìm điểm đến bên dưới hoặc nhập tên thủ công.</span>}</div>}
 
                     <Reorder.Group axis="y" values={dayGroup.items.map(entry => entry.rawItem)} onReorder={items => { if (canEditTrip) editorRef.current?.reorderDay(dayGroup.day, items); }} className="trip-details-day-items trip-stop-reorder-list">
@@ -830,6 +833,7 @@ const TripDetails = () => {
                       })}
                     </Reorder.Group>
                     {canEditTrip && <div className="trip-day-add"><button type="button" className="trip-stop-add" onClick={() => setAddingDay(dayGroup.day)}><Plus size={16} /> Thêm điểm đến</button></div>}
+                    </div>
                   </div>
                 ))}
               </div>

@@ -7,6 +7,7 @@ const router = express.Router();
 router.get("/", asyncHandler(locationController.listLocations));
 router.post("/", asyncHandler(locationController.createManualLocation));
 router.post("/cache", asyncHandler(locationController.cacheLocations));
+router.post("/ensure", asyncHandler(locationController.ensureDestinationCatalog));
 router.get("/cache", asyncHandler(locationController.testCacheLocations));
 router.get("/destination-stats", asyncHandler(locationController.getDestinationStats));
 router.get("/hot", asyncHandler(locationController.getHotLocations));
