@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Loader2, MapPin } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import Layout from '../Components/Layout/Layout';
 import TripSetupForm from '../Components/Layout/TripSetupForm';
 import { useTrips } from '../context/TripContext';
@@ -8,7 +8,7 @@ import { itineraryService } from '../services/itineraryService';
 import { locationService } from '../services/locationService';
 import { friendService } from '../services/friendService';
 import { tripSetupPayload } from '../utils/tripSetup';
-import { destinationImage, handleImageError } from '../utils/destinationImages';
+import PlannerIntro from '../Components/Layout/PlannerIntro';
 import './TripWorkspace.css';
 
 export default function TripPlanner() {
@@ -35,11 +35,10 @@ export default function TripPlanner() {
     } catch (err) { setError(err.response?.data?.message || err.message || 'Chưa tạo được kế hoạch. Hãy thử lại.'); }
     finally { setSaving(false); }
   };
-  return <Layout><div className="trip-setup-page">
-    <header><Link to="/" className="trip-details-header-link"><ArrowLeft size={16} /> Quay lại</Link><h1>Chuyến đi của bạn</h1><p>Chọn nơi muốn đi, thời gian và những người cùng lên kế hoạch.</p></header>
-    <nav className="trip-workspace-tabs" aria-label="Các bước lập kế hoạch"><button type="button" aria-current="step" className="active"><MapPin size={16} /> Thông tin chuyến đi</button><button type="button" disabled><ArrowRight size={16} /> Lịch trình theo ngày</button></nav>
-    <figure className="trip-setup-inspiration"><img src={destinationImage('Hội An')} alt="Phố cổ Hội An" onError={handleImageError} /><figcaption>Gợi ý khám phá: Hội An, Việt Nam</figcaption></figure>
-    <form onSubmit={startPlanning}>
+  return <Layout><div className="planner-start-layout planner-manual-page">
+    <PlannerIntro destination={info.destination} manual />
+    <form className="planner-start-form" onSubmit={startPlanning}>
+      <header><h2>Bắt đầu hành trình</h2><p>Chọn thông tin chuyến đi trước khi sắp xếp điểm dừng.</p></header>
       <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><TripSetupForm info={info} onChange={setInfo} friends={friends} selectedFriendIds={selectedFriendIds} onFriendsChange={setSelectedFriendIds} /></fieldset>
       {error && <p role="alert">{error}</p>}
       <footer><button className="btn btn-primary" disabled={saving}>{saving ? <Loader2 size={17} className="animate-spin" /> : <ArrowRight size={17} />} {saving ? 'Đang tạo bản nháp…' : 'Bắt đầu lập lịch trình'}</button></footer>

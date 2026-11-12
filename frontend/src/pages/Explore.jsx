@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import './Explore.css';
 import { destinationImage, handleImageError } from '../utils/destinationImages';
+import { destinationHighlights } from '../utils/destinationHighlights';
 
 const CATEGORY_TO_VIBE_TAGS = {
   tourism: ['culture'],
@@ -123,6 +124,7 @@ const Explore = () => {
   const [selectedDestination, setSelectedDestination] = useState(null);
   const [detailLoadingId, setDetailLoadingId] = useState(null);
   const baseDestinations = hotDestinations;
+  const highlights = selectedDestination ? destinationHighlights(selectedDestination.name) : null;
 
   useEffect(() => {
     locationService.getHotLocations(12).then((locations) => {
@@ -226,18 +228,18 @@ const Explore = () => {
     setDetailLoadingId(String(detailId));
     try {
       const location = await locationService.getLocationById(detailId);
-      setSelectedDestination(normalizeExploreDestination({
+      setSelectedDestination(current => current?.id === dest.id ? normalizeExploreDestination({
         ...dest,
         ...location,
         id: dest.id,
         primaryLocationId: detailId,
         name: dest.name,
         region: dest.region || location.region || dest.name
-      }));
+      }) : current);
     } catch (err) {
       console.error('Failed to refresh destination detail:', err);
     } finally {
-      setDetailLoadingId(null);
+      setDetailLoadingId(current => current === String(detailId) ? null : current);
     }
   };
 
@@ -542,6 +544,7 @@ const Explore = () => {
 
               <div className="explore-modal-body">
                 <p className="explore-modal-desc">{selectedDestination.description}</p>
+                {highlights && <section className="explore-highlights"><h3>Những nơi không nên bỏ lỡ</h3><p>Gợi ý nổi bật để bạn khám phá {highlights.destination} trọn vẹn hơn.</p><ul>{highlights.places.map(([name, description]) => <li key={name}><div><strong>{name}</strong><p>{description}</p></div><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${highlights.destination}, Việt Nam`)}`} target="_blank" rel="noreferrer" aria-label={`Xem ${name} trên bản đồ`}><MapPin size={19} /></a></li>)}</ul><a className="explore-highlight-source" href={highlights.source} target="_blank" rel="noreferrer">Tham khảo thông tin du lịch</a></section>}
 
                 {selectedDestination.address && (
                   <div className="explore-modal-address">

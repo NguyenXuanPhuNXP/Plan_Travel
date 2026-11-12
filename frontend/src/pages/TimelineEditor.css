@@ -20,12 +20,13 @@
   align-items: flex-start;
   gap: 1rem;
 }
+.timeline-header-content > div:last-child { min-width: 0; flex: 1; }
 
 .timeline-header-icon {
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary), var(--forest));
+  background: var(--forest);
   color: white;
   display: flex;
   align-items: center;
@@ -241,7 +242,8 @@
 
 .timeline-plan-stats {
   display: flex;
-  gap: 1.25rem;
+  flex-wrap: wrap;
+  gap: 8px 1.25rem;
   margin-top: 0.5rem;
 }
 
@@ -252,6 +254,7 @@
   font-size: 0.8rem;
   color: var(--text-secondary);
   font-weight: 500;
+  white-space: nowrap;
 }
 
 /* Days */
@@ -294,15 +297,17 @@
 .timeline-day-badge {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 8px 0.75rem;
 }
 
 .timeline-day-number {
+  white-space: nowrap;
   padding: 0.3rem 0.75rem;
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--primary), var(--forest));
+  background: var(--forest);
   color: white;
 }
 
@@ -312,6 +317,7 @@
 }
 
 .timeline-day-count {
+  white-space: nowrap;
   font-size: 0.8rem;
   color: var(--text-muted);
   padding: 0.2rem 0.5rem;
@@ -331,7 +337,7 @@
   top: 0;
   bottom: 20px;
   width: 2px;
-  background: linear-gradient(to bottom, var(--primary), rgba(200, 90, 50, 0.1));
+  background: var(--border-color);
   border-radius: 2px;
 }
 
@@ -437,7 +443,7 @@
   padding: 4px;
   border-radius: 4px;
   color: var(--text-muted);
-  opacity: 0;
+  opacity: 1;
   transition: all 0.2s;
   background: transparent;
   border: none;
@@ -470,11 +476,12 @@
   padding: 0.3rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-family: var(--font-sans);
   background: var(--bg-card);
   color: var(--text-primary);
-  width: 95px;
+  width: 130px;
+  min-height: 44px;
   transition: border-color 0.2s;
 }
 

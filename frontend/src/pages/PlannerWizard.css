@@ -3,27 +3,32 @@
 ========================================== */
 
 .wizard-container {
-  max-width: 1000px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 0 0 32px;
 }
 .wizard-setup-heading { margin-bottom: 24px; }
 .wizard-setup-heading h1 { font-size: 28px; }
 .wizard-setup-heading p { color: var(--text-muted); }
 .wizard-setup-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 24px; }
-.wizard-container .wizard-step-circle, .wizard-container .wizard-step-indicator.current .wizard-step-circle { background: #f0f1f2; color: #252a2e; border-color: #b5bcc2; box-shadow: none; }
+.wizard-container .wizard-step-circle { background: #e7eee8; color: var(--forest); border-color: transparent; box-shadow: none; }
+.wizard-container .wizard-step-indicator.current .wizard-step-circle { background: var(--forest); color: white; border-color: var(--forest); box-shadow: none; }
+.wizard-result-heading { margin-bottom: 28px; color: var(--forest); }
+.wizard-result-heading h1 { font-size: clamp(32px,3vw,46px); font-weight: 600; color: inherit; }
+.wizard-trip-advice { margin-bottom: 24px; }
+.wizard-trip-advice > summary { padding: 12px 0; min-height: 48px; color: var(--forest); font-size: 18px; font-weight: 600; cursor: pointer; }
+.wizard-container .card { box-shadow: none; }
+.wizard-container .timeline-day { border: 1px solid var(--border-color); border-radius: 12px; }
 
 /* Progress Steps */
 .wizard-progress {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin-bottom: 2rem;
-  padding: 1rem 2rem;
-  background: var(--bg-card);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
+  padding: 1rem 0;
+  background: transparent;
 }
 
 .wizard-step-indicator {
@@ -41,7 +46,7 @@
 .wizard-step-indicator.current .wizard-step-circle {
   background: var(--primary);
   color: white;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+  box-shadow: none;
   transform: scale(1.1);
 }
 
@@ -67,7 +72,7 @@
 .wizard-step-label {
   font-weight: 600;
   font-size: 0.85rem;
-  color: var(--text-primary);
+  color: var(--forest);
 }
 
 .wizard-step-arrow {
@@ -93,7 +98,7 @@
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary), #8b5cf6);
+  background: var(--forest);
   color: white;
   display: flex;
   align-items: center;
@@ -105,10 +110,7 @@
   font-size: 1.5rem;
   font-weight: 700;
   margin: 0;
-  background: linear-gradient(135deg, var(--primary), #8b5cf6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--forest);
 }
 
 .wizard-form-subtitle {
@@ -132,9 +134,9 @@
 
 .wizard-field-highlight {
   padding: 1.25rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(139, 92, 246, 0.05));
+  background: var(--forest-soft);
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(99, 102, 241, 0.15);
+  border: 1px solid var(--border-color);
 }
 
 .wizard-label {
@@ -241,21 +243,24 @@
   align-items: center;
   gap: 0.5rem;
   font-weight: 600;
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: var(--forest);
 }
 
 .wizard-save-btn:hover {
-  background: linear-gradient(135deg, #059669, #047857);
+  background: var(--forest-hover);
 }
 
 /* Navigation Buttons */
 .wizard-nav-buttons {
   display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   justify-content: space-between;
   align-items: center;
   margin-top: 1.5rem;
   padding-top: 1.5rem;
 }
+.wizard-nav-buttons .btn { min-height: 46px; box-shadow: none; border-radius: 0; }
 
 .wizard-back-btn {
   display: flex;
@@ -266,13 +271,14 @@
 /* Responsive */
 @media (max-width: 768px) {
   .wizard-progress {
-    flex-direction: column;
+    flex-direction: row;
     gap: 0.75rem;
-    padding: 1rem;
+    padding: 0 0 20px;
+    justify-content: flex-start;
   }
 
   .wizard-step-arrow {
-    transform: rotate(90deg);
+    transform: none;
   }
 
   .wizard-field-row {
@@ -327,13 +333,13 @@
 
 .budget-progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #10b981, #34d399);
+  background: var(--forest);
   border-radius: 999px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .budget-progress-bar-fill.over-budget {
-  background: linear-gradient(90deg, #ef4444, #f87171);
+  background: var(--accent-danger);
 }
 
 .budget-warning {

@@ -1,3 +1,13 @@
+.explore-highlights { margin: 28px 0; padding: 22px; background: var(--forest-soft); color: var(--forest); }
+.explore-highlights h3 { font-size: 24px; color: inherit; margin-bottom: 8px; }
+.explore-highlights > p { font-size: 16px; }
+.explore-highlights ul { list-style: none; padding: 0; margin: 18px 0; display: grid; gap: 20px; }
+.explore-highlights li { display: flex; justify-content: space-between; gap: 18px; align-items: start; }
+.explore-highlights strong { font-size: 18px; }
+.explore-highlights li p { font-size: 16px; margin-top: 4px; }
+.explore-highlights li a { width: 44px; height: 44px; display: grid; place-items: center; flex-shrink: 0; color: var(--forest); background: white; }
+.explore-highlight-source { font-size: 14px; text-decoration: underline; text-underline-offset: 4px; }
+
 /* ==========================================
    EXPLORE PAGE - Premium Design
 ========================================== */

@@ -595,6 +595,7 @@ const TripDetails = () => {
             </div>
 
             <details className="trip-workspace-actions"><summary>Quản lý chuyến đi <ChevronRight size={14} /></summary><div className="trip-details-hero-actions">
+              {isTripOwner && <Link to={`/community?share=${trip.id}`} className="btn btn-outline trip-details-glass-btn"><MessageCircle size={16} /> Chia sẻ kế hoạch lên bản tin</Link>}
               {canEditTrip && (
                 <button
                   type="button"

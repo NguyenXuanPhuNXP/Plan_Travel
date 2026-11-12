@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Compass } from 'lucide-react';
 import { motion } from 'framer-motion';
 import GoogleOneTap from '../Components/Auth/GoogleOneTap';
@@ -18,6 +18,7 @@ const Login = () => {
 
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const { state } = useLocation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,7 +27,7 @@ const Login = () => {
 
     try {
       await login(email, password);
-      navigate('/');
+      navigate(state?.from || '/dashboard', { replace: true });
     } catch (err) {
       setError(err.message || 'Đăng nhập không thành công');
     } finally {
@@ -39,7 +40,7 @@ const Login = () => {
     setError('');
     try {
       await loginWithGoogle(account);
-      navigate('/');
+      navigate(state?.from || '/dashboard', { replace: true });
     } catch (err) {
       setError(err.message || 'Lỗi đăng nhập Google');
     } finally {
@@ -176,7 +177,7 @@ const Login = () => {
 
           <div className="auth-footer">
             Chưa có tài khoản?
-            <Link to="/register" className="auth-footer-link">
+            <Link to="/register" state={state} className="auth-footer-link">
               Đăng ký ngay
             </Link>
           </div>

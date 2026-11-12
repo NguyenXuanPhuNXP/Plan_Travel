@@ -1,0 +1,345 @@
+html:has(.landing-page) { scroll-behavior: smooth; }
+
+.landing-page {
+  --lp-ground: #f3f6f3;
+  --lp-ink: #1a241f;
+  --lp-forest: #14342b;
+  --lp-paper: #fff;
+  --lp-accent: #b94e28;
+  --lp-space: clamp(24px, 4.45vw, 80px);
+  --lp-heading: clamp(40px, 4.45vw, 68px);
+  --lp-ease: cubic-bezier(.16, 1, .3, 1);
+  background: var(--lp-ground);
+  color: var(--lp-ink);
+  font-size: 18px;
+  line-height: 1.6;
+  overflow: clip;
+}
+
+.landing-page h1, .landing-page h2, .landing-page h3 { color: inherit; }
+.landing-page h2 { font-size: var(--lp-heading); font-weight: 600; line-height: 1.08; letter-spacing: -.045em; text-wrap: balance; }
+.landing-page h3 { font-size: 28px; line-height: 1.2; font-weight: 600; letter-spacing: -.025em; }
+.landing-page p { text-wrap: pretty; }
+.landing-page :where(a, button, summary):focus-visible { outline: 3px solid currentColor; outline-offset: 6px; }
+.landing-page :where(a, button) { -webkit-tap-highlight-color: transparent; }
+.landing-page section[id] { scroll-margin-top: 100px; }
+.landing-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.landing-skip { position: fixed; z-index: 1000; top: 12px; left: var(--lp-space); padding: 12px 20px; background: var(--lp-paper); color: var(--lp-ink); transform: translateY(-160%); }
+.landing-skip:focus { transform: translateY(0); }
+
+.landing-header { position: fixed; z-index: 50; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 25px var(--lp-space); color: var(--lp-paper); transition: background-color .25s ease, padding .25s ease; }
+.landing-header.is-scrolled { background: var(--lp-forest); padding-top: 17px; padding-bottom: 17px; }
+.landing-brand { display: inline-flex; align-items: center; gap: 10px; font-size: 28px; font-weight: 700; letter-spacing: -.045em; flex-shrink: 0; }
+.landing-desktop-nav, .landing-header-actions { display: flex; align-items: center; gap: clamp(20px, 2.5vw, 40px); }
+.landing-desktop-nav, .landing-login { font-size: 16px; font-weight: 600; }
+.landing-desktop-nav a, .landing-login, .landing-footer nav a { text-underline-offset: 6px; }
+.landing-desktop-nav a:hover, .landing-login:hover, .landing-footer nav a:hover { text-decoration: underline; }
+.landing-button { min-height: 56px; display: inline-flex; align-items: center; justify-content: center; gap: 25px; padding: 15px 25px; background: var(--lp-accent); color: var(--lp-paper); font-size: 18px; font-weight: 600; line-height: 1.4; border-radius: 0; transition: transform .25s var(--lp-ease), background-color .25s ease; }
+.landing-button:hover { background: #a5401e; transform: translateY(-3px); }
+.landing-button:active { transform: translateY(0) scale(.98); }
+.landing-header-cta { min-height: 46px; font-size: 16px; padding: 11px 19px; gap: 14px; }
+.landing-mobile-menu { display: none; }
+
+.landing-hero { min-height: 760px; height: 100svh; position: relative; display: flex; align-items: center; color: var(--lp-paper); background: var(--lp-forest); overflow: hidden; }
+.landing-hero-media, .landing-hero-scrim { position: absolute; inset: 0; }
+.landing-hero-media { transform-origin: center; will-change: transform; }
+.landing-hero-media video, .landing-hero-poster { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+.landing-video-failed { display: none; }
+.landing-hero-scrim { background: linear-gradient(90deg, rgba(0, 0, 0, .49), rgba(0, 0, 0, .08)), linear-gradient(0deg, rgba(0, 0, 0, .45), transparent 35%, transparent 75%, rgba(0, 0, 0, .35)); } /* taste-skill-ignore: neutral scrim keeps text readable over footage. */
+.landing-hero-content { position: relative; width: 100%; padding: 125px var(--lp-space) 130px; }
+.landing-hero h1 { font-size: clamp(88px, 10.2vw, 156px); font-weight: 600; line-height: 1.03; letter-spacing: -.055em; max-width: 1100px; }
+.landing-title-line { display: block; overflow: hidden; padding-bottom: .12em; margin-bottom: -.12em; }
+.landing-title-line > span { display: block; }
+.landing-title-line + .landing-title-line { margin-left: clamp(40px, 8.3vw, 125px); }
+.landing-hero-intro { margin: 34px 0 0 clamp(40px, 8.3vw, 125px); }
+.landing-hero-intro p { max-width: 430px; font-size: 18px; line-height: 1.6; margin-bottom: 28px; }
+.landing-hero-bottom { position: absolute; bottom: 30px; left: var(--lp-space); right: var(--lp-space); display: flex; justify-content: space-between; align-items: center; gap: 24px; font-size: 16px; }
+.landing-discover, .landing-film-caption { display: flex; align-items: center; gap: 12px; }
+.landing-down { display: inline-flex; animation: landing-nudge 2.6s ease-in-out infinite; }
+.landing-discover:hover { transform: translateY(3px); }
+.landing-video-toggle { display: grid; place-items: center; color: inherit; width: 44px; height: 44px; margin-left: 10px; background: rgba(0, 0, 0, .3); border-radius: 50%; }
+.landing-video-toggle:hover { background: rgba(0, 0, 0, .65); }
+
+.landing-section { padding: 120px var(--lp-space); }
+.landing-journey-scene { height: 250svh; position: relative; }
+.landing-journey-stage { position: sticky; top: 80px; height: calc(100svh - 80px); min-height: 650px; padding: 40px var(--lp-space); display: grid; grid-template-columns: 1.15fr 1fr; align-items: center; gap: 6%; }
+.landing-journey-copy { display: grid; gap: 30px; }
+.landing-journey-moment { height: clamp(190px, 26svh, 270px); position: relative; overflow: clip; background: var(--lp-forest); }
+.landing-journey-moment > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.landing-journey-caption { position: absolute; inset: auto 0 0; color: var(--lp-paper); padding: 30px 24px 18px; background: linear-gradient(transparent, rgba(0, 0, 0, .75)); } /* taste-skill-ignore: neutral photo scrim for the destination caption. */
+.landing-journey-caption p { font-size: 16px; margin-top: 3px; }
+.landing-journey-map { min-width: 0; }
+.landing-destination-gallery { padding-top: 45px; }
+.landing-scroll-words { overflow: clip; margin-bottom: 50px; }
+.landing-scroll-words p { font-size: clamp(60px, 9vw, 130px); line-height: 1.15; font-weight: 600; letter-spacing: -.04em; white-space: nowrap; }
+.landing-section-heading p { max-width: 430px; margin-top: 30px; }
+.landing-vietnam-map { --map-play: paused; width: 100%; max-width: 520px; margin-inline: auto; }
+.landing-vietnam-map.is-in-view { --map-play: running; }
+.landing-vietnam-map svg { display: block; width: 100%; height: auto; overflow: visible; }
+.landing-vietnam-map text { fill: var(--lp-forest); font-family: inherit; font-size: 22px; font-weight: 600; paint-order: stroke; stroke: var(--lp-ground); stroke-width: 6px; stroke-linejoin: round; }
+.vietnam-map-route, .vietnam-map-trail { fill: none; stroke-linecap: round; }
+.vietnam-map-route { stroke: var(--lp-forest); stroke-width: 1.4; stroke-dasharray: 2 6; opacity: .5; }
+.vietnam-map-trail { stroke: var(--lp-accent); stroke-width: 3; }
+.vietnam-map-stop .vietnam-map-dot { transition: r .3s ease, fill .3s ease; }
+.vietnam-map-stop[data-active="true"] .vietnam-map-dot { r: 8; fill: var(--lp-forest); }
+.vietnam-map-dot { fill: var(--lp-accent); stroke: var(--lp-paper); stroke-width: 2; }
+.vietnam-map-pulse { fill: none; stroke: var(--lp-accent); stroke-width: 1.5; opacity: 0; transform-box: fill-box; transform-origin: center; animation: vietnam-stop-pulse 3.8s ease-out infinite; animation-delay: var(--map-delay); animation-play-state: var(--map-play); }
+.vietnam-map-stop:not([data-active="true"]) .vietnam-map-pulse { animation: none; }
+.vietnam-map-islands path { fill: #73947f; }
+.vietnam-map-islands text { font-size: 20px; font-weight: 400; text-anchor: middle; }
+.landing-vietnam-map .vietnam-map-sea { fill: #567765; font-weight: 400; text-anchor: middle; }
+@keyframes vietnam-stop-pulse { 0% { opacity: .65; transform: scale(.45); } 75%, 100% { opacity: 0; transform: scale(1.8); } }
+.landing-destination-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 28px; row-gap: 36px; }
+.landing-destination { display: block; min-width: 0; }
+.landing-destination-ha-long { grid-column: span 7; grid-row: span 2; }
+.landing-destination-hoi-an { grid-column: span 5; }
+.landing-destination-da-lat { grid-column: span 3; }
+.landing-destination-phu-quoc { grid-column: span 2; }
+.landing-destination-photo { position: relative; overflow: clip; height: 220px; background: #dce6dd; }
+.landing-destination-ha-long .landing-destination-photo { height: calc(100% - 80px); min-height: 540px; }
+.landing-destination-hoi-an .landing-destination-photo { height: 240px; }
+.landing-destination-photo img, .landing-story-photo img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .8s var(--lp-ease); }
+.landing-destination:hover img { transform: scale(1.055); }
+.landing-photo-action { position: absolute; bottom: 16px; right: 16px; display: grid; place-items: center; width: 46px; height: 46px; background: var(--lp-paper); color: var(--lp-forest); border-radius: 50%; transition: transform .3s var(--lp-ease); }
+.landing-destination:hover .landing-photo-action { transform: rotate(45deg); }
+.landing-destination-caption { display: flex; justify-content: space-between; align-items: start; gap: 12px; padding-top: 15px; }
+.landing-destination-caption p, .landing-destination-caption > span { font-size: 16px; margin-top: 3px; }
+.landing-destination-caption > span { white-space: nowrap; }
+.landing-destination-da-lat .landing-destination-caption > span, .landing-destination-phu-quoc .landing-destination-caption > span { display: none; }
+
+.landing-planner { display: grid; grid-template-columns: 1fr 1fr; gap: 10%; align-items: center; background: var(--lp-forest); color: var(--lp-paper); }
+.landing-planner-copy > p { max-width: 430px; margin-top: 30px; }
+.landing-destination-options { display: flex; flex-wrap: wrap; gap: 8px; margin: 32px 0; }
+.landing-destination-options button { font-size: 16px; padding: 10px 19px; min-height: 46px; color: var(--lp-paper); background: #2c4a40; border-radius: 0; }
+.landing-destination-options button[aria-pressed="true"] { color: var(--lp-forest); background: var(--lp-paper); }
+.landing-destination-options button:hover { transform: translateY(-2px); }
+.landing-button-light { background: var(--lp-paper); color: var(--lp-forest); }
+.landing-button-light:hover { background: #dfebe1; }
+.landing-planner-copy .landing-planner-note { font-size: 16px; margin-top: 18px; }
+.landing-plan-preview { background: var(--lp-paper); color: var(--lp-ink); }
+.landing-preview-photo { height: 235px; position: relative; overflow: hidden; background: #496b56; }
+.landing-preview-photo > img { width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(.64); animation: landing-photo-change .45s var(--lp-ease); }
+.landing-preview-photo > div { position: absolute; bottom: 22px; left: 28px; right: 28px; color: var(--lp-paper); }
+.landing-preview-photo span { font-size: 16px; }
+.landing-preview-photo h3 { margin-top: 5px; }
+.landing-preview-body { padding: 26px 28px; }
+.landing-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.landing-preview-heading > span { font-size: 14px; display: flex; align-items: center; gap: 5px; }
+.landing-timeline { list-style: none; padding: 25px 0 0; }
+.landing-timeline li { display: grid; grid-template-columns: 52px 1fr; gap: 16px; padding: 0 0 25px; }
+.landing-timeline time { font-size: 15px; padding-top: 1px; font-variant-numeric: tabular-nums; }
+.landing-timeline strong { display: block; font-size: 18px; line-height: 1.4; }
+.landing-timeline p { font-size: 16px; margin-top: 3px; }
+.landing-preview-footnote { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #edf3ee; color: var(--lp-forest); font-size: 14px; }
+
+.landing-together { display: grid; grid-template-columns: 1.1fr 1fr; gap: 10%; align-items: start; padding-top: 150px; padding-bottom: 150px; }
+.landing-together-intro { position: sticky; top: 145px; }
+.landing-together-intro > p { max-width: 430px; margin-top: 30px; }
+.landing-text-link { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; margin-top: 30px; text-decoration: underline; text-underline-offset: 5px; }
+.landing-text-link:hover { gap: 16px; }
+.landing-travel-stories { display: grid; gap: 80px; }
+.landing-story-photo { overflow: clip; height: 335px; margin-bottom: 25px; }
+.landing-travel-story p { margin-top: 15px; }
+.landing-travel-story:nth-child(2) .landing-story-photo { height: 300px; }
+
+.landing-closing-scene { height: 165svh; background: var(--lp-forest); }
+.landing-closing { position: sticky; top: 80px; height: calc(100svh - 80px); min-height: 690px; display: flex; align-items: center; padding: 100px var(--lp-space); color: var(--lp-paper); background: var(--lp-forest); overflow: clip; }
+.landing-closing-media, .landing-closing-scrim, .landing-closing-media > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.landing-closing-media { overflow: clip; }
+.landing-closing-media > img { object-position: center 60%; }
+.landing-closing-scrim { background: linear-gradient(90deg, rgba(0, 0, 0, .08), rgba(0, 0, 0, .66)); } /* taste-skill-ignore: neutral scrim over the landscape photograph. */
+.landing-closing-copy { position: relative; margin-left: 56%; }
+.landing-closing-copy h2 { font-size: var(--lp-heading); }
+.landing-closing-copy p { margin: 30px 0; }
+.landing-footer { padding: 48px var(--lp-space) 25px; background: var(--lp-forest); color: var(--lp-paper); overflow: hidden; }
+.landing-footer-top { display: flex; justify-content: space-between; align-items: center; gap: 30px; }
+.landing-footer-top .landing-brand { font-size: 18px; font-weight: 400; letter-spacing: -.02em; }
+.landing-footer nav { display: flex; flex-wrap: wrap; gap: 30px; font-size: 16px; }
+.landing-footer-wordmark { font-size: 19.5vw; font-weight: 700; letter-spacing: -.065em; line-height: 1.12; margin-top: 30px; margin-left: -.012em; white-space: nowrap; }
+.landing-footer-bottom { display: flex; justify-content: space-between; gap: 20px; font-size: 16px; padding-top: 20px; }
+
+@keyframes landing-nudge { 0%, 100% { transform: translateY(-3px); } 50% { transform: translateY(4px); } }
+@keyframes landing-enter { from { opacity: .2; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes landing-photo-enter { from { opacity: .45; transform: translateY(40px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes landing-words-travel { from { transform: translateX(18%); } to { transform: translateX(-18%); } }
+@keyframes landing-photo-change { from { opacity: .4; transform: scale(1.035); } to { opacity: 1; transform: scale(1); } }
+@supports (animation-timeline: view()) {
+  .landing-reveal { animation: landing-enter linear both; animation-timeline: view(); animation-range: entry 0% entry 100%; }
+  .landing-photo-reveal { animation: landing-photo-enter linear both; animation-timeline: view(); animation-range: entry 0% entry 70%; }
+  .landing-scroll-words p { animation: landing-words-travel linear both; animation-timeline: view(); animation-range: entry 0% exit 100%; }
+}
+
+@media (min-width: 1600px) {
+  .landing-section { padding-left: max(var(--lp-space), calc((100vw - 1500px) / 2)); padding-right: max(var(--lp-space), calc((100vw - 1500px) / 2)); }
+}
+
+@media (max-width: 1100px) {
+  .landing-desktop-nav { gap: 22px; }
+  .landing-header-actions { gap: 20px; }
+  .landing-header-cta { display: none; }
+  .landing-destination-grid { gap: 26px 20px; }
+  .landing-destination-ha-long { grid-column: span 6; }
+  .landing-destination-hoi-an { grid-column: span 6; }
+  .landing-destination-phu-quoc { grid-column: span 3; }
+  .landing-planner, .landing-together { gap: 6%; }
+  .landing-preview-body { padding: 24px 20px; }
+  .landing-timeline li { gap: 8px; }
+}
+
+@media (max-width: 800px) {
+  .landing-page { --lp-heading: 44px; --lp-space: 28px; }
+  .landing-desktop-nav { display: none; }
+  .landing-header-cta { display: inline-flex; }
+  .landing-login { display: none; }
+  .landing-header { padding-top: 22px; padding-bottom: 22px; }
+  .landing-header-actions { gap: 20px; }
+  .landing-mobile-menu { display: block; }
+  .landing-mobile-menu:not([open]) nav { display: none; }
+  .landing-header:has(.landing-mobile-menu[open]) { background: var(--lp-forest); }
+  .landing-mobile-menu summary { display: flex; align-items: center; justify-content: center; cursor: pointer; list-style: none; min-width: 44px; min-height: 44px; }
+  .landing-mobile-menu summary::-webkit-details-marker { display: none; }
+  .landing-mobile-menu nav { position: absolute; top: 100%; left: 0; right: 0; display: grid; padding: 12px var(--lp-space) 24px; background: var(--lp-forest); }
+  .landing-mobile-menu[open] summary { background: var(--lp-forest); }
+  .landing-mobile-menu nav a { padding: 13px 0; font-size: 18px; }
+  .landing-hero { min-height: 800px; }
+  .landing-hero h1 { font-size: clamp(68px, 11.5vw, 100px); }
+  .landing-hero-intro { margin-left: 45px; }
+  .landing-hero-bottom { font-size: 15px; }
+  .landing-film-caption { gap: 7px; }
+  .landing-section { padding-top: 88px; padding-bottom: 88px; }
+  .landing-journey-scene { height: 235svh; }
+  .landing-journey-stage { padding-top: 30px; padding-bottom: 30px; gap: 4%; }
+  .landing-journey-stage h2 { font-size: 36px; }
+  .landing-journey-copy { gap: 24px; }
+  .landing-section-heading p { max-width: 520px; }
+  .landing-vietnam-map { max-width: 440px; }
+  .landing-destination-ha-long .landing-destination-photo { min-height: 480px; }
+  .landing-destination-photo { height: 180px; }
+  .landing-destination-hoi-an .landing-destination-photo { height: 200px; }
+  .landing-destination-caption p { font-size: 15px; }
+  .landing-destination-caption > span { display: none; }
+  .landing-planner { grid-template-columns: 1fr; gap: 44px; }
+  .landing-planner-copy { display: grid; grid-template-columns: 1fr 1fr; gap: 0 35px; }
+  .landing-planner-copy h2 { grid-row: span 2; }
+  .landing-planner-copy > p { margin-top: 0; }
+  .landing-destination-options { margin: 22px 0; }
+  .landing-planner-copy > .landing-button { justify-self: start; }
+  .landing-planner-copy .landing-planner-note { align-self: center; margin-top: 0; }
+  .landing-preview-photo { height: 260px; }
+  .landing-preview-body { padding: 26px 28px; }
+  .landing-together { grid-template-columns: 1fr; gap: 42px; }
+  .landing-together-intro { position: static; }
+  .landing-together-intro h2 { font-size: 44px; }
+  .landing-together-intro > p { max-width: 520px; }
+  .landing-travel-stories { grid-template-columns: 1fr 1fr; gap: 28px; }
+  .landing-story-photo, .landing-travel-story:nth-child(2) .landing-story-photo { height: 250px; }
+  .landing-closing { min-height: 630px; }
+  .landing-closing-copy { margin-left: 42%; }
+  .landing-footer-top { align-items: start; }
+  .landing-footer nav { gap: 15px; }
+  .landing-footer-top .landing-brand { max-width: 220px; }
+}
+
+@media (max-width: 540px) {
+  .landing-page { --lp-space: 22px; --lp-heading: 37px; font-size: 17px; }
+  .landing-header { gap: 12px; padding-top: 17px; padding-bottom: 17px; }
+  .landing-brand { font-size: 28px; gap: 8px; }
+  .landing-brand > svg { width: 27px; }
+  .landing-header-actions { gap: 4px; }
+  .landing-header-cta { display: none; }
+  .landing-hero { min-height: 710px; max-height: 980px; }
+  .landing-hero-media { transform-origin: 65% center; }
+  .landing-hero-media video, .landing-hero-poster { object-position: 63% center; }
+  .landing-hero-scrim { background: rgba(0, 0, 0, .4); }
+  .landing-hero-content { padding-top: 135px; padding-bottom: 150px; }
+  .landing-hero h1 { font-size: clamp(55px, 14.9vw, 80px); line-height: 1.13; letter-spacing: -.05em; }
+  .landing-title-line + .landing-title-line { margin-left: 22px; }
+  .landing-hero-intro { margin-left: 22px; margin-top: 30px; }
+  .landing-hero-intro p { font-size: 17px; max-width: 300px; margin-bottom: 26px; }
+  .landing-button { font-size: 17px; min-height: 54px; padding: 14px 21px; }
+  .landing-hero-bottom { bottom: 24px; flex-wrap: wrap; gap: 16px; }
+  .landing-discover { font-size: 16px; }
+  .landing-film-caption { font-size: 16px; }
+  .landing-video-toggle { width: 36px; height: 36px; margin-left: 4px; }
+  .landing-section { padding-top: 72px; padding-bottom: 72px; }
+  .landing-journey-stage { top: 78px; height: calc(100svh - 78px); min-height: 0; display: flex; flex-direction: column; gap: 14px; padding-top: 18px; padding-bottom: 18px; align-items: stretch; }
+  .landing-journey-copy { display: contents; }
+  .landing-journey-stage h2 { font-size: var(--lp-heading); }
+  .landing-journey-stage .landing-section-heading p { margin-top: 14px; font-size: 16px; line-height: 1.45; }
+  .landing-journey-moment { height: 125px; flex-shrink: 0; }
+  .landing-journey-caption { padding: 25px 16px 12px; display: flex; gap: 12px; align-items: baseline; }
+  .landing-journey-caption h3 { font-size: 28px; white-space: nowrap; }
+  .landing-journey-caption p { font-size: 16px; margin: 0; }
+  .landing-journey-map { flex: 1; min-height: 0; display: flex; justify-content: center; }
+  .landing-journey-map .landing-vietnam-map { height: 100%; width: auto; aspect-ratio: 13 / 15; max-width: 100%; }
+  .landing-journey-map svg { height: 100%; }
+  .landing-journey-map text { font-size: 26px; }
+  .landing-journey-map .vietnam-map-islands text { font-size: 24px; }
+  .landing-scroll-words { margin-bottom: 30px; }
+  .landing-scroll-words p { font-size: clamp(55px, 14.9vw, 80px); }
+  .landing-section-heading p { margin-top: 24px; }
+  .landing-destination-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; row-gap: 28px; }
+  .landing-destination-ha-long, .landing-destination-hoi-an, .landing-destination-da-lat, .landing-destination-phu-quoc { grid-column: span 1; grid-row: auto; }
+  .landing-destination-ha-long { grid-column: span 2; }
+  .landing-destination-ha-long .landing-destination-photo { height: 350px; min-height: 0; }
+  .landing-destination-hoi-an { grid-column: span 2; }
+  .landing-destination-hoi-an .landing-destination-photo { height: 230px; }
+  .landing-destination-photo { height: 200px; }
+  .landing-destination-caption h3 { font-size: 28px; }
+  .landing-destination-caption p { font-size: 16px; line-height: 1.45; }
+  .landing-destination-ha-long .landing-destination-caption > span, .landing-destination-hoi-an .landing-destination-caption > span { display: block; }
+  .landing-photo-action { width: 38px; height: 38px; bottom: 12px; right: 12px; }
+  .landing-planner { gap: 34px; }
+  .landing-planner-copy { display: block; }
+  .landing-planner-copy > p { margin-top: 25px; }
+  .landing-destination-options { gap: 6px; margin: 25px 0; }
+  .landing-destination-options button { padding: 10px 18px; }
+  .landing-planner-copy .landing-planner-note { margin-top: 16px; }
+  .landing-preview-photo { height: 205px; }
+  .landing-preview-photo > div { left: 20px; right: 20px; bottom: 18px; }
+  .landing-preview-photo h3 { font-size: 28px; }
+  .landing-preview-body { padding: 22px 18px; }
+  .landing-preview-heading > span { font-size: 16px; }
+  .landing-timeline li { grid-template-columns: 42px 1fr; gap: 12px; }
+  .landing-timeline strong { font-size: 17px; }
+  .landing-timeline p { font-size: 16px; }
+  .landing-preview-footnote { font-size: 16px; padding: 12px 10px; gap: 6px; }
+  .landing-preview-footnote svg { flex-shrink: 0; }
+  .landing-together-intro h2 { font-size: var(--lp-heading); }
+  .landing-together-intro > p { margin-top: 24px; }
+  .landing-text-link { font-size: 16px; align-items: start; }
+  .landing-text-link svg { flex-shrink: 0; margin-top: 4px; }
+  .landing-travel-stories { grid-template-columns: 1fr; gap: 45px; }
+  .landing-story-photo, .landing-travel-story:nth-child(2) .landing-story-photo { height: 290px; margin-bottom: 22px; }
+  .landing-travel-story h3 { font-size: 28px; }
+  .landing-closing { min-height: 640px; align-items: end; padding-top: 70px; padding-bottom: 60px; }
+  .landing-closing-scrim { background: linear-gradient(0deg, rgba(0, 0, 0, .73), rgba(0, 0, 0, .05)); } /* taste-skill-ignore: mobile neutral photo scrim. */
+  .landing-closing-copy { margin-left: 0; }
+  .landing-closing-copy h2 { font-size: clamp(55px, 14.9vw, 80px); }
+  .landing-closing-copy p { font-size: 17px; margin: 24px 0; }
+  .landing-footer { padding-top: 35px; }
+  .landing-footer-top { flex-direction: column; gap: 25px; }
+  .landing-footer-top .landing-brand { max-width: none; font-size: 17px; }
+  .landing-footer nav { font-size: 16px; gap: 20px; }
+  .landing-footer-wordmark { font-size: 19vw; margin-top: 35px; }
+  .landing-footer-bottom { font-size: 16px; gap: 12px; padding-top: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.landing-page) { scroll-behavior: auto; }
+  .landing-page *, .landing-page *::before, .landing-page *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .landing-hero-media { will-change: auto; }
+  .landing-hero-media video { display: none; }
+  .landing-together-intro { position: static; }
+  .landing-journey-scene, .landing-closing-scene { height: auto; }
+  .landing-journey-stage { position: relative; top: auto; height: auto; min-height: 0; padding-block: 72px; }
+  .landing-journey-map .landing-vietnam-map { width: 100%; height: auto; max-width: 440px; }
+  .landing-closing { position: relative; top: auto; height: auto; }
+}
+
+@media (max-height: 740px) and (max-width: 800px) {
+  .landing-journey-scene, .landing-closing-scene { height: auto; }
+  .landing-journey-stage { position: relative; top: auto; height: auto; min-height: 0; padding-block: 50px; }
+  .landing-journey-map .landing-vietnam-map { width: 100%; height: auto; max-width: 360px; }
+  .landing-closing { position: relative; top: auto; height: auto; }
+}

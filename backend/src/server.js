@@ -11,6 +11,7 @@ import sharingRoutes from "./routes/sharing.js";
 import adminRoutes from "./routes/admin.js";
 import friendRoutes from "./routes/friends.js";
 import chatRoutes from "./routes/chat.js";
+import communityRoutes from './routes/community.js';
 import { errorHandler, notFoundHandler } from "./middleware/errorMiddleware.js";
 import { ensureAdminAccount } from "./services/authService.js";
 
@@ -21,7 +22,7 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json({ limit: "15mb" }));
-app.use("/uploads", express.static(fileURLToPath(new URL("../uploads/", import.meta.url))));
+app.use("/uploads", express.static(fileURLToPath(new URL("../uploads/", import.meta.url)), { setHeaders: res => res.set('X-Content-Type-Options', 'nosniff') }));
 
 /* =========================
    TEST API
@@ -41,6 +42,7 @@ app.use("/api/sharing", sharingRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/chat", chatRoutes);
+app.use('/api/community', communityRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 

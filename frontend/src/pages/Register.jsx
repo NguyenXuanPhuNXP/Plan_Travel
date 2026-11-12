@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { User, Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Compass } from 'lucide-react';
 import { motion } from 'framer-motion';
 import GoogleOneTap from '../Components/Auth/GoogleOneTap';
@@ -21,6 +21,7 @@ const Register = () => {
 
   const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const { state } = useLocation();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -44,7 +45,7 @@ const Register = () => {
 
     try {
       await register(formData);
-      navigate('/');
+      navigate(state?.from || '/dashboard', { replace: true });
     } catch (err) {
       setError(err.message || 'Đăng ký không thành công');
     } finally {
@@ -57,7 +58,7 @@ const Register = () => {
     setError('');
     try {
       await loginWithGoogle(account);
-      navigate('/');
+      navigate(state?.from || '/dashboard', { replace: true });
     } catch (err) {
       setError(err.message || 'Lỗi đăng ký Google');
     } finally {
@@ -214,7 +215,7 @@ const Register = () => {
 
           <div className="auth-footer">
             Đã có tài khoản?
-            <Link to="/login" className="auth-footer-link">
+            <Link to="/login" state={state} className="auth-footer-link">
               Đăng nhập
             </Link>
           </div>
