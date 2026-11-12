@@ -16,6 +16,10 @@
 .trip-setup-field > span, .trip-setup-companions h3 { display: flex; align-items: center; gap: 8px; color: #252a2e; font-size: 16px; font-weight: 600; }
 .trip-setup-field input { padding: 13px 14px; min-width: 0; width: 100%; border: 1px solid var(--border-color); border-radius: 8px; background: #fafcf9; color: var(--text-main); transition: background-color 150ms ease, border-color 150ms ease; }
 .trip-setup-field input:focus { background: white; border-color: var(--forest); }
+.trip-setup-destination { display: grid; gap: 12px; }
+.trip-setup-destination-suggestions > p { font-size: 14px; color: #627068; margin-bottom: 8px; }
+.trip-setup-destination-suggestions .trip-setup-choices button { min-height: 44px; }
+.trip-setup-destination-suggestions button:hover { border-color: var(--forest); background: var(--forest-soft); color: var(--forest); }
 .trip-setup-companions p { margin: 4px 0 12px; color: #687078; font-size: 14px; }
 .trip-setup-choices { display: flex; flex-wrap: wrap; gap: 8px; }
 .trip-setup-choices button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid #dfe1e4; border-radius: 8px; background: white; color: #252a2e; font-size: 14px; }

@@ -21,11 +21,12 @@ test('Manual and AI sidebar entries are mutually exclusive, including route alia
     const { code } = await transform('Sidebar.jsx', source, { jsx: { runtime: 'classic' } });
     const { default: Sidebar } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
     try {
-        for (const [path, expected] of [['/planner/map', '/planner/map'], ['/planner/manual', '/planner/map'], ['/planner', '/planner'], ['/ai-planner', '/planner'], ['/trip/5', '/history'], ['/', '/']]) {
+        for (const [path, expected] of [['/planner/map', '/planner/map'], ['/planner/manual', '/planner/map'], ['/planner', '/planner'], ['/ai-planner', '/planner'], ['/trip/5', '/history'], ['/dashboard', '/dashboard']]) {
             let renderer;
             try {
                 await act(async () => { renderer = create(React.createElement(MemoryRouter, { initialEntries: [path] }, React.createElement(Sidebar))); });
                 const active = renderer.root.findAllByType('a').filter(node => node.props.className?.split(' ').includes('active'));
+                assert.equal(renderer.root.findAllByType('a').some(node => node.props.href === '/notifications'), false, 'Notifications stay out of the sidebar');
                 assert.equal(active.length, 1, `Exactly one active menu item at ${path}`);
                 assert.equal(active[0].props.href, expected);
                 assert.equal(active[0].props['aria-current'], 'page');

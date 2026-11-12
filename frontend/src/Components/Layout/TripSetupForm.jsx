@@ -1,11 +1,13 @@
 import { MapPin, CalendarDays, Users, Tag, Plane, Bus, TrainFront, Bike, Car, Footprints, Waves, Mountain, Utensils, Landmark, Trees, ShoppingBag, Moon, Tent, Armchair, Camera, Check } from 'lucide-react';
 import './TripSetupForm.css';
 import DestinationInput from '../Map/DestinationInput';
+import { VIETNAM_DESTINATIONS, suggestVietnamDestinations } from '../../utils/vietnamDestinations';
 
 const TRANSPORT = [['flight', 'Máy bay', Plane], ['coach', 'Xe khách', Bus], ['train', 'Tàu hỏa', TrainFront], ['motorbike', 'Xe máy', Bike], ['car', 'Ô tô', Car], ['other', 'Đi bộ / Khác', Footprints]];
 const PREFERENCES = [['beach', 'Biển', Waves], ['mountain', 'Núi rừng', Mountain], ['food', 'Ẩm thực', Utensils], ['culture', 'Văn hóa', Landmark], ['nature', 'Thiên nhiên', Trees], ['shopping', 'Mua sắm', ShoppingBag], ['nightlife', 'Về đêm', Moon], ['adventure', 'Mạo hiểm', Tent], ['relax', 'Nghỉ dưỡng', Armchair], ['photography', 'Chụp ảnh', Camera]];
 
 export default function TripSetupForm({ info, onChange, friends = [], selectedFriendIds = [], onFriendsChange }) {
+  const destinationSuggestions = info.destination.trim() ? suggestVietnamDestinations(info.destination).slice(0, 6) : VIETNAM_DESTINATIONS.slice(0, 6);
   const change = (key, value) => onChange({ ...info, [key]: value });
   const toggleFriend = id => {
     const next = selectedFriendIds.includes(id) ? selectedFriendIds.filter(value => value !== id) : [...selectedFriendIds, id];
@@ -13,7 +15,13 @@ export default function TripSetupForm({ info, onChange, friends = [], selectedFr
     change('travelerCount', Math.max(Number(info.travelerCount) || 1, next.length + 1));
   };
   return <div className="trip-setup-form">
-    <label className="trip-setup-field"><span><MapPin size={17} /> Địa điểm muốn đi</span><DestinationInput required maxLength={200} placeholder="Ví dụ: Đà Nẵng, Hội An…" value={info.destination} onChange={event => change('destination', event.target.value)} /></label>
+    <div className="trip-setup-destination">
+      <label className="trip-setup-field"><span><MapPin size={17} /> Địa điểm muốn đi</span><DestinationInput required maxLength={200} nativeSuggestions={false} placeholder="Ví dụ: Đà Nẵng, Hội An…" value={info.destination} onChange={event => change('destination', event.target.value)} /></label>
+      <div className="trip-setup-destination-suggestions" role="group" aria-label="Gợi ý điểm du lịch">
+        <p>{info.destination.trim() ? destinationSuggestions.length ? 'Điểm đến phù hợp' : 'Bạn vẫn có thể nhập điểm đến khác ở Việt Nam.' : 'Gợi ý điểm du lịch'}</p>
+        <div className="trip-setup-choices">{destinationSuggestions.map(name => <button type="button" key={name} onClick={() => change('destination', name)}>{name}</button>)}</div>
+      </div>
+    </div>
     <div className="trip-setup-row">
       <label className="trip-setup-field"><span><CalendarDays size={17} /> Ngày xuất phát</span><input required type="date" value={info.startDate} onChange={event => change('startDate', event.target.value)} /></label>
       <label className="trip-setup-field"><span><CalendarDays size={17} /> Ngày kết thúc</span><input required type="date" min={info.startDate || undefined} value={info.endDate} onChange={event => change('endDate', event.target.value)} /></label>

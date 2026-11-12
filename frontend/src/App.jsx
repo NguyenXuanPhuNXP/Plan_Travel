@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { Loader2 } from 'lucide-react';
 import ErrorBoundary from './Components/Common/ErrorBoundary';
@@ -7,6 +7,7 @@ import ErrorBoundary from './Components/Common/ErrorBoundary';
 // Pages
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const TripPlanner = lazy(() => import('./pages/TripPlanner'));
 const PlannerWizard = lazy(() => import('./pages/PlannerWizard'));
@@ -21,6 +22,7 @@ const SharedTripView = lazy(() => import('./pages/SharedTripView'));
 const GroupInvite = lazy(() => import('./pages/GroupInvite'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const Explore = lazy(() => import('./pages/Explore'));
+const Community = lazy(() => import('./pages/Community'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const AdminUserActivity = lazy(() => import('./pages/AdminUserActivity'));
@@ -42,13 +44,14 @@ const PageLoader = () => (
 // Protected Route Component
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return <PageLoader />;
   }
 
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
   }
 
   if (adminOnly && !(user.role === 1 || user.role === 'admin')) {
@@ -59,6 +62,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 };
 
 function App() {
+  const location = useLocation();
   return (
     <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
@@ -70,7 +74,10 @@ function App() {
           <Route path="/shared/:token" element={<SharedTripView />} />
           <Route path="/group-invite/:token" element={<GroupInvite />} />
 
-          <Route path="/" element={
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/community" element={<Community />} />
+
+          <Route path="/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
             </ProtectedRoute>
@@ -206,7 +213,7 @@ function App() {
       </Suspense>
 
       {/* Floating Real-time Messaging / Chat Widget */}
-      <ChatWidget />
+      {location.pathname !== '/' && <ChatWidget />}
     </ErrorBoundary>
   );
 }

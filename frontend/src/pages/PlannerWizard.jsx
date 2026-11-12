@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin, Calendar, DollarSign, Sparkles, ChevronRight,
-  ChevronLeft, Loader2, Save, Wand2, Tag, Users, Car, Plus, Minus,
+  ChevronLeft, Loader2, Save, Wand2, Tag, Users, Car, Plus, Minus, Check,
 } from 'lucide-react';
 import { locationService } from '../services/locationService';
 import { itineraryService } from '../services/itineraryService';
@@ -12,6 +12,7 @@ import { friendService } from '../services/friendService';
 import { useTrips } from '../context/TripContext';
 import DestinationPicker from './DestinationPicker';
 import TripSetupForm from '../Components/Layout/TripSetupForm';
+import PlannerIntro from '../Components/Layout/PlannerIntro';
 import TimelineEditor from './TimelineEditor';
 import { aiTripDates, aiPlanItems } from '../utils/aiPlan';
 import { aiPlanDescription } from '../utils/aiPlanDetails';
@@ -242,6 +243,7 @@ const PlannerWizard = () => {
   return (
     <Layout>
       <div className="wizard-container">
+        {step > 1 && <header className="wizard-result-heading"><h1>{step === 2 ? 'Chọn những điểm muốn ghé.' : 'Hành trình của bạn.'}</h1><p>{tripInfo.destination} · Mỗi điểm dừng đều có thể điều chỉnh.</p></header>}
         {toast && (
           <div className="card" style={{ position: 'fixed', right: 20, top: 90, zIndex: 3000, padding: '0.75rem 1rem' }}>
             {toast}
@@ -256,7 +258,7 @@ const PlannerWizard = () => {
           ].map(({ num, label, icon: Icon }) => (
             <div key={num} className={`wizard-step-indicator ${step >= num ? 'active' : ''} ${step === num ? 'current' : ''}`}>
               <div className="wizard-step-circle">
-                {step > num ? '✓' : <Icon size={18} />}
+                {step > num ? <Check size={18} /> : <Icon size={18} />}
               </div>
               <span className="wizard-step-label">{label}</span>
               {num < 3 && <ChevronRight size={16} className="wizard-step-arrow" />}
@@ -272,12 +274,13 @@ const PlannerWizard = () => {
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -30 }}
-              className="wizard-step-content"
+              className="wizard-step-content planner-start-layout"
             >
-              <form className="card wizard-form-card" onSubmit={event => { event.preventDefault(); handleNextToStep2(); }}>
-                <header className="wizard-setup-heading"><h1>Chuyến đi của bạn</h1><p>Chọn điểm đến, ngày đi và bạn cùng lập kế hoạch.</p></header>
+              <PlannerIntro destination={tripInfo.destination} />
+              <form className="wizard-form-card planner-start-form" onSubmit={event => { event.preventDefault(); handleNextToStep2(); }}>
+                <header className="wizard-setup-heading"><h2>Bắt đầu hành trình</h2><p>Chọn điểm đến, ngày đi và bạn cùng lập kế hoạch.</p></header>
                 <TripSetupForm info={tripInfo} onChange={setTripInfo} friends={friendsList} selectedFriendIds={selectedFriendIds} onFriendsChange={setSelectedFriendIds} />
-                <footer className="wizard-setup-footer"><button type="button" className="btn btn-outline" onClick={() => navigate('/planner/map')}><MapPin size={16} /> Tự lập lịch trình</button><button className="btn btn-primary" disabled={loading}>{loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />} {loading ? 'Đang lấy địa điểm và lập lịch…' : 'Tạo lịch trình'} <ChevronRight size={16} /></button></footer>
+                <footer className="wizard-setup-footer"><button type="button" className="btn btn-outline" onClick={() => navigate(`/planner/map?destination=${encodeURIComponent(tripInfo.destination)}`)}><MapPin size={16} /> Tự lập lịch trình</button><button className="btn btn-primary" disabled={loading}>{loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />} {loading ? 'Đang lấy địa điểm và lập lịch…' : 'Tạo lịch trình'} <ChevronRight size={16} /></button></footer>
               </form>
             </motion.div>
           )}
@@ -329,7 +332,7 @@ const PlannerWizard = () => {
               className="wizard-step-content"
             >
               {planNotice && <p role="status" className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>{planNotice}</p>}
-              <AiPlanOverview plan={currentPlan} budget={getEffectiveBudget()} showCosts={false} />
+              <details className="wizard-trip-advice"><summary>Gợi ý di chuyển, lưu trú & chuẩn bị</summary><AiPlanOverview plan={currentPlan} budget={getEffectiveBudget()} showCosts={false} /></details>
               <TimelineEditor
                 plan={currentPlan}
                 selectedLocations={selectedLocations}

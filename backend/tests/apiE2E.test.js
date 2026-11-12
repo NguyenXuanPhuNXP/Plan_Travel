@@ -61,8 +61,8 @@ test("E2E Integration - Friend search and Admin dashboard via HTTP API", async (
     const searchResults = await searchRes.json();
     assert.ok(Array.isArray(searchResults), "Search results must be an array");
     assert.ok(searchResults.length > 0, "Should find matching users");
-    const foundAn = searchResults.find(u => u.name.toLowerCase().includes("an") || u.email.includes("an"));
-    assert.ok(foundAn, "Should find 'an' user");
+    const normalize = value => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    assert.ok(searchResults.every(user => normalize(user.name).includes('an') || normalize(user.email).includes('an')), 'Every result matches the Vietnamese name or email fragment');
 
     // 3. Regular user searches with 1-letter query "l"
     const searchShortRes = await fetch(`${app.url}/friends/search?q=l`, {

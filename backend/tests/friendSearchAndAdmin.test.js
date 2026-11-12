@@ -10,8 +10,10 @@ test("Friend Search - Search by name and email fragment returns matching users",
     assert.ok(Array.isArray(users), "Result should be an array");
     assert.ok(users.length > 0, "Should find at least one user with 'an'");
     
-    const found = users.find(u => u.email.includes("an.nguyen") || u.name.toLowerCase().includes("an"));
-    assert.ok(found, "Should find Nguyễn Văn An");
+    // MySQL ignores Vietnamese accents; newer matches can move the seeded user outside the first 30 results.
+    const normalize = value => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    assert.ok(users.every(user => normalize(user.name).includes('an') || normalize(user.email).includes('an')), 'Every result matches the name or email fragment');
+    const found = users[0];
     assert.ok(found.id, "Found user must have an id");
     assert.ok(found.name, "Found user must have a name");
     assert.notEqual(found.id, "1", "Should not include requester themselves");

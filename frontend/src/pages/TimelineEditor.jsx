@@ -3,7 +3,7 @@ import { motion, Reorder } from 'framer-motion';
 import {
   Clock, MapPin, GripVertical, Edit3, Check, X,
   ChevronDown, ChevronUp, Sparkles, StickyNote,
-  Navigation, Sun, Sunset, Moon, Plus, Search
+  Navigation, Sun, Sunset, Moon, Plus, Search, Car, DollarSign
 } from 'lucide-react';
 import { locationService } from '../services/locationService';
 import './TimelineEditor.css';
@@ -372,7 +372,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                             />
                             {item.travelMinutesToNext > 0 && (
                               <span className="timeline-travel-badge">
-                                🚗 {item.travelMinutesToNext} phút
+                                <Car size={13} aria-hidden="true" /> {item.travelMinutesToNext} phút
                               </span>
                             )}
                           </div>
@@ -385,17 +385,17 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                             <div className="timeline-item-details">
                               {item.location.estimatedCost > 0 && (
                                 <span className="timeline-detail-tag">
-                                  💰 {Number(item.location.estimatedCost).toLocaleString()}đ
+                                  <DollarSign size={13} aria-hidden="true" /> {Number(item.location.estimatedCost).toLocaleString()}đ
                                 </span>
                               )}
                               {item.location.suggestedDuration && (
                                 <span className="timeline-detail-tag">
-                                  ⏰ {item.location.suggestedDuration}
+                                  <Clock size={13} aria-hidden="true" /> {item.location.suggestedDuration}
                                 </span>
                               )}
                               {item.location.category && (
                                 <span className="timeline-detail-tag">
-                                  📍 {item.location.category}
+                                  <MapPin size={13} aria-hidden="true" /> {item.location.category}
                                 </span>
                               )}
                             </div>

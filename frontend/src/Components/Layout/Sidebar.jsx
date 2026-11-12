@@ -6,37 +6,35 @@ import {
   Sparkles,
   History,
   User,
-  Bell,
   PlusCircle,
   CompassIcon,
-  Shield
+  Shield,
+  Newspaper
 } from 'lucide-react';
-import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
 
 const Sidebar = () => {
   const location = useLocation();
-  const { unreadCount } = useNotifications();
   const { user } = useAuth();
   const isAdmin = user?.role === 1 || user?.role === 'admin';
 
   const menuItems = [
-    { key: 'dashboard', icon: Compass, label: 'Bảng điều khiển', path: '/', matchStartsWith: ['/'] },
+    { key: 'dashboard', icon: Compass, label: 'Bảng điều khiển', path: '/dashboard', matchStartsWith: ['/dashboard'] },
     { key: 'planner-manual', icon: MapIcon, label: 'Lập kế hoạch thủ công', path: '/planner/map', matchStartsWith: ['/planner/map', '/planner/manual'] },
     { key: 'planner-ai', icon: Sparkles, label: 'Lập kế hoạch (AI)', path: '/planner', matchStartsWith: ['/planner', '/ai-planner'] },
     { key: 'explore', icon: CompassIcon, label: 'Khám phá điểm đến', path: '/explore', matchStartsWith: ['/explore'] },
+    { key: 'community', icon: Newspaper, label: 'Bản tin chuyến đi', path: '/community', matchStartsWith: ['/community'] },
     { key: 'history', icon: History, label: 'Lịch sử chuyến đi', path: '/history', matchStartsWith: ['/history', '/trip'] },
   ];
 
   const profileItems = [
     { icon: User, label: 'Hồ sơ cá nhân', path: '/profile' },
-    { icon: Bell, label: 'Thông báo', path: '/notifications' },
   ];
 
   const isMenuItemActive = (item) => {
     const path = location.pathname;
-    if (item.key === 'dashboard') return path === '/';
+    if (item.key === 'dashboard') return path === '/dashboard';
     if (item.key === 'planner-manual') return path === '/planner/map' || path === '/planner/manual';
     if (item.key === 'planner-ai') return path === '/planner' || path === '/ai-planner';
     return item.matchStartsWith?.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
@@ -76,11 +74,6 @@ const Sidebar = () => {
             >
               <item.icon size={18} className="sidebar-link-icon" />
               <span>{item.label}</span>
-              {item.path === '/notifications' && unreadCount > 0 && (
-                <span className="sidebar-notification-badge">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
             </NavLink>
           ))}
         </nav>

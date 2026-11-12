@@ -1,0 +1,124 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile, access } from 'node:fs/promises';
+import express from 'express';
+import prisma from '../src/config/db.js';
+import communityRoutes from '../src/routes/community.js';
+import { errorHandler } from '../src/middleware/errorMiddleware.js';
+import { generateAccessToken } from '../src/services/jwtService.js';
+import { createItinerary, deleteItinerary } from '../src/services/itineraryService.js';
+import * as community from '../src/services/communityService.js';
+
+test('Public trip stories persist, keep private trip details private and enforce authorship and unique ratings', async () => {
+  const users = [];
+  let trip;
+  let server;
+  try {
+    for (let index = 0; index < 3; index++) users.push(await prisma.users.create({ data: { email: `community-${Date.now()}-${index}@example.test`, full_name: `Community Test ${index}`, is_active: true } }));
+    const [author, reader, outsider] = users;
+    trip = await createItinerary(author.id, { name: 'Private source trip', destination: 'Hội An', startDate: '2026-01-01', endDate: '2026-01-02', budget: 2000000, travelerCount: 2, transportMode: 'car', description: 'PRIVATE-DESCRIPTION', items: [{ customName: 'Chùa Cầu', startTime: '2026-01-01T08:00:00+07:00', endTime: '2026-01-01T09:00:00+07:00', durationMinutes: 60, note: 'PRIVATE-NOTE' }, { customName: 'Trà Quế', startTime: '2026-01-02T08:00:00+07:00' }] });
+    const input = { title: 'An experienced journey', destination: 'Hội An', content: 'A useful travel experience.', traveledOn: '2026-01-01', itineraryId: trip.id };
+    for (const invalid of [null, { ...input, itineraryId: '' }, { ...input, title: ' ' }, { ...input, content: 'x'.repeat(10001) }, { ...input, traveledOn: '2099-01-01' }, { ...input, traveledOn: '2026-02-30' }, { ...input, traveledOn: '0001-01-01' }, { ...input, coverImage: 'javascript:alert(1)' }]) {
+      await assert.rejects(() => community.createPost(author.id, invalid), error => error.status === 400);
+    }
+    await assert.rejects(() => community.createPost(reader.id, input), error => error.status === 403);
+    await assert.rejects(() => community.createPost(author.id, { ...input, includeItinerary: false }), error => error.status === 409, 'An old client must not publish more than its attachment consent');
+    const privateSnapshot = await community.createPost(author.id, input);
+    assert.equal(privateSnapshot.plan.items.length, 2, 'Sharing always includes the chosen saved plan');
+    const image = `data:image/jpeg;base64,${(await readFile(new URL('../../frontend/public/images/destinations/hoi-an.jpg', import.meta.url))).toString('base64')}`;
+    const post = await community.createPost(author.id, { ...input, photos: [image] });
+    assert.equal(post.itinerary[0].name, 'Chùa Cầu');
+    assert.equal(post.plan.name, trip.name);
+    assert.equal(post.plan.budget, 2000000);
+    assert.equal(post.plan.items[0].durationMinutes, 60);
+    assert.equal(post.plan.items[0].endTime, '2026-01-01T02:00:00.000Z');
+    assert.equal(post.photos.length, 1);
+    assert.equal(post.coverImage, post.photos[0]);
+    assert.ok(await readFile(new URL(`../${post.photos[0].slice(1)}`, import.meta.url)));
+    await assert.rejects(() => community.updatePost(privateSnapshot.id, author.id, { ...input, photos: post.photos }), error => error.status === 400, 'Cannot reuse another post’s stored photo path');
+    const publicJSON = JSON.stringify(await community.getPost(post.id));
+    for (const secret of ['PRIVATE-DESCRIPTION', 'PRIVATE-NOTE', author.email, 'shareToken', 'expenses', 'collaborators']) assert.ok(!publicJSON.includes(secret), `Does not expose ${secret}`);
+    assert.equal((await prisma.itineraries.findUnique({ where: { id: BigInt(trip.id) } })).visibility, 'private');
+    await assert.rejects(() => community.updatePost(post.id, reader.id, input), error => error.status === 403);
+    await assert.rejects(() => community.deletePost(post.id, reader.id), error => error.status === 403);
+    assert.equal((await community.updatePost(post.id, author.id, { ...input, title: 'Edited story' })).title, 'Edited story');
+    const beforeSourceEdit = await community.getPost(post.id);
+    await prisma.itineraries.update({ where: { id: BigInt(trip.id) }, data: { name: 'PRIVATE-LATER-EDIT' } });
+    assert.equal((await community.getPost(post.id)).plan.name, beforeSourceEdit.plan.name, 'Public plan stays as published when the private source changes');
+    const noPhotos = await community.updatePost(post.id, author.id, { ...input, itineraryId: '', title: 'Keep the published plan', photos: [] });
+    assert.equal(noPhotos.plan.name, beforeSourceEdit.plan.name);
+    await assert.rejects(() => access(new URL(`../${post.photos[0].slice(1)}`, import.meta.url)), { code: 'ENOENT' });
+    assert.deepEqual(noPhotos.photos, []);
+    assert.equal(noPhotos.coverImage, null);
+    await assert.rejects(() => community.addComment(post.id, reader.id, { content: ' ' }), error => error.status === 400);
+    const commented = await community.addComment(post.id, reader.id, { content: 'Which month did you visit?' });
+    assert.equal(commented.commentCount, 1);
+    const commentId = commented.comments[0].id;
+    await assert.rejects(() => community.deleteComment(post.id, commentId, outsider.id), error => error.status === 403);
+    await assert.rejects(() => community.deleteComment(privateSnapshot.id, commentId, reader.id), error => error.status === 404);
+    await community.deleteComment(post.id, commentId, author.id);
+    assert.equal((await community.getPost(post.id)).commentCount, 0);
+    await assert.rejects(() => community.ratePost(post.id, author.id, 5), error => error.status === 403);
+    for (const rating of [0, 6, 3.5, '4', null]) await assert.rejects(() => community.ratePost(post.id, reader.id, rating), error => error.status === 400);
+    await community.ratePost(post.id, reader.id, 4);
+    await community.ratePost(post.id, reader.id, 5);
+    const rated = await community.ratePost(post.id, outsider.id, 3);
+    assert.equal(rated.ratingCount, 2);
+    assert.equal(rated.averageRating, 4);
+    assert.equal((await community.getPost(post.id, reader.id)).myRating, 5);
+    assert.equal((await community.getPost(post.id)).myRating, null);
+    assert.equal((await community.removeRating(post.id, reader.id)).averageRating, 3);
+    const listing = await community.listPosts();
+    assert.ok(listing.posts.some(item => item.id === post.id));
+    await assert.rejects(() => community.listPosts(null, 'bad-cursor'), error => error.status === 400);
+    await assert.rejects(() => community.getPost('9999999999999999999'), error => error.status === 400);
+    await prisma.trip_posts.createMany({ data: Array.from({ length: 21 }, (_, index) => ({ user_id: author.id, title: `Page story ${index}`, destination: 'Hội An', content: 'Pagination test', traveled_on: new Date('2026-01-01') })) });
+    const firstPage = await community.listPosts();
+    const secondPage = await community.listPosts(null, firstPage.nextCursor);
+    assert.equal(firstPage.posts.length, 20);
+    assert.ok(secondPage.posts.length > 0);
+    assert.ok(secondPage.posts.every(post => BigInt(post.id) < BigInt(firstPage.nextCursor)), 'Post pagination has no overlapping entries');
+    await prisma.trip_post_comments.createMany({ data: Array.from({ length: 31 }, (_, index) => ({ post_id: BigInt(post.id), user_id: reader.id, content: `Comment ${index}` })) });
+    const firstComments = await community.getPost(post.id);
+    const lastComments = await community.getPost(post.id, null, firstComments.nextCommentCursor);
+    assert.equal(firstComments.comments.length, 30);
+    assert.equal(lastComments.comments.length, 1);
+    assert.equal(lastComments.nextCommentCursor, null);
+    assert.ok(!firstComments.comments.some(item => item.id === lastComments.comments[0].id));
+
+    const app = express();
+    app.use(express.json()); app.use('/api/community', communityRoutes); app.use(errorHandler);
+    server = await new Promise(resolve => { const listener = app.listen(0, () => resolve(listener)); });
+    const url = `http://127.0.0.1:${server.address().port}/api/community`;
+    assert.equal((await fetch(url)).status, 200);
+    assert.equal((await fetch(`${url}/${post.id}`)).status, 200);
+    assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })).status, 401);
+    const token = generateAccessToken(reader);
+    const response = await fetch(`${url}/${post.id}/comments`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ content: 'Persist this comment.' }) });
+    assert.equal(response.status, 201);
+    assert.equal((await response.json()).comments[0].content, 'Persist this comment.');
+    await community.deletePost(post.id, author.id);
+    assert.equal(await prisma.trip_post_comments.count({ where: { post_id: BigInt(post.id) } }), 0);
+    assert.equal(await prisma.trip_post_ratings.count({ where: { post_id: BigInt(post.id) } }), 0);
+    assert.ok(await prisma.itineraries.findUnique({ where: { id: BigInt(trip.id) } }), 'Deleting a public story preserves its private source trip');
+    await assert.rejects(() => community.getPost(post.id), error => error.status === 404);
+    const withPhoto = await community.createPost(author.id, { ...input, photos: [image] });
+    const edits = await Promise.allSettled([
+      community.updatePost(withPhoto.id, author.id, { ...input, itineraryId: '', photos: [] }),
+      community.updatePost(withPhoto.id, author.id, { ...input, itineraryId: '', photos: [...withPhoto.photos, image] }),
+    ]);
+    assert.ok(edits.some(result => result.status === 'fulfilled'));
+    for (const result of edits) if (result.status === 'rejected') assert.ok([400, 409].includes(result.reason.status));
+    const afterEdits = await community.getPost(withPhoto.id);
+    for (const photo of afterEdits.photos) await access(new URL(`../${photo.slice(1)}`, import.meta.url));
+    await community.deletePost(withPhoto.id, author.id);
+    await assert.rejects(() => access(new URL(`../${withPhoto.photos[0].slice(1)}`, import.meta.url)), { code: 'ENOENT' });
+  } finally {
+    if (server) await new Promise(resolve => server.close(resolve));
+    const remaining = await prisma.trip_posts.findMany({ where: { user_id: { in: users.map(user => user.id) } } });
+    for (const post of remaining) await community.deletePost(post.id, post.user_id);
+    if (trip) await deleteItinerary(trip.id, users[0].id);
+    if (users.length) await prisma.users.deleteMany({ where: { id: { in: users.map(user => user.id) } } });
+    await prisma.$disconnect();
+  }
+});

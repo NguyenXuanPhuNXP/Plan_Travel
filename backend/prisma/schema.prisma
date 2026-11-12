@@ -91,6 +91,7 @@ model itineraries {
   collaborators      itinerary_collaborators[]
   packing_items      itinerary_packing_items[]
   messages           itinerary_messages[]
+  trip_posts         trip_posts[]
 
   @@index([user_id], map: "idx_itineraries_user")
   @@index([share_token], map: "idx_itineraries_share_token")
@@ -271,6 +272,58 @@ model users {
   sent_messages       user_messages[]           @relation("sent_messages")
   received_messages   user_messages[]           @relation("received_messages")
   itinerary_messages  itinerary_messages[]
+  trip_posts          trip_posts[]
+  trip_post_comments  trip_post_comments[]
+  trip_post_ratings   trip_post_ratings[]
+}
+
+model trip_posts {
+  id                 BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id            BigInt               @db.UnsignedBigInt
+  itinerary_id       BigInt?              @db.UnsignedBigInt
+  title              String               @db.VarChar(200)
+  destination        String               @db.VarChar(200)
+  content            String               @db.Text
+  traveled_on        DateTime             @db.Date
+  cover_image        String?              @db.VarChar(500)
+  photos             Json?
+  itinerary_snapshot Json?
+  created_at         DateTime             @default(now()) @db.Timestamp(0)
+  updated_at         DateTime             @default(now()) @updatedAt @db.Timestamp(0)
+  author             users                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  itinerary          itineraries?         @relation(fields: [itinerary_id], references: [id], onDelete: SetNull)
+  comments           trip_post_comments[]
+  ratings            trip_post_ratings[]
+
+  @@index([user_id])
+  @@index([itinerary_id])
+  @@index([created_at, id])
+}
+
+model trip_post_comments {
+  id         BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  post_id    BigInt     @db.UnsignedBigInt
+  user_id    BigInt     @db.UnsignedBigInt
+  content    String     @db.Text
+  created_at DateTime   @default(now()) @db.Timestamp(0)
+  post       trip_posts @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  author     users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([post_id, id])
+  @@index([user_id])
+}
+
+model trip_post_ratings {
+  id         BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  post_id    BigInt     @db.UnsignedBigInt
+  user_id    BigInt     @db.UnsignedBigInt
+  rating     Int        @db.UnsignedTinyInt
+  created_at DateTime   @default(now()) @db.Timestamp(0)
+  post       trip_posts @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  author     users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([post_id, user_id])
+  @@index([user_id])
 }
 
 model itinerary_collaborators {

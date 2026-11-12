@@ -5,15 +5,16 @@ import {
   Filter, Search, Sparkles, ChevronDown
 } from 'lucide-react';
 import MapComponent from '../Components/Map/MapComponent';
+import { DESTINATION_PLACEHOLDER, handleImageError } from '../utils/destinationImages';
 import './DestinationPicker.css';
 
 const CATEGORY_FILTERS = [
   { value: 'all', label: 'Tất cả' },
-  { value: 'tourism', label: '🏛️ Du lịch' },
-  { value: 'catering', label: '🍜 Ăn uống' },
-  { value: 'entertainment', label: '🎭 Giải trí' },
-  { value: 'accommodation', label: '🏨 Lưu trú' },
-  { value: 'natural', label: '🌿 Tự nhiên' },
+  { value: 'tourism', label: 'Du lịch' },
+  { value: 'catering', label: 'Ăn uống' },
+  { value: 'entertainment', label: 'Giải trí' },
+  { value: 'accommodation', label: 'Lưu trú' },
+  { value: 'natural', label: 'Tự nhiên' },
 ];
 
 const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect, onDeselect, destination }) => {
@@ -45,7 +46,7 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
     address: loc.address || '',
     lat: loc.latitude ?? loc.lat,
     lng: loc.longitude ?? loc.lng,
-    image: loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800'
+    image: loc.imageUrl || DESTINATION_PLACEHOLDER
   }));
 
   const handleToggle = (loc) => {
@@ -138,7 +139,7 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
                 {/* Card image */}
                 <div className="picker-card-img-wrap">
                   {loc.imageUrl ? (
-                    <img src={loc.imageUrl} alt={loc.name} className="picker-card-img" />
+                    <img src={loc.imageUrl} alt={loc.name} className="picker-card-img" onError={handleImageError} />
                   ) : (
                     <div className="picker-card-img-placeholder">
                       <MapPin size={28} />
@@ -207,7 +208,7 @@ const DestinationPicker = ({ suggestions = [], selectedLocations = [], onSelect,
                 address: loc.address || '',
                 lat: loc.latitude,
                 lng: loc.longitude,
-                image: loc.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800',
+                image: loc.imageUrl || DESTINATION_PLACEHOLDER,
                 isSuggested: !isSelected(loc)
               }))}
               onLocationAdd={(loc) => {
