@@ -1,4 +1,5 @@
 import prisma from "../config/db.js";
+import { createNotification } from './notificationService.js';
 
 function serializeUser(user, isFriend = false, requestStatus = null) {
     return {
@@ -139,14 +140,7 @@ export async function sendFriendRequest(userId, { email, userId: targetUserId })
     const requester = await prisma.users.findUnique({ where: { id: requesterId } });
 
     // Create notification
-    await prisma.user_notifications.create({
-        data: {
-            user_id: target.id,
-            type: "friend_request",
-            title: "Lời mời kết bạn",
-            message: `${requester?.full_name || "Một người dùng"} đã gửi cho bạn một lời mời kết bạn.`
-        }
-    });
+    await createNotification({ db: prisma, userId: target.id, type: "friend_request", title: "Lời mời kết bạn", message: `${requester?.full_name || "Một người dùng"} đã gửi cho bạn một lời mời kết bạn.` });
 
     return { message: "Đã gửi lời mời kết bạn." };
 }
@@ -169,14 +163,7 @@ export async function acceptFriendRequest(userId, friendId) {
     const receiver = await prisma.users.findUnique({ where: { id: receiverId } });
 
     // Create notification
-    await prisma.user_notifications.create({
-        data: {
-            user_id: targetId,
-            type: "friend_accept",
-            title: "Đã chấp nhận kết bạn",
-            message: `${receiver?.full_name || "Bạn của bạn"} đã chấp nhận lời mời kết bạn của bạn.`
-        }
-    });
+    await createNotification({ db: prisma, userId: targetId, type: "friend_accept", title: "Đã chấp nhận kết bạn", message: `${receiver?.full_name || "Bạn của bạn"} đã chấp nhận lời mời kết bạn của bạn.` });
 
     return getFriends(userId);
 }

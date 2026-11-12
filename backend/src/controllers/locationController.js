@@ -94,6 +94,11 @@ const serializeLocation = (loc) => {
 
 export async function listLocations(req, res) {
     const { region, category, tag, limit = 100, offset = 0 } = req.query;
+    const pageSize = Number(limit);
+    const pageOffset = Number(offset);
+    if (!Number.isSafeInteger(pageSize) || pageSize < 1 || !Number.isSafeInteger(pageOffset) || pageOffset < 0) {
+        throw { status: 400, message: 'Phân trang không hợp lệ.' };
+    }
 
     let sql = "SELECT * FROM locations WHERE (country = 'Vietnam' OR country IS NULL)";
     const params = [];
@@ -114,7 +119,9 @@ export async function listLocations(req, res) {
         params.push(tag);
     }
 
-    sql += ` ORDER BY updated_at DESC LIMIT ${Number(limit)} OFFSET ${Number(offset)}`;
+    sql += region ? ' ORDER BY CASE WHEN name = ? THEN 0 WHEN name LIKE ? THEN 1 ELSE 2 END, updated_at DESC, id DESC' : ' ORDER BY updated_at DESC, id DESC';
+    if (region) params.push(region, `${region}%`);
+    sql += ` LIMIT ${Math.min(pageSize, 1000)} OFFSET ${pageOffset}`;
 
     const rows = await prisma.$queryRawUnsafe(sql, ...params);
     res.json(rows.map(serializeLocation));
@@ -140,7 +147,7 @@ export async function createManualLocation(req, res) {
 
     const lat = Number(latitude);
     const lng = Number(longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    if (latitude == null || longitude == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
         throw { status: 400, message: "latitude and longitude must be valid numbers" };
     }
 
@@ -229,7 +236,7 @@ export async function cacheLocations(req, res) {
             continue;
         }
 
-        if (!mapped.external_id || !mapped.latitude || !mapped.longitude) {
+        if (!mapped.external_id || !Number.isFinite(mapped.latitude) || !Number.isFinite(mapped.longitude) || Math.abs(mapped.latitude) > 90 || Math.abs(mapped.longitude) > 180) {
             skipped += 1;
             continue;
         }

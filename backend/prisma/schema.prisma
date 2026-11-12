@@ -252,8 +252,10 @@ model users {
   phone               String?                   @unique(map: "IX_users_phone") @db.VarChar(20)
   password_hash       String?                   @db.VarChar(255)
   role                users_role                @default(user)
-  avatar_url          String?                   @db.VarChar(500)
+  avatar_url          String?                   @db.Text
   is_active           Boolean                   @default(true)
+  notify_in_app       Boolean                   @default(true)
+  notify_by_email     Boolean                   @default(true)
   created_at          DateTime                  @default(now()) @db.Timestamp(0)
   updated_at          DateTime                  @default(now()) @db.Timestamp(0)
   auth_challenges     auth_challenges[]

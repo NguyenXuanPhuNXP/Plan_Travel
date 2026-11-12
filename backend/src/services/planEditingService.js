@@ -1,7 +1,8 @@
 import prisma from '../config/db.js';
-import { getItineraryById } from './itineraryService.js';
+import { formatStopNote, getItineraryById } from './itineraryService.js';
 import { createHash } from 'node:crypto';
 import { normalizeTripExpenses } from './tripExpenseInput.js';
+import { createNotification } from './notificationService.js';
 
 const fail = message => { throw { status: 400, message }; };
 const text = (value, limit, label, required = false) => {
@@ -126,7 +127,7 @@ export async function savePlan(itineraryId, userId, draft) {
                 duration_minutes: item.durationMinutes === '' || item.durationMinutes == null ? null : number(item.durationMinutes, 'Thời lượng', 525600, true),
                 travel_minutes: item.travelMinutes === '' || item.travelMinutes == null ? null : number(item.travelMinutes, 'Thời gian di chuyển', 525600, true),
                 travel_distance_km: item.travelDistanceKm === '' || item.travelDistanceKm == null ? null : number(item.travelDistanceKm, 'Khoảng cách', 999999.99),
-                note: `[DAY:${day}] ${note.replace(/\[DAY:\d+\]\s*/g, '')}`.trim()
+                note: formatStopNote(day, note)
             } });
         }
         // Validate all ownership and input before deleting any rows.
@@ -169,7 +170,7 @@ export async function savePlan(itineraryId, userId, draft) {
                 if (current) await tx.itinerary_collaborators.update({ where: { id: current.id }, data: { permission: member.permission } });
                 else {
                     await tx.itinerary_collaborators.create({ data: { itinerary_id: planId, user_id: target.id, permission: member.permission } });
-                    await tx.user_notifications.create({ data: { user_id: target.id, type: 'group_invite', title: 'Tham gia kế hoạch', message: `Bạn đã được thêm vào kế hoạch "${update.name}".` } });
+                    await createNotification({ db: tx, userId: target.id, type: 'group_invite', title: 'Tham gia kế hoạch', message: `Bạn đã được thêm vào kế hoạch "${update.name}".` });
                     await tx.itinerary_messages.create({ data: { itinerary_id: planId, sender_id: actorId, content: `[Hệ thống] ${target.full_name} đã được thêm vào kế hoạch.` } });
                 }
             }

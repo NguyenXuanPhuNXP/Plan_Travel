@@ -99,7 +99,9 @@ export const AuthProvider = ({ children }) => {
       fullName: newData.fullName || newData.name || user?.fullName,
       email: newData.email || user?.email,
       phone: newData.phone ?? user?.phone,
-      avatarUrl: newData.avatarUrl ?? user?.avatarUrl
+      avatarUrl: newData.avatarUrl ?? user?.avatarUrl,
+      notifyInApp: newData.notifyInApp ?? user?.notifyInApp,
+      notifyByEmail: newData.notifyByEmail ?? user?.notifyByEmail
     });
     const activeUser = JSON.parse(localStorage.getItem('travel_user') || 'null');
     if (String(activeUser?.id) === accountId) {

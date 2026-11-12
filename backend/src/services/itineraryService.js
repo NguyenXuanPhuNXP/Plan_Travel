@@ -1,4 +1,5 @@
 import prisma from "../config/db.js";
+import { createNotification } from './notificationService.js';
 
 /**
  * Lấy danh mục đồ cần chuẩn bị mặc định (dùng chung cho tất cả)
@@ -99,7 +100,12 @@ export async function createItinerary(userId, data) {
         });
     });
 
-    return serializeItinerary(itinerary);
+    const result = serializeItinerary(itinerary);
+    await notifyItineraryParticipants(itinerary.id, userId, {
+        title: 'Bạn được thêm vào chuyến đi',
+        message: `Bạn đã được thêm vào chuyến đi "${itinerary.name}".`
+    });
+    return result;
 }
 
 /**
@@ -255,7 +261,35 @@ export async function updateItinerary(itineraryId, userId, data) {
         }
     });
 
-    return serializeItinerary(updated);
+    const result = serializeItinerary(updated);
+    await notifyItineraryParticipants(updated.id, userId, {
+        title: 'Chuyến đi đã được cập nhật',
+        message: `Chuyến đi "${updated.name}" vừa được cập nhật. Hãy mở PlanTravel để xem thay đổi.`
+    });
+    return result;
+}
+
+async function notifyItineraryParticipants(itineraryId, actorId, { title, message }) {
+    const itinerary = await prisma.itineraries.findUnique({
+        where: { id: BigInt(itineraryId) },
+        include: {
+            users: { select: { id: true } },
+            collaborators: { select: { user_id: true } }
+        }
+    });
+    if (!itinerary) return;
+
+    const recipientIds = [itinerary.user_id, ...itinerary.collaborators.map(item => item.user_id)]
+        .filter(id => String(id) !== String(actorId))
+        .filter((id, index, ids) => ids.findIndex(item => String(item) === String(id)) === index);
+
+    await Promise.all(recipientIds.map(userId => createNotification({
+        db: prisma,
+        userId,
+        type: 'itinerary_update',
+        title,
+        message
+    }).catch(error => console.error('Không thể tạo notification chuyến đi:', error.message))));
 }
 
 /**
@@ -534,8 +568,17 @@ function buildItemData(itineraryId, item, sortOrder) {
         duration_minutes: toPositiveInt(item.durationMinutes),
         travel_minutes: toPositiveInt(item.travelMinutes ?? item.travelMinutesToNext),
         travel_distance_km: item.travelDistanceKm || null,
-        note: item.note || null
+        note: item.day == null ? (item.note || null) : formatStopNote(item.day, item.note)
     };
+}
+
+export function formatStopNote(day, note) {
+    const dayNumber = Number(day);
+    if (!Number.isInteger(dayNumber) || dayNumber < 1) throw { status: 400, message: 'Ngày của điểm dừng không hợp lệ.' };
+    const content = String(note ?? '').replace(/\[DAY:\d+\]\s*/gi, '').trim();
+    const result = `[DAY:${dayNumber}] ${content}`.trim();
+    if (result.length > 500) throw { status: 400, message: 'Ghi chú điểm dừng quá 500 ký tự.' };
+    return result;
 }
 
 function toBigIntId(value) {
@@ -645,6 +688,7 @@ function serializeItem(item) {
         durationMinutes: item.duration_minutes,
         travelMinutes: item.travel_minutes,
         travelDistanceKm: item.travel_distance_km ? Number(item.travel_distance_km) : null,
+        day: Number(String(item.note || '').match(/\[DAY:(\d+)\]/i)?.[1]) || 1,
         note: item.note,
         createdAt: item.created_at,
         location: loc ? {
