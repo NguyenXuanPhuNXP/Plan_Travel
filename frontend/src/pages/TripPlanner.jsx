@@ -8,6 +8,7 @@ import { itineraryService } from '../services/itineraryService';
 import { locationService } from '../services/locationService';
 import { friendService } from '../services/friendService';
 import { tripSetupPayload } from '../utils/tripSetup';
+import { destinationImage, handleImageError } from '../utils/destinationImages';
 import './TripWorkspace.css';
 
 export default function TripPlanner() {
@@ -37,6 +38,7 @@ export default function TripPlanner() {
   return <Layout><div className="trip-setup-page">
     <header><Link to="/" className="trip-details-header-link"><ArrowLeft size={16} /> Quay lại</Link><h1>Chuyến đi của bạn</h1><p>Chọn nơi muốn đi, thời gian và những người cùng lên kế hoạch.</p></header>
     <nav className="trip-workspace-tabs" aria-label="Các bước lập kế hoạch"><button type="button" aria-current="step" className="active"><MapPin size={16} /> Thông tin chuyến đi</button><button type="button" disabled><ArrowRight size={16} /> Lịch trình theo ngày</button></nav>
+    <figure className="trip-setup-inspiration"><img src={destinationImage('Hội An')} alt="Phố cổ Hội An" onError={handleImageError} /><figcaption>Gợi ý khám phá: Hội An, Việt Nam</figcaption></figure>
     <form onSubmit={startPlanning}>
       <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><TripSetupForm info={info} onChange={setInfo} friends={friends} selectedFriendIds={selectedFriendIds} onFriendsChange={setSelectedFriendIds} /></fieldset>
       {error && <p role="alert">{error}</p>}

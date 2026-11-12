@@ -85,6 +85,9 @@
 .trip-workspace .trip-day-toggle { width: 100%; border: 0; border-radius: 6px; background: var(--bg-subtle); padding: 12px; text-align: left; color: var(--text-main); font: inherit; cursor: pointer; }
 .trip-day-toggle .trip-details-day-meta { flex: 1; }
 .trip-day-toggle[aria-expanded="true"] > svg { transform: rotate(90deg); }
+.trip-day-toggle > svg { transition: transform 180ms ease; }
+.trip-day-content:not([hidden]) { animation: trip-day-open 180ms cubic-bezier(.16,1,.3,1); }
+@keyframes trip-day-open { from { opacity: .5; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 .trip-day-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .trip-day-content[hidden] { display: none; }
 .trip-workspace .trip-details-day-tag { background: var(--bg-subtle); color: var(--text-main); border-radius: 6px; box-shadow: none; }

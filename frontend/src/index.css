@@ -3,7 +3,7 @@
 :root {
   --font-sans: 'Source Sans Pro', 'Arial Adjusted', 'Segoe UI Adjusted', 'Roboto Adjusted', 'Helvetica Neue Adjusted', 'Noto Sans Adjusted', -apple-system, BlinkMacSystemFont, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   /* Brand Palette - Clean Modern Travel */
-  --primary: #C85A32;             /* Warm Terracotta */
+  --primary: #B94E28;             /* Burnt orange, readable on white */
   --primary-hover: #B24B25;
   --primary-soft: #FBF0EA;
   --primary-glow: rgba(200, 90, 50, 0.2);
@@ -24,9 +24,9 @@
   --accent-danger-soft: #FDF0EF;
 
   /* Surfaces & Canvas */
-  --bg-main: #FBF9F4;             /* Warm clean canvas */
+  --bg-main: #F3F6F3;             /* Quiet green canvas */
   --bg-card: #FFFFFF;
-  --bg-subtle: #F4EFE6;
+  --bg-subtle: #EDF2EE;
   --bg-glass: rgba(251, 249, 244, 0.9);
 
   /* Typography */
@@ -35,7 +35,7 @@
   --text-light: #98A69E;
   --text-inverse: #FFFFFF;
 
-  --border-color: #E8E1D3;
+  --border-color: #DDE5DE;
   --border-subtle: #F0EAE0;
   --border-focus: #C85A32;
 
@@ -73,7 +73,12 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  accent-color: var(--forest);
+  scrollbar-color: #a9bab0 var(--bg-main);
 }
+::selection { color: white; background: var(--forest); }
+input, textarea { caret-color: var(--forest); }
+input::placeholder, textarea::placeholder { color: #6c7971; opacity: 1; }
 
 /* Typography */
 h1, h2, h3, h4, h5, h6 {
@@ -301,4 +306,8 @@ input, textarea, select {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@media (max-width: 600px) {
+  html:root { --header-height: 120px; }
 }
