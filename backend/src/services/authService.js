@@ -153,6 +153,8 @@ export async function updateUserProfile(userId, dto) {
     const email = String(dto.email || "").trim().toLowerCase();
     const phone = String(dto.phone || "").trim() || null;
     const avatarUrl = String(dto.avatarUrl || "").trim() || null;
+    const notifyInApp = dto.notifyInApp === undefined ? undefined : Boolean(dto.notifyInApp);
+    const notifyByEmail = dto.notifyByEmail === undefined ? undefined : Boolean(dto.notifyByEmail);
 
     if (!fullName || !email) {
         throw { status: 400, message: "Tên hiển thị và email là bắt buộc." };
@@ -190,6 +192,22 @@ export async function updateUserProfile(userId, dto) {
             updated_at: new Date()
         }
     });
+
+    // Use raw SQL for preferences so an older generated Prisma Client does
+    // not reject the profile update before `prisma generate` is run.
+    if (notifyInApp !== undefined || notifyByEmail !== undefined) {
+        try {
+            if (notifyInApp !== undefined && notifyByEmail !== undefined) {
+                await prisma.$executeRaw`UPDATE users SET notify_in_app = ${notifyInApp}, notify_by_email = ${notifyByEmail} WHERE id = ${BigInt(userId)}`;
+            } else if (notifyInApp !== undefined) {
+                await prisma.$executeRaw`UPDATE users SET notify_in_app = ${notifyInApp} WHERE id = ${BigInt(userId)}`;
+            } else {
+                await prisma.$executeRaw`UPDATE users SET notify_by_email = ${notifyByEmail} WHERE id = ${BigInt(userId)}`;
+            }
+        } catch (error) {
+            throw { status: 500, message: "Chưa cập nhật được tùy chọn thông báo. Vui lòng chạy migration database rồi thử lại.", cause: error };
+        }
+    }
 
     return buildUserProfile(updated);
 }
@@ -253,6 +271,9 @@ function buildUserProfile(user) {
         email: user.email,
         phone: user.phone || null,
         avatarUrl: user.avatar_url || null,
+        hasPassword: Boolean(user.password_hash),
+        notifyInApp: user.notify_in_app ?? true,
+        notifyByEmail: user.notify_by_email ?? false,
         role: user.role === "admin" ? 1 : 0
     };
 }

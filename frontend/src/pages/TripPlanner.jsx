@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Loader2, MapPin } from 'lucide-react';
 import Layout from '../Components/Layout/Layout';
@@ -20,7 +20,9 @@ export default function TripPlanner() {
   const [selectedFriendIds, setSelectedFriendIds] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
   useEffect(() => { friendService.getFriends().then(setFriends).catch(() => {}); }, []);
+
   const startPlanning = async event => {
     event.preventDefault();
     if (saving) return;
@@ -32,9 +34,13 @@ export default function TripPlanner() {
       const trip = await itineraryService.create(payload);
       addTrip(trip);
       navigate(`/trip/${trip.id}`);
-    } catch (err) { setError(err.response?.data?.message || err.message || 'Chưa tạo được kế hoạch. Hãy thử lại.'); }
-    finally { setSaving(false); }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Chưa tạo được kế hoạch. Hãy thử lại.');
+    } finally {
+      setSaving(false);
+    }
   };
+
   return <Layout><div className="trip-setup-page">
     <header><Link to="/" className="trip-details-header-link"><ArrowLeft size={16} /> Quay lại</Link><h1>Chuyến đi của bạn</h1><p>Chọn nơi muốn đi, thời gian và những người cùng lên kế hoạch.</p></header>
     <nav className="trip-workspace-tabs" aria-label="Các bước lập kế hoạch"><button type="button" aria-current="step" className="active"><MapPin size={16} /> Thông tin chuyến đi</button><button type="button" disabled><ArrowRight size={16} /> Lịch trình theo ngày</button></nav>
