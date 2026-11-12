@@ -46,6 +46,10 @@ test('Editor keeps all five sections as a draft, survives save failure and sends
         const dialogUrl = await loadUi('PlanDialog');
         const expenseDialogUrl = await loadUi('ExpenseDialog', { './PlanDialog': dialogUrl });
         const budgetUrl = await loadUi('TripBudget', { './PlanDialog': dialogUrl, './ExpenseDialog': expenseDialogUrl });
+        let destinationSource = await readFile(new URL('../../frontend/src/Components/Map/DestinationInput.jsx', import.meta.url), 'utf8');
+        destinationSource = `import React from '${reactUrl}';\n` + destinationSource.replace("from 'react'", `from '${reactUrl}'`).replace("from '../../utils/vietnamDestinations'", `from '${new URL('../../frontend/src/utils/vietnamDestinations.js', import.meta.url).href}'`);
+        const destinationCode = await transform('DestinationInput.jsx', destinationSource, { jsx: { runtime: 'classic' } });
+        const destinationUrl = `data:text/javascript;base64,${Buffer.from(destinationCode.code).toString('base64')}`;
         let source = await readFile(new URL('../../frontend/src/pages/TripEdit.jsx', import.meta.url), 'utf8');
         source = `import React from '${reactUrl}';\n` + source.replace(/from 'react'/, `from '${reactUrl}'`)
             .replace(/import \{ Link, useNavigate, useParams \} from '[^']+';/, "const Link = ({children}) => React.createElement('a', null, children); const useParams = () => ({id:'5'}); const useNavigate = () => globalThis.__planEditor.navigate;")
@@ -58,6 +62,7 @@ test('Editor keeps all five sections as a draft, survives save failure and sends
             .replace(/import apiClient from '[^']+';/, 'const apiClient = {get: async () => ({data:[]})};')
             .replace("from '../utils/planDraft'", `from '${utilsUrl}'`)
             .replace("from '../Components/Layout/TripBudget'", `from '${budgetUrl}'`)
+            .replace("from '../Components/Map/DestinationInput'", `from '${destinationUrl}'`)
             .replace("from '../Components/Layout/PlanDialog'", `from '${dialogUrl}'`)
             .replace("from '../utils/tripExpenses'", `from '${expensesUrl}'`)
             .replace(/import '[^']+\.css';/, '');

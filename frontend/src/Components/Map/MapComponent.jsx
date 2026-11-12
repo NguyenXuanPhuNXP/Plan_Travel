@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   MapContainer, 
   TileLayer, 
   Marker, 
   Popup, 
-  useMapEvents, 
   useMap,
   Polyline, 
   ZoomControl 
@@ -12,8 +11,12 @@ import {
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import PlaceSearch from './PlaceSearch';
+import NearbyPlaces from './NearbyPlaces';
+import './MapComponent.css';
+import { searchMapPlaces } from '../../services/tripPlaceSearch';
 import { Thermometer, CloudRain } from 'lucide-react';
 import { WeatherService } from '../../services/WeatherService';
+import { geoapifyKey, geoapifyTileUrl, geoapifyAttribution, fetchGeoapifyRoute, resolveMapDestination } from '../../services/geoapifyMap';
 import { DESTINATION_PLACEHOLDER, handleImageError } from '../../utils/destinationImages';
 
 // Fix Leaflet icon issue
@@ -32,26 +35,26 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const MapEventsHandler = ({ onMapClick }) => {
-  useMapEvents({
-    click: (e) => {
-      if (typeof onMapClick === 'function' && e && e.latlng) {
-        onMapClick(e.latlng);
-      }
-    },
-  });
-  return null;
-};
-
-function MapViewport({ coordinates, focusedLocation }) {
+function MapViewport({ coordinates, focusedLocation, destinationLocation, searchedLocation }) {
   const map = useMap();
+  const previousDestination = useRef(null);
   useEffect(() => {
+    map.invalidateSize();
+    if (destinationLocation && previousDestination.current !== destinationLocation.name) {
+      previousDestination.current = destinationLocation.name;
+      map.setView([destinationLocation.lat, destinationLocation.lng], 12, { animate: false });
+      return;
+    }
     const points = coordinates ? coordinates.split(';').map(point => point.split(',').map(Number).reverse()) : [];
     if (points.length) map.fitBounds(points, { padding: [48, 48], maxZoom: 13 });
-  }, [map, coordinates]);
+    else if (destinationLocation) map.setView([destinationLocation.lat, destinationLocation.lng], 12);
+  }, [map, coordinates, destinationLocation]);
   useEffect(() => {
     if (focusedLocation?.hasRealCoords) map.setView([focusedLocation.lat, focusedLocation.lng], 15);
   }, [map, focusedLocation]);
+  useEffect(() => {
+    if (searchedLocation) map.setView([searchedLocation.latitude, searchedLocation.longitude], 14);
+  }, [map, searchedLocation]);
   useEffect(() => {
     const observer = new ResizeObserver(() => map.invalidateSize());
     observer.observe(map.getContainer());
@@ -62,6 +65,18 @@ function MapViewport({ coordinates, focusedLocation }) {
 
 const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove, showRoute = true, focusedLocation, numberMarkers = false, searchContext = '' }) => {
   const [weatherData, setWeatherData] = useState({});
+  const [controlsElement, setControlsElement] = useState(null);
+  const [destinationResult, setDestinationResult] = useState(null);
+  const [searchResult, setSearchResult] = useState(null);
+  const destinationLocation = destinationResult?.query === searchContext ? destinationResult.place : null;
+  const searchedLocation = searchResult?.context === searchContext ? searchResult.place : null;
+  useEffect(() => {
+    const controller = new AbortController();
+    resolveMapDestination(searchContext, controller.signal)
+      .then(place => { if (!controller.signal.aborted) setDestinationResult({ query: searchContext, place }); })
+      .catch(error => { if (!controller.signal.aborted) setDestinationResult({ query: searchContext, error: error.message }); });
+    return () => controller.abort();
+  }, [searchContext]);
 
   // Filter only valid locations with finite lat/lng to prevent Leaflet LatLng crash
   const validLocations = (Array.isArray(selectedLocations) ? selectedLocations : [])
@@ -76,7 +91,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
 
   const center = validLocations.length > 0
     ? [validLocations[0].lat, validLocations[0].lng]
-    : [21.0285, 105.8542]; // Default to Hanoi
+    : [16.05, 108.2];
 
   const fetchWeatherForLocation = async (id, lat, lng) => {
     if (!id || !Number.isFinite(lat) || !Number.isFinite(lng) || weatherData[id]) return;
@@ -89,6 +104,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
   };
 
   const [routeGeometry, setRouteGeometry] = useState({ coordinates: '', points: [] });
+  const [mapError, setMapError] = useState('');
 
   // Depend on coordinate values, not a new array allocated on every render.
   const routeCoordinates = validLocations.map(loc => `${loc.lng},${loc.lat}`).join(';');
@@ -98,16 +114,13 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
     if (!showRoute || !routeCoordinates.includes(';')) return;
 
     const fetchRoute = async () => {
-      const url = `https://router.project-osrm.org/route/v1/driving/${routeCoordinates}?overview=full&geometries=geojson`;
       try {
-        const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) return;
-        const data = await response.json();
-        if (!controller.signal.aborted && data.routes?.[0]?.geometry?.coordinates) {
-          setRouteGeometry({ coordinates: routeCoordinates, points: data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]) });
+        const points = await fetchGeoapifyRoute(routeCoordinates, controller.signal);
+        if (!controller.signal.aborted) {
+          setRouteGeometry({ coordinates: routeCoordinates, points });
         }
       } catch (err) {
-        if (err.name !== 'AbortError') console.warn('Lỗi khi lấy lộ trình:', err);
+        if (!controller.signal.aborted) setRouteGeometry({ coordinates: routeCoordinates, points: [], error: err.message });
       }
     };
 
@@ -115,35 +128,36 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
     return () => controller.abort();
   }, [routeCoordinates, showRoute]);
 
+  const mapMessage = !geoapifyKey ? 'Chưa cấu hình khóa bản đồ Geoapify.' : mapError || (destinationResult?.query === searchContext && destinationResult.error) || (showRoute && routeGeometry.coordinates === routeCoordinates ? routeGeometry.error : '');
+  const cameraKey = searchedLocation ? `search:${searchedLocation.latitude},${searchedLocation.longitude}` :
+    focusedLocation?.hasRealCoords ? `focus:${focusedLocation.lat},${focusedLocation.lng}` : routeCoordinates || (destinationLocation ? `destination:${destinationLocation.lat},${destinationLocation.lng}` : '');
+  const viewportKey = (searchedLocation || destinationLocation || (!searchContext && routeCoordinates)) ? `${searchContext}|${cameraKey}` : '';
+
   return (
-    <div style={{ position: 'relative', height: '100%', width: '100%' }}>
-      {typeof onLocationAdd === 'function' && <div style={{ position: 'absolute', top: 16, left: '5%', width: '90%', zIndex: 1000 }}><PlaceSearch context={searchContext} onSelect={onLocationAdd} /></div>}
+    <div className="trip-map">
+      <div className="trip-map-search"><PlaceSearch searchPlaces={searchMapPlaces} placeholder="Tìm địa điểm trên bản đồ…" onSelect={place => setSearchResult({ context: searchContext, place })} /></div>
+      <div className="trip-map-canvas">
+      {mapMessage && <p role="alert" className="trip-map-error">{mapMessage}</p>}
 
       <MapContainer 
         center={center} 
-        zoom={13} 
+        zoom={validLocations.length ? 13 : 6}
         zoomControl={false}
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={geoapifyAttribution}
+          url={geoapifyTileUrl}
+          maxZoom={20}
+          eventHandlers={{ tileerror: () => setMapError('Không tải được bản đồ Geoapify. Kiểm tra kết nối, khóa API và hạn mức.') }}
         />
         
         <ZoomControl position="bottomright" />
-        <MapViewport coordinates={routeCoordinates} focusedLocation={focusedLocation} />
-        <MapEventsHandler onMapClick={(latlng) => {
-          if (typeof onLocationAdd === 'function') {
-            onLocationAdd({
-              id: `click_${Date.now()}`,
-              name: `Địa điểm mới (${latlng.lat.toFixed(4)})`,
-              address: `Vĩ độ: ${latlng.lat.toFixed(4)}, Kinh độ: ${latlng.lng.toFixed(4)}`,
-              lat: latlng.lat,
-              lng: latlng.lng,
-              image: DESTINATION_PLACEHOLDER
-            });
-          }
-        }} />
+        <MapViewport coordinates={routeCoordinates} focusedLocation={focusedLocation} destinationLocation={destinationLocation} searchedLocation={searchedLocation} />
+        <NearbyPlaces selectedLocations={validLocations} onLocationAdd={onLocationAdd} controlsElement={controlsElement} viewportKey={viewportKey} />
+        {searchedLocation && <Marker position={[searchedLocation.latitude, searchedLocation.longitude]}>
+          <Popup><strong>{searchedLocation.name}</strong><p>{searchedLocation.address}</p>{typeof onLocationAdd === 'function' && <button type="button" className="btn btn-primary" onClick={() => { onLocationAdd(searchedLocation); setSearchResult(null); }}>Thêm vào lịch trình</button>}</Popup>
+        </Marker>}
 
         {validLocations.map((loc, idx) => (
           <Marker 
@@ -203,10 +217,12 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
           </Marker>
         ))}
 
-        {showRoute && routeGeometry.coordinates === routeCoordinates && routeGeometry.points.length > 1 && (
+        {showRoute && routeGeometry.coordinates === routeCoordinates && routeGeometry.points.length > 0 && (
           <Polyline positions={routeGeometry.points} color="var(--primary)" weight={5} opacity={0.8} />
         )}
       </MapContainer>
+      </div>
+      <div className="trip-map-footer" ref={setControlsElement} />
     </div>
   );
 };

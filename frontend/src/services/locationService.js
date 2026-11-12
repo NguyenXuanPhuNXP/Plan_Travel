@@ -89,6 +89,7 @@ export const mergeDestinationLocations = (locations = []) => {
 };
 
 export const locationService = {
+  ensureDestination: async region => (await apiClient.post('/locations/ensure', { region }, { timeout: 25000 })).data,
   /**
    * Lấy tất cả địa điểm từ backend
    */

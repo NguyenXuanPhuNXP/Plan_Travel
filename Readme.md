@@ -2,7 +2,7 @@
 
 Ứng dụng lập kế hoạch du lịch Việt Nam với lịch trình theo ngày, bản đồ, bạn đồng hành, danh sách đồ mang theo và quản lý từng khoản chi. Frontend dùng React/Vite; API dùng Express, Prisma và MySQL. Dịch vụ Python cung cấp các API AI, tìm kiếm và thời tiết.
 
-Luồng lập kế hoạch thủ công hoạt động với frontend, API Node.js và MySQL. Màn lập kế hoạch AI hiện hiển thị lịch trình mẫu, có ghi rõ trên giao diện; không cần khóa Gemini để dùng luồng mẫu này.
+Luồng lập kế hoạch thủ công hoạt động với frontend, API Node.js và MySQL. Màn lập kế hoạch AI gọi API để lấy địa điểm thực và tạo lịch trình. Nếu Python AI không phản hồi, backend sắp xếp các địa điểm thực theo quy tắc; nếu chưa lấy được địa điểm đúng vùng, giao diện báo lỗi.
 
 ## Yêu cầu
 
@@ -130,9 +130,21 @@ npm run db:migrate
 
 Sau đó khởi động lại bằng `npm run backend:dev` và `npm run dev`. Với database đã có dữ liệu, dùng `db:migrate` để áp dụng migration mới; không cần seed lại. Bản hiện tại có migration `20261111160000_add_trip_expenses` để lưu từng khoản chi, người trả và người cùng chia.
 
+## Bản đồ Geoapify
+
+Khi tạo chuyến đi thủ công hoặc lấy gợi ý AI, backend dùng danh mục đã lưu của điểm đến; nếu có ít hơn 10 mục thì lấy thêm tối đa 40 địa điểm thật từ Geoapify và lưu vào database. Cơ chế này dùng cho điểm đến bất kỳ ở Việt Nam, không giới hạn các vùng đã nạp trước. Nếu nguồn không có địa điểm, không thay bằng dữ liệu của vùng khác.
+
+Ô điểm đến có danh mục tên điểm đến Việt Nam để gợi ý ngay khi gõ, hỗ trợ cả có dấu và không dấu (ví dụ `đà` → Đà Nẵng, `vung` → Vũng Tàu). Tọa độ được lấy từ Geoapify theo tên điểm đến đã lưu. Bản đồ tự mở đúng vùng ngay cả khi lịch trình chưa có điểm dừng; tìm kiếm trên bản đồ chỉ định vị kết quả, chỉ nút “Thêm vào lịch trình” mới thêm điểm.
+
+Bản đồ mặc định dùng chế độ Khám phá tổng hợp: lấy riêng tối đa 10 điểm cho mỗi nhóm tham quan, cà phê, ăn uống, vui chơi và thiên nhiên để các loại đông địa điểm không lấn át loại khác. Bộ lọc Loại địa điểm có thêm mua sắm/chợ và lưu trú; khi chọn riêng một loại, bản đồ lấy tối đa 40 điểm. Bấm ghim xanh để xem tên, địa chỉ, loại địa điểm và giờ mở cửa/điện thoại nếu nguồn có dữ liệu; bấm “Thêm vào lịch trình” để chọn điểm dừng. Sau khi kéo hoặc phóng bản đồ, bấm “Tìm trong vùng bản đồ” để lấy lại địa điểm (không tự gọi lại khi kéo để tiết kiệm credits). Chế độ tổng hợp gọi 5 lượt Places API, chọn riêng một nhóm gọi 1 lượt.
+
+Điền `VITE_GEOAPIFY_API_KEY` trong `frontend/.env` để hiển thị bản đồ, tìm địa điểm tại Việt Nam và tính tuyến đường bằng Geoapify. Điền `GEOAPIFY_API_KEY` trong `backend/.env` cho chức năng lấy và lưu địa điểm theo khu vực. Khởi động lại frontend/backend sau khi đổi cấu hình; khi triển khai cần build lại frontend.
+
+Key frontend được gửi tới trình duyệt: dùng key riêng, giới hạn theo HTTP referrer/tên miền trong Geoapify (cho phép localhost khi phát triển). Key backend nên dùng riêng và giới hạn theo IP máy chủ. Không commit file `.env`. Bản đồ, tìm kiếm và tuyến đường cùng tiêu thụ credits; dữ liệu địa điểm đã lưu vẫn được ưu tiên khi tìm kiếm.
+
 ## Dịch vụ Python AI/thời tiết — tùy chọn
 
-Không cần chạy phần này để đăng ký, đăng nhập bằng mật khẩu, lập lịch thủ công, quản lý ngân sách hoặc dùng lịch trình mẫu. Thời tiết thực tế cần dịch vụ Python và khóa OpenWeatherMap; khi dịch vụ không hoạt động, giao diện dùng trạng thái dự phòng, không có dữ liệu thời tiết xác thực.
+Không cần chạy phần này để đăng ký, đăng nhập bằng mật khẩu, lập lịch thủ công hoặc quản lý ngân sách. Thời tiết thực tế cần dịch vụ Python và khóa OpenWeatherMap; khi dịch vụ không hoạt động, giao diện dùng trạng thái dự phòng, không có dữ liệu thời tiết xác thực.
 
 Thêm các biến cần dùng vào **`backend/.env`**. Python đọc các biến `DB_*` riêng, nên chúng phải trỏ đến cùng database với `DATABASE_URL`:
 

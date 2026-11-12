@@ -101,6 +101,7 @@ async function seedRegion(regionName) {
 
         const features = await fetchPlacesByBbox({
             bbox: geocoded.bbox,
+            center: geocoded.center,
             categories: DEFAULT_CATEGORIES,
             limit: PAGE_LIMIT,
             offset

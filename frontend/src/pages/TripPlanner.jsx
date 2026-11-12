@@ -5,6 +5,7 @@ import Layout from '../Components/Layout/Layout';
 import TripSetupForm from '../Components/Layout/TripSetupForm';
 import { useTrips } from '../context/TripContext';
 import { itineraryService } from '../services/itineraryService';
+import { locationService } from '../services/locationService';
 import { friendService } from '../services/friendService';
 import { tripSetupPayload } from '../utils/tripSetup';
 import './TripWorkspace.css';
@@ -26,6 +27,7 @@ export default function TripPlanner() {
     try {
       const payload = tripSetupPayload(info, selectedFriendIds);
       setSaving(true);
+      await locationService.ensureDestination(payload.destination);
       const trip = await itineraryService.create(payload);
       addTrip(trip);
       navigate(`/trip/${trip.id}`);

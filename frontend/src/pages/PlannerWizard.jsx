@@ -16,7 +16,6 @@ import TimelineEditor from './TimelineEditor';
 import { aiTripDates, aiPlanItems } from '../utils/aiPlan';
 import { aiPlanDescription } from '../utils/aiPlanDetails';
 import AiPlanOverview from '../Components/AiPlanOverview';
-import { createSampleAiPlan } from '../services/sampleAiPlan';
 import './PlannerWizard.css';
 
 const PlannerWizard = () => {
@@ -24,7 +23,7 @@ const PlannerWizard = () => {
   const [searchParams] = useSearchParams();
   const { addTrip, fetchTrips } = useTrips();
   const [step, setStep] = useState(1);
-  const loading = false;
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
 
@@ -125,22 +124,43 @@ const PlannerWizard = () => {
       return;
     }
 
-    renderSamplePlan();
+    await generatePlan();
   };
 
-  const renderSamplePlan = (locations = []) => {
-    const plan = createSampleAiPlan({ destination: tripInfo.destination, days: computeDays(), budget: tripInfo.budget, travelerCount: tripInfo.travelerCount, transportMode: tripInfo.transportMode, locations });
-    const stops = plan.days.flatMap(day => day.items.map(item => item.location).filter(Boolean));
-    const uniqueStops = [...new Map(stops.map(stop => [stop.id, stop])).values()];
-    setSuggestions(uniqueStops);
-    setSelectedLocations(uniqueStops);
-    setAutoPlan(plan);
-    setCurrentPlan(plan);
-    setPlanNotice(plan.description);
-    setStep(3);
+  const generatePlan = async (locations = []) => {
+    if (loading) return;
+    setLoading(true); setToast('');
+    try {
+      const selectedLocationIds = [];
+      for (const location of locations) {
+        const saved = /^\d+$/.test(String(location.id)) ? location : await locationService.createManual({
+          name: location.name, address: location.address, region: tripInfo.destination,
+          latitude: location.latitude ?? location.lat, longitude: location.longitude ?? location.lng,
+          category: location.category, country: 'Vietnam'
+        });
+        if (!/^\d+$/.test(String(saved.id))) throw new Error(`Chưa lưu được địa điểm “${location.name}”. Hãy thử lại.`);
+        selectedLocationIds.push(String(saved.id));
+      }
+      const plan = await locationService.getAutoPlan({
+        region: tripInfo.destination.trim(), days: computeDays(), budget: getEffectiveBudget(),
+        preferences: tripInfo.preferences, travelerCount: Number(tripInfo.travelerCount) || 1,
+        transportMode: tripInfo.transportMode, startDate: tripInfo.startDate, endDate: tripInfo.endDate,
+        selectedLocationIds
+      });
+      if (!plan.days?.some(day => day.items?.length)) throw new Error('Chưa có dữ liệu địa điểm cho điểm đến này. Hãy thử lại sau.');
+      const stops = plan.days.flatMap(day => day.items.map(item => item.location).filter(Boolean));
+      const uniqueStops = [...new Map(stops.map(stop => [stop.id, stop])).values()];
+      setSuggestions(uniqueStops);
+      setSelectedLocations(uniqueStops);
+      setAutoPlan(plan);
+      setCurrentPlan(plan);
+      setPlanNotice(plan.generationMethod === 'rule-based' ? 'Lịch trình được sắp xếp từ các địa điểm thực có sẵn; dịch vụ AI hiện chưa phản hồi.' : plan.description || '');
+      setStep(3);
+    } catch (error) { setToast(error.response?.data?.message || error.message || 'Chưa lấy được dữ liệu địa điểm. Hãy thử lại.'); }
+    finally { setLoading(false); }
   };
 
-  const handleNextToStep3 = () => renderSamplePlan(selectedLocations);
+  const handleNextToStep3 = () => generatePlan(selectedLocations);
 
   const getEffectiveBudget = () => {
     if (tripInfo.budget !== '') return Number(tripInfo.budget);
@@ -257,7 +277,7 @@ const PlannerWizard = () => {
               <form className="card wizard-form-card" onSubmit={event => { event.preventDefault(); handleNextToStep2(); }}>
                 <header className="wizard-setup-heading"><h1>Chuyến đi của bạn</h1><p>Chọn điểm đến, ngày đi và bạn cùng lập kế hoạch.</p></header>
                 <TripSetupForm info={tripInfo} onChange={setTripInfo} friends={friendsList} selectedFriendIds={selectedFriendIds} onFriendsChange={setSelectedFriendIds} />
-                <footer className="wizard-setup-footer"><button type="button" className="btn btn-outline" onClick={() => navigate('/planner/map')}><MapPin size={16} /> Tự lập lịch trình</button><button className="btn btn-primary"><Wand2 size={16} /> Xem lịch trình mẫu <ChevronRight size={16} /></button></footer>
+                <footer className="wizard-setup-footer"><button type="button" className="btn btn-outline" onClick={() => navigate('/planner/map')}><MapPin size={16} /> Tự lập lịch trình</button><button className="btn btn-primary" disabled={loading}>{loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />} {loading ? 'Đang lấy địa điểm và lập lịch…' : 'Tạo lịch trình'} <ChevronRight size={16} /></button></footer>
               </form>
             </motion.div>
           )}
@@ -293,7 +313,7 @@ const PlannerWizard = () => {
                   {loading ? (
                     <><Loader2 className="animate-spin" size={18} /> AI đang tạo lịch trình...</>
                   ) : (
-                    <>Tạo lại lịch trình mẫu <ChevronRight size={18} /></>
+                    <>Tạo lại lịch trình <ChevronRight size={18} /></>
                   )}
                 </button>
               </div>

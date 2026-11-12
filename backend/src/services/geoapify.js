@@ -19,10 +19,12 @@ export async function geocodeRegionInVietnam(regionName) {
     const apiKey = getApiKey();
 
     const response = await axios.get(GEOAPIFY_GEOCODE_URL, {
+        timeout: 10000,
         params: {
             text: `${regionName}, Vietnam`,
             format: "json",
             filter: "countrycode:vn",
+            lang: "vi",
             limit: 1,
             apiKey
         }
@@ -37,6 +39,9 @@ export async function geocodeRegionInVietnam(regionName) {
 
     if (region.country_code !== "vn") {
         throw new Error(`Khu vực "${regionName}" không thuộc Việt Nam`);
+    }
+    if (region.lat == null || region.lon == null || !Number.isFinite(Number(region.lat)) || !Number.isFinite(Number(region.lon)) || Math.abs(Number(region.lat)) > 90 || Math.abs(Number(region.lon)) > 180) {
+        throw new Error(`Không lấy được tọa độ trung tâm của khu vực "${regionName}"`);
     }
 
     if (
@@ -53,6 +58,7 @@ export async function geocodeRegionInVietnam(regionName) {
         country: region.country,
         state: region.state,
         city: region.city,
+        center: { lat: Number(region.lat), lon: Number(region.lon) },
         bbox: {
             lon1: region.bbox.lon1,
             lat1: region.bbox.lat1,
@@ -67,6 +73,7 @@ export async function geocodeRegionInVietnam(regionName) {
  */
 export async function fetchPlacesByBbox({
     bbox,
+    center,
     categories,
     limit = 50,
     offset = 0,
@@ -77,9 +84,11 @@ export async function fetchPlacesByBbox({
     const filter = `rect:${bbox.lon1},${bbox.lat1},${bbox.lon2},${bbox.lat2}`;
 
     const response = await axios.get(GEOAPIFY_PLACES_URL, {
+        timeout: 10000,
         params: {
             categories: categories.join(","),
             filter,
+            ...(center ? { bias: `proximity:${center.lon},${center.lat}` } : {}),
             limit,
             offset,
             lang,

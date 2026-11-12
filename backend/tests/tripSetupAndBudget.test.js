@@ -21,10 +21,13 @@ test('Place search uses the catalog first and returns selectable map results wit
   const previous = { fetch: globalThis.fetch, api: globalThis.__placeSearchApi };
   let remoteCalls = 0;
   globalThis.__placeSearchApi = { get: async () => ({ data: [{ id: '1', name: 'Cầu Rồng' }] }) };
-  globalThis.fetch = async url => { remoteCalls++; assert.ok(String(url).includes('countrycodes=vn')); return { ok: true, json: async () => [{ place_id: 9, name: 'Mỹ Khê', display_name: 'Mỹ Khê, Đà Nẵng', lat: '16.05', lon: '108.24' }, { place_id: 10, display_name: 'Invalid', lat: 'bad', lon: '108' }] }; };
+  globalThis.fetch = async url => { remoteCalls++; assert.equal(new URL(url).searchParams.get('filter'), 'countrycode:vn'); return { ok: true, json: async () => ({ results: [{ place_id: 9, name: 'Mỹ Khê', formatted: 'Mỹ Khê, Đà Nẵng', lat: '16.05', lon: '108.24' }, { place_id: 10, formatted: 'Invalid', lat: 'bad', lon: '108' }] }) }; };
   try {
     let source = await readFile(new URL('../../frontend/src/services/tripPlaceSearch.js', import.meta.url), 'utf8');
     source = source.replace("import apiClient from './apiClient';", 'const apiClient = globalThis.__placeSearchApi;');
+    const provider = (await readFile(new URL('../../frontend/src/services/geoapifyMap.js', import.meta.url), 'utf8')).replace('import.meta.env', '{VITE_GEOAPIFY_API_KEY:"test-key"}');
+    source = source.replace("'./geoapifyMap'", JSON.stringify(`data:text/javascript;base64,${Buffer.from(provider).toString('base64')}`));
+    source = source.replace("'../utils/vietnamDestinations'", JSON.stringify(new URL('../../frontend/src/utils/vietnamDestinations.js', import.meta.url).href));
     const { searchTripPlaces } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
     assert.deepEqual(await searchTripPlaces('   '), []);
     assert.equal((await searchTripPlaces('Cầu Rồng'))[0].id, '1');
@@ -34,8 +37,8 @@ test('Place search uses the catalog first and returns selectable map results wit
     assert.equal(places.length, 1);
     assert.equal(places[0].latitude, 16.05);
     assert.equal(places[0].longitude, 108.24);
-    assert.equal(places[0].id, 'osm_9');
+    assert.equal(places[0].id, 'geoapify_9');
     globalThis.fetch = async () => ({ ok: false });
-    await assert.rejects(() => searchTripPlaces('Not found'), /Hãy thử lại/);
+    await assert.rejects(() => searchTripPlaces('Not found'), /Geoapify/);
   } finally { globalThis.fetch = previous.fetch; globalThis.__placeSearchApi = previous.api; }
 });

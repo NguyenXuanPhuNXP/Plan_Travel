@@ -42,9 +42,7 @@ const SUGGESTION_CATEGORIES = [
  * Gợi ý địa điểm dựa trên vùng + sở thích
  * Kết hợp: DB cache + Geoapify API + Gemini AI ranking
  */
-export async function getSuggestions({ region, days, budget, preferences }) {
-    console.log(`[AI] getSuggestions for region="${region}", days=${days}, budget=${budget}, prefs=${preferences?.join(',') || 'none'}`);
-    
+export async function ensureDestinationLocations(region) {
     // 1. Tìm trong DB trước (đã cache)
     let locations = await getLocationsFromDB(region);
     console.log(`[AI] Found ${locations.length} locations in DB`);
@@ -68,7 +66,12 @@ export async function getSuggestions({ region, days, budget, preferences }) {
             uniqueMap.set(key, loc);
         }
     }
-    locations = Array.from(uniqueMap.values());
+    return Array.from(uniqueMap.values());
+}
+
+export async function getSuggestions({ region, days, budget, preferences }) {
+    const locations = await ensureDestinationLocations(region);
+    if (!locations.length) throw { status: 503, message: `Chưa lấy được địa điểm thực tại ${region}. Vui lòng thử lại sau.` };
 
     // 4. Rank through Python service. Python handles Gemini or rule-based fallback.
     let aiSuggestions = null;
@@ -181,7 +184,7 @@ export async function generateAutoPlan({ region, days, budget, preferences, sele
 
 async function getLocationsFromDB(region) {
     const searchPattern = `%${region || ''}%`;
-    let rows = await prisma.$queryRawUnsafe(
+    const rows = await prisma.$queryRawUnsafe(
         `SELECT * FROM locations 
          WHERE (country = 'Vietnam' OR country IS NULL) 
          AND (region LIKE ? OR city LIKE ? OR province LIKE ? OR name LIKE ? OR address LIKE ?)
@@ -189,15 +192,6 @@ async function getLocationsFromDB(region) {
          LIMIT 100`,
         searchPattern, searchPattern, searchPattern, searchPattern, searchPattern
     );
-
-    if ((!rows || rows.length === 0) && region) {
-        rows = await prisma.$queryRawUnsafe(
-            `SELECT * FROM locations 
-             WHERE (country = 'Vietnam' OR country IS NULL)
-             ORDER BY rating DESC, updated_at DESC 
-             LIMIT 30`
-        );
-    }
 
     return (rows || []).map(serializeLocation);
 }
@@ -207,12 +201,12 @@ async function fetchAndCacheFromGeoapify(region) {
 
     const features = await fetchPlacesByBbox({
         bbox: geocoded.bbox,
+        center: geocoded.center,
         categories: SUGGESTION_CATEGORIES,
         limit: 40,
         offset: 0
     });
 
-    const locations = [];
     for (const feature of features) {
         const mapped = mapGeoapifyFeatureToLocation(feature, region);
         if (!isVietnamLocation(mapped)) continue;
@@ -243,14 +237,9 @@ async function fetchAndCacheFromGeoapify(region) {
             // Skip duplicates
         }
 
-        locations.push({
-            ...mapped,
-            latitude: mapped.latitude,
-            longitude: mapped.longitude
-        });
     }
 
-    return locations;
+    return getLocationsFromDB(region);
 }
 
 async function getGeminiSuggestions(region, days, budget, preferences, locations) {
