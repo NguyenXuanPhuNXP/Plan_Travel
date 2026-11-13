@@ -1,10 +1,12 @@
-import { MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp, MapPin } from 'lucide-react';
 
 const date = value => new Date(value).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 const clock = value => new Date(value).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' });
 const modes = { flight: 'Máy bay', coach: 'Xe khách', train: 'Tàu hỏa', motorbike: 'Xe máy', car: 'Ô tô', other: 'Đi bộ / Khác' };
 
 export default function CommunityPlan({ plan }) {
+  const [expanded, setExpanded] = useState(false);
   const days = new Map();
   if (plan.startDate) {
     const firstDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(plan.startDate));
@@ -21,8 +23,8 @@ export default function CommunityPlan({ plan }) {
     days.get(key).push(item);
   }
   return <section className="community-plan">
-    <h3>Kế hoạch đã trải nghiệm</h3><h4 className="community-plan-name">{plan.name || plan.title}</h4>
-    <dl className="community-plan-meta">
+    <div className="community-plan-heading"><div><h3>Kế hoạch đã trải nghiệm</h3><h4 className="community-plan-name">{plan.name || plan.title}</h4></div><button type="button" className="community-plan-toggle" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? <><ChevronUp size={17} /> Thu gọn lịch trình</> : <><ChevronDown size={17} /> Mở lịch trình</>}</button></div>
+    {expanded && <div className="community-plan-content"><dl className="community-plan-meta">
       <div><dt>Điểm đến</dt><dd>{plan.destination || 'Chưa có điểm đến'}</dd></div>
       <div><dt>Thời gian</dt><dd>{plan.startDate ? date(plan.startDate) : 'Chưa chọn ngày'}{plan.endDate && ` – ${date(plan.endDate)}`}{plan.totalDays > 0 && ` · ${plan.totalDays} ngày`}</dd></div>
       <div><dt>Người đi & phương tiện</dt><dd>{plan.travelerCount || 1} người{plan.transportMode && ` · ${modes[plan.transportMode] || 'Theo kế hoạch'}`}</dd></div>
@@ -38,6 +40,6 @@ export default function CommunityPlan({ plan }) {
           <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.latitude != null && stop.longitude != null ? `${stop.latitude},${stop.longitude}` : [stop.name, stop.address, plan.destination, 'Việt Nam'].filter(Boolean).join(', '))}`} target="_blank" rel="noreferrer" aria-label={`Xem ${stop.name} trên bản đồ`}><MapPin size={15} aria-hidden="true" /> Xem bản đồ</a>
         </div>
       </li>)}</ol>
-    </div>)}
+    </div>)}</div>}
   </section>;
 }

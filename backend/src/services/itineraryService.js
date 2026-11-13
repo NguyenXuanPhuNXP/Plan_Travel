@@ -102,8 +102,8 @@ export async function createItinerary(userId, data) {
 
     const result = serializeItinerary(itinerary);
     await notifyItineraryParticipants(itinerary.id, userId, {
-        title: 'Bạn được thêm vào chuyến đi',
-        message: `Bạn đã được thêm vào chuyến đi "${itinerary.name}".`
+        title: 'Lịch trình mới đã được tạo',
+        message: `Lịch trình "${itinerary.name}" đã được tạo và sẵn sàng để cùng chuẩn bị.`
     });
     return result;
 }
@@ -269,7 +269,12 @@ export async function updateItinerary(itineraryId, userId, data) {
     return result;
 }
 
-async function notifyItineraryParticipants(itineraryId, actorId, { title, message }) {
+async function getItineraryName(itineraryId) {
+    const itinerary = await prisma.itineraries.findUnique({ where: { id: BigInt(itineraryId) }, select: { name: true } });
+    return itinerary?.name || 'chuyến đi của bạn';
+}
+
+export async function notifyItineraryParticipants(itineraryId, actorId, { title, message }) {
     const itinerary = await prisma.itineraries.findUnique({
         where: { id: BigInt(itineraryId) },
         include: {
@@ -280,15 +285,20 @@ async function notifyItineraryParticipants(itineraryId, actorId, { title, messag
     if (!itinerary) return;
 
     const recipientIds = [itinerary.user_id, ...itinerary.collaborators.map(item => item.user_id)]
-        .filter(id => String(id) !== String(actorId))
         .filter((id, index, ids) => ids.findIndex(item => String(item) === String(id)) === index);
+    const itineraryLabel = itinerary.name || `#${itinerary.id}`;
+    const notificationTitle = title.includes(itineraryLabel) ? title : `${title} — ${itineraryLabel}`;
+    const notificationMessage = message.includes(itineraryLabel)
+        ? message
+        : `${message} Lịch trình: "${itineraryLabel}".`;
 
     await Promise.all(recipientIds.map(userId => createNotification({
         db: prisma,
         userId,
         type: 'itinerary_update',
-        title,
-        message
+        title: notificationTitle,
+        message: notificationMessage,
+        forceEmail: true
     }).catch(error => console.error('Không thể tạo notification chuyến đi:', error.message))));
 }
 
@@ -304,6 +314,11 @@ export async function deleteItinerary(itineraryId, userId) {
     if (itinerary.user_id !== BigInt(userId)) {
         throw { status: 403, message: "Bạn không có quyền xóa." };
     }
+
+    await notifyItineraryParticipants(itinerary.id, userId, {
+        title: 'Lịch trình đã bị xóa',
+        message: `Lịch trình "${itinerary.name}" đã được xóa khỏi PlanTravel.`
+    });
 
     await prisma.itineraries.delete({
         where: { id: BigInt(itineraryId) }
@@ -348,6 +363,11 @@ export async function addItem(itineraryId, userId, data) {
         data: { updated_at: new Date() }
     });
 
+    await notifyItineraryParticipants(itineraryId, userId, {
+        title: 'Đã thêm điểm dừng vào lịch trình',
+        message: `Một điểm dừng mới đã được thêm vào chuyến đi "${await getItineraryName(itineraryId)}".`
+    });
+
     return serializeItem(item);
 }
 
@@ -372,6 +392,11 @@ export async function updateItem(itineraryId, itemId, userId, data) {
         where: { id: BigInt(itemId) },
         data: updateData,
         include: { locations: true }
+    });
+
+    await notifyItineraryParticipants(itineraryId, userId, {
+        title: 'Điểm dừng đã được chỉnh sửa',
+        message: `Một điểm dừng trong chuyến đi "${await getItineraryName(itineraryId)}" vừa được chỉnh sửa.`
     });
 
     return serializeItem(item);
@@ -402,6 +427,11 @@ export async function removeItem(itineraryId, itemId, userId) {
             data: { sort_order: i + 1 }
         });
     }
+
+    await notifyItineraryParticipants(itineraryId, userId, {
+        title: 'Đã xóa điểm dừng khỏi lịch trình',
+        message: `Một điểm dừng trong chuyến đi "${await getItineraryName(itineraryId)}" vừa được xóa.`
+    });
 }
 
 /**
@@ -429,6 +459,11 @@ export async function reorderItems(itineraryId, userId, orderedItemIds) {
                 data: { sort_order: i + 1 }
             });
         }
+    });
+
+    await notifyItineraryParticipants(itineraryId, userId, {
+        title: 'Lịch trình đã được sắp xếp lại',
+        message: `Thứ tự điểm dừng trong chuyến đi "${await getItineraryName(itineraryId)}" vừa được cập nhật.`
     });
 }
 

@@ -25,7 +25,7 @@ const Sidebar = () => {
     { key: 'planner-ai', icon: Sparkles, label: 'Lập kế hoạch (AI)', path: '/planner', matchStartsWith: ['/planner', '/ai-planner'] },
     { key: 'explore', icon: CompassIcon, label: 'Khám phá điểm đến', path: '/explore', matchStartsWith: ['/explore'] },
     { key: 'community', icon: Newspaper, label: 'Bản tin chuyến đi', path: '/community', matchStartsWith: ['/community'] },
-    { key: 'history', icon: History, label: 'Lịch sử chuyến đi', path: '/history', matchStartsWith: ['/history', '/trip'] },
+    { key: 'history', icon: History, label: 'Danh sách chuyến đi', path: '/history', matchStartsWith: ['/history', '/trip'] },
   ];
 
   const profileItems = [

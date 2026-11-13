@@ -1,5 +1,5 @@
 import prisma from '../config/db.js';
-import { formatStopNote, getItineraryById } from './itineraryService.js';
+import { formatStopNote, getItineraryById, notifyItineraryParticipants } from './itineraryService.js';
 import { createHash } from 'node:crypto';
 import { normalizeTripExpenses } from './tripExpenseInput.js';
 import { createNotification } from './notificationService.js';
@@ -170,7 +170,7 @@ export async function savePlan(itineraryId, userId, draft) {
                 if (current) await tx.itinerary_collaborators.update({ where: { id: current.id }, data: { permission: member.permission } });
                 else {
                     await tx.itinerary_collaborators.create({ data: { itinerary_id: planId, user_id: target.id, permission: member.permission } });
-                    await createNotification({ db: tx, userId: target.id, type: 'group_invite', title: 'Tham gia kế hoạch', message: `Bạn đã được thêm vào kế hoạch "${update.name}".` });
+                    await createNotification({ db: tx, userId: target.id, type: 'group_invite', title: `Tham gia kế hoạch — ${update.name}`, message: `Bạn đã được thêm vào kế hoạch "${update.name}".` });
                     await tx.itinerary_messages.create({ data: { itinerary_id: planId, sender_id: actorId, content: `[Hệ thống] ${target.full_name} đã được thêm vào kế hoạch.` } });
                 }
             }
@@ -179,5 +179,9 @@ export async function savePlan(itineraryId, userId, draft) {
         }
         await tx.itineraries.update({ where: { id: planId }, data: update });
     }, { timeout: 20000 });
+    await notifyItineraryParticipants(planId, actorId, {
+        title: 'Lịch trình đã được chỉnh sửa',
+        message: `Lịch trình "${draft.name}" hoặc các điểm dừng vừa được cập nhật. Hãy mở PlanTravel để xem thay đổi.`
+    });
     return getItineraryById(planId, actorId);
 }
