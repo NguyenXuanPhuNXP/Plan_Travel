@@ -123,10 +123,18 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     if (!user?.id) return;
+    const pushScheduleReminder = reminder => {
+      pushNotification(reminder);
+      friendService.sendScheduleReminder({
+        reminderKey: reminder.id,
+        title: reminder.title,
+        message: reminder.message
+      }).catch(error => console.error('Failed to send schedule reminder email:', error));
+    };
     trips.forEach((trip) => {
       const diff = dayDiff(trip.startDate);
       if (diff === 1) {
-        pushNotification({
+        pushScheduleReminder({
           id: `trip_tomorrow_${trip.id}_${trip.startDate}`,
           type: 'reminder',
           title: `Ngày mai bạn có chuyến đi ${trip.endLocation || trip.destination || trip.title}`,
@@ -135,7 +143,7 @@ export const NotificationProvider = ({ children }) => {
       }
       if (diff === 0) {
         const firstStop = trip.locations?.[0]?.name;
-        pushNotification({
+        pushScheduleReminder({
           id: `trip_today_${trip.id}_${trip.startDate}`,
           type: 'reminder',
           title: `Hôm nay lên đường: ${trip.title}`,

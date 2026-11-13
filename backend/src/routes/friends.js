@@ -14,6 +14,7 @@ router.post("/accept/:id", asyncHandler(friendController.acceptFriendRequest));
 router.post("/reject/:id", asyncHandler(friendController.rejectFriendRequest));
 router.delete("/:id", asyncHandler(friendController.removeFriend));
 router.get("/notifications", asyncHandler(friendController.getNotifications));
+router.post("/notifications/reminder", asyncHandler(friendController.createScheduleReminderNotification));
 router.post("/notifications/read", asyncHandler(friendController.markNotificationsRead));
 
 export default router;

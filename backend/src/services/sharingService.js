@@ -280,7 +280,7 @@ export async function addCollaborator(itineraryId, ownerId, { email, userId, fri
 
         // Tạo thông báo cho bạn bè được mời
         try {
-            await createNotification({ db: prisma, userId: targetUser.id, type: "group_invite", title: "Thêm vào nhóm lập kế hoạch", message: `${itinerary.users?.full_name || 'Bạn bè'} đã thêm bạn vào cùng lập kế hoạch chuyến đi "${itinerary.name}". Hãy vào nhóm chat để cùng thảo luận!` });
+            await createNotification({ db: prisma, userId: targetUser.id, type: "group_invite", title: `Thêm vào nhóm lập kế hoạch — ${itinerary.name}`, message: `${itinerary.users?.full_name || 'Bạn bè'} đã thêm bạn vào cùng lập kế hoạch chuyến đi "${itinerary.name}". Hãy vào nhóm chat để cùng thảo luận!` });
         } catch (notifErr) {
             console.error("Failed to create invite notification:", notifErr);
         }

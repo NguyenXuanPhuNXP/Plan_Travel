@@ -8,5 +8,6 @@ export const friendService = {
   rejectFriendRequest: async userId => updated(await api.post('/friends/reject/' + userId)),
   removeFriend: async userId => updated(await api.delete('/friends/' + userId)),
   getNotifications: async () => (await api.get('/friends/notifications')).data,
+  sendScheduleReminder: async payload => (await api.post('/friends/notifications/reminder', payload)).data,
   markNotificationsRead: async () => updated(await api.post('/friends/notifications/read'))
 };

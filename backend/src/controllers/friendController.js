@@ -1,4 +1,5 @@
 import * as friendService from "../services/friendService.js";
+import { createScheduleReminder } from "../services/notificationService.js";
 
 export async function getFriends(req, res) {
     const result = await friendService.getFriends(req.user.id);
@@ -38,4 +39,11 @@ export async function getNotifications(req, res) {
 export async function markNotificationsRead(req, res) {
     await friendService.markNotificationsRead(req.user.id);
     res.json({ message: "OK" });
+}
+
+export async function createScheduleReminderNotification(req, res) {
+    const { reminderKey, title, message } = req.body || {};
+    if (!reminderKey || !title || !message) throw { status: 400, message: 'Thiếu nội dung nhắc lịch trình.' };
+    const notification = await createScheduleReminder({ userId: req.user.id, reminderKey, title, message });
+    res.status(201).json({ id: notification.id.toString() });
 }
