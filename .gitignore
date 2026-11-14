@@ -1,0 +1,25 @@
+node_modules/
+**/node_modules/
+.env
+**/.env
+.DS_Store
+dist/
+build/
+*.log
+.vscode/
+.vs/
+
+archive/
+**/.vite/
+**/__pycache__/
+*.pyc
+.env.*
+!.env.example
+
+.one-tap-backup/
+.taste-skill/
+
+# Active applications live in frontend/ and backend/.
+/Front End/
+/Back End/
+/Database/
