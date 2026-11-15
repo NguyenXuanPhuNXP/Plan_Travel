@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { LogOut, User, Bell, Search, MapPin, Menu, Loader2, Users, ChevronDown, Compass, Shield } from 'lucide-react';
+import { LogOut, User, Bell, Search, MapPin, Menu, Loader2, Users, ChevronDown, Shield } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { locationService } from '../../services/locationService';
 import FriendModal from './FriendModal';
+import BrandLogo from '../Common/BrandLogo';
 import './Navbar.css';
 
 const Navbar = ({ onOpenMenu }) => {
@@ -105,11 +106,8 @@ const Navbar = ({ onOpenMenu }) => {
       <header className="glass navbar-header">
         <div className="navbar-left">
           <button type="button" className="navbar-menu-toggle" aria-label="Mở menu" aria-haspopup="dialog" aria-controls="mobile-navigation" onClick={onOpenMenu}><Menu size={22} /></button>
-          <Link to="/" className="navbar-brand">
-            <div className="navbar-brand-badge">
-              <Compass size={20} />
-            </div>
-            <span className="navbar-brand-name">PlanTravel</span>
+          <Link to="/" className="navbar-brand" aria-label="PlanTravel — Trang chủ">
+            <BrandLogo />
           </Link>
 
           <div className="navbar-search-container" ref={searchDropdownRef}>

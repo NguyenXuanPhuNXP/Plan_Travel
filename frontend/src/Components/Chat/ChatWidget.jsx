@@ -5,6 +5,7 @@ import { chatService } from '../../services/chatService';
 import { friendService } from '../../services/friendService';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import BrandMascot from '../Common/BrandMascot';
 import './ChatWidget.css';
 
 const ChatWidget = () => {
@@ -22,6 +23,7 @@ const ChatWidget = () => {
   const [totalUnread, setTotalUnread] = useState(0);
 
   const messagesEndRef = useRef(null);
+  const assistantDialogRef = useRef(null);
   const chatSnapshotRef = useRef(new Map());
   const initializedRef = useRef(false);
   const activeFriendRef = useRef(null);
@@ -280,6 +282,19 @@ const ChatWidget = () => {
 
   return (
     <div className="chat-widget-container">
+      <dialog ref={assistantDialogRef} className="chat-assistant-dialog" aria-labelledby="assistant-dialog-title">
+        <div className="chat-assistant-header">
+          <h2 id="assistant-dialog-title">Trợ lý PlanTravel</h2>
+          <form method="dialog">
+            <button type="submit" aria-label="Đóng trợ lý"><X size={20} /></button>
+          </form>
+        </div>
+        <div className="chat-assistant-body">
+          <BrandMascot />
+          <p>Xin chào! Mình là trợ lý du lịch PlanTravel.</p>
+          <p>Tính năng trò chuyện với trợ lý đang được hoàn thiện. Hẹn sớm đồng hành cùng bạn!</p>
+        </div>
+      </dialog>
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -483,6 +498,10 @@ const ChatWidget = () => {
       </AnimatePresence>
 
       {!isOpen && (
+        <>
+        <button type="button" className="chat-assistant-mascot" aria-label="Mở trợ lý PlanTravel" aria-haspopup="dialog" onClick={() => assistantDialogRef.current?.showModal()}>
+          <BrandMascot />
+        </button>
         <button
           type="button"
           className="chat-widget-button"
@@ -496,6 +515,7 @@ const ChatWidget = () => {
             </div>
           )}
         </button>
+        </>
       )}
     </div>
   );

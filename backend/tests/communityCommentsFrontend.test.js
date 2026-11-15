@@ -1,0 +1,28 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import React from '../../frontend/node_modules/react/index.js';
+import { renderToStaticMarkup } from '../../frontend/node_modules/react-dom/server.node.js';
+import { transform } from '../../frontend/node_modules/rolldown/dist/utils-index.mjs';
+
+test('Comment stars belong to the commenter and disappear when their rating is removed', async () => {
+  const source = await readFile(new URL('../../frontend/src/pages/Community.jsx', import.meta.url), 'utf8');
+  const fragment = source.slice(source.indexOf('{post.comments.map('), source.indexOf('{post.nextCommentCursor &&'));
+  const { code } = await transform('comments.jsx', `function renderComments(React, Star, post) {
+    const user = null;
+    const displayDate = value => value;
+    return <>${fragment}</>;
+  }`, { jsx: { runtime: 'classic' } });
+  const renderComments = new Function(`${code}; return renderComments;`)();
+  const Star = props => React.createElement('svg', props);
+  const post = {
+    comments: [{ id: '1', author: { id: '2', name: 'Reader' }, content: 'Good trip', createdAt: '2026-11-15' }],
+    ratings: [{ author: { id: '3' }, rating: 5 }, { author: { id: '2' }, rating: 4 }],
+  };
+  const html = renderToStaticMarkup(renderComments(React, Star, post));
+  assert.match(html, /<strong>Reader<\/strong><span class="community-reviewer-rating" aria-label="4 trên 5 sao">/);
+  assert.equal((html.match(/fill="currentColor"/g) || []).length, 4);
+  assert.equal((html.match(/fill="none"/g) || []).length, 1);
+  post.ratings = post.ratings.slice(0, 1);
+  assert.ok(!renderToStaticMarkup(renderComments(React, Star, post)).includes('community-reviewer-rating'));
+});

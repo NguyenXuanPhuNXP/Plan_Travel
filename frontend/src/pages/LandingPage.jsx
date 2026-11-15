@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useInView, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { ArrowDown, ArrowUpRight, Check, Compass, MapPin, Menu, Pause, Play } from 'lucide-react';
+import BrandLogo from '../Components/Common/BrandLogo';
 import { useAuth } from '../context/AuthContext';
 import { handleImageError } from '../utils/destinationImages';
 import './LandingPage.css';
@@ -182,8 +183,7 @@ export default function LandingPage() {
       <a className="landing-skip" href="#landing-content">Đến nội dung chính</a>
       <header className={`landing-header${scrolled ? ' is-scrolled' : ''}`}>
         <Link to="/" className="landing-brand" aria-label="PlanTravel — Trang chủ">
-          <Compass size={30} strokeWidth={1.6} aria-hidden="true" />
-          <span>PlanTravel</span>
+          <BrandLogo />
         </Link>
         <nav className="landing-desktop-nav" aria-label="Điều hướng chính">
           <a href="#diem-den">Điểm đến</a>

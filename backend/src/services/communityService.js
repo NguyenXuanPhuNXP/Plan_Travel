@@ -1,6 +1,7 @@
 import prisma from '../config/db.js';
 import { Prisma } from '@prisma/client';
 import { saveCommunityPhotos, removeCommunityPhotos } from './communityPhotos.js';
+import { createNotification } from './notificationService.js';
 
 const authorSelect = { id: true, full_name: true, avatar_url: true };
 const postInclude = { author: { select: authorSelect }, _count: { select: { comments: true, ratings: true } } };
@@ -67,13 +68,14 @@ export async function listPosts(viewerId, before) {
 }
 
 export async function getPost(id, viewerId, beforeComment) {
-  const post = await prisma.trip_posts.findUnique({ where: { id: idValue(id) }, include: postInclude });
+  const post = await prisma.trip_posts.findUnique({ where: { id: idValue(id) }, include: { ...postInclude, ratings: { include: { author: { select: authorSelect } }, orderBy: { id: 'desc' } } } });
   if (!post) fail(404, 'Bài viết không còn tồn tại.');
   const comments = await prisma.trip_post_comments.findMany({
     where: { post_id: post.id, ...(beforeComment ? { id: { lt: idValue(beforeComment) } } : {}) },
     include: { author: { select: authorSelect } }, orderBy: { id: 'desc' }, take: 31,
   });
   return { ...(await serializePosts([post], viewerId))[0],
+    ratings: post.ratings.map(item => ({ author: authorDTO(item.author), rating: item.rating })),
     comments: comments.slice(0, 30).map(comment => ({ id: String(comment.id), content: comment.content, createdAt: comment.created_at, author: authorDTO(comment.author) })),
     nextCommentCursor: comments.length > 30 ? String(comments[29].id) : null,
   };
@@ -137,7 +139,11 @@ export async function deletePost(id, userId) {
 export async function addComment(id, userId, input) {
   const content = text(input?.content, 'Bình luận', 2000);
   const post = await requirePost(id);
-  await prisma.trip_post_comments.create({ data: { post_id: post.id, user_id: idValue(userId), content } });
+  const comment = await prisma.trip_post_comments.create({ data: { post_id: post.id, user_id: idValue(userId), content }, include: { author: { select: authorSelect } } });
+  if (post.user_id !== comment.user_id) await createNotification({
+    userId: post.user_id, type: 'community_comment', title: 'Bình luận mới trên bài viết của bạn',
+    message: `${comment.author.full_name} đã bình luận bài viết "${post.title}": ${content}`,
+  });
   return getPost(post.id, userId);
 }
 
@@ -152,7 +158,13 @@ export async function ratePost(id, userId, value) {
   if (!Number.isInteger(value) || value < 1 || value > 5) fail(400, 'Đánh giá phải là số nguyên từ 1 đến 5 sao.');
   const post = await requirePost(id);
   if (post.user_id === idValue(userId)) fail(403, 'Bạn không thể tự đánh giá bài viết của mình.');
-  await prisma.trip_post_ratings.upsert({ where: { post_id_user_id: { post_id: post.id, user_id: idValue(userId) } }, create: { post_id: post.id, user_id: idValue(userId), rating: value }, update: { rating: value } });
+  const where = { post_id_user_id: { post_id: post.id, user_id: idValue(userId) } };
+  const previous = await prisma.trip_post_ratings.findUnique({ where });
+  const rating = await prisma.trip_post_ratings.upsert({ where, create: { post_id: post.id, user_id: idValue(userId), rating: value }, update: { rating: value }, include: { author: { select: authorSelect } } });
+  if (previous?.rating !== value) await createNotification({
+    userId: post.user_id, type: 'community_rating', title: 'Đánh giá mới trên bài viết của bạn',
+    message: `${rating.author.full_name} đã đánh giá ${value}/5 sao cho bài viết "${post.title}".`,
+  });
   return getPost(post.id, userId);
 }
 

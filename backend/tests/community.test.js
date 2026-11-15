@@ -16,6 +16,7 @@ test('Public trip stories persist, keep private trip details private and enforce
   try {
     for (let index = 0; index < 3; index++) users.push(await prisma.users.create({ data: { email: `community-${Date.now()}-${index}@example.test`, full_name: `Community Test ${index}`, is_active: true } }));
     const [author, reader, outsider] = users;
+    const notifications = type => prisma.user_notifications.findMany({ where: { user_id: author.id, type }, orderBy: { id: 'desc' } });
     trip = await createItinerary(author.id, { name: 'Private source trip', destination: 'Hội An', startDate: '2026-01-01', endDate: '2026-01-02', budget: 2000000, travelerCount: 2, transportMode: 'car', description: 'PRIVATE-DESCRIPTION', items: [{ customName: 'Chùa Cầu', startTime: '2026-01-01T08:00:00+07:00', endTime: '2026-01-01T09:00:00+07:00', durationMinutes: 60, note: 'PRIVATE-NOTE' }, { customName: 'Trà Quế', startTime: '2026-01-02T08:00:00+07:00' }] });
     const input = { title: 'An experienced journey', destination: 'Hội An', content: 'A useful travel experience.', traveledOn: '2026-01-01', itineraryId: trip.id };
     for (const invalid of [null, { ...input, itineraryId: '' }, { ...input, title: ' ' }, { ...input, content: 'x'.repeat(10001) }, { ...input, traveledOn: '2099-01-01' }, { ...input, traveledOn: '2026-02-30' }, { ...input, traveledOn: '0001-01-01' }, { ...input, coverImage: 'javascript:alert(1)' }]) {
@@ -53,6 +54,14 @@ test('Public trip stories persist, keep private trip details private and enforce
     await assert.rejects(() => community.addComment(post.id, reader.id, { content: ' ' }), error => error.status === 400);
     const commented = await community.addComment(post.id, reader.id, { content: 'Which month did you visit?' });
     assert.equal(commented.commentCount, 1);
+    const commentNotifications = await notifications('community_comment');
+    assert.equal(commentNotifications.length, 1);
+    assert.ok(commentNotifications[0].message.includes(reader.full_name));
+    assert.ok(commentNotifications[0].message.includes('Which month did you visit?'));
+    await community.addComment(post.id, author.id, { content: 'My reply' });
+    assert.equal((await notifications('community_comment')).length, 1, 'Own comments do not notify the author');
+    const ownComment = (await community.getPost(post.id)).comments.find(item => item.author.id === String(author.id));
+    await community.deleteComment(post.id, ownComment.id, author.id);
     const commentId = commented.comments[0].id;
     await assert.rejects(() => community.deleteComment(post.id, commentId, outsider.id), error => error.status === 403);
     await assert.rejects(() => community.deleteComment(privateSnapshot.id, commentId, reader.id), error => error.status === 404);
@@ -61,13 +70,27 @@ test('Public trip stories persist, keep private trip details private and enforce
     await assert.rejects(() => community.ratePost(post.id, author.id, 5), error => error.status === 403);
     for (const rating of [0, 6, 3.5, '4', null]) await assert.rejects(() => community.ratePost(post.id, reader.id, rating), error => error.status === 400);
     await community.ratePost(post.id, reader.id, 4);
+    const ratingNotifications = await notifications('community_rating');
+    assert.equal(ratingNotifications.length, 1);
+    assert.ok(ratingNotifications[0].message.includes(reader.full_name));
+    assert.ok(ratingNotifications[0].message.includes('4/5'));
+    await community.ratePost(post.id, reader.id, 4);
+    assert.equal((await notifications('community_rating')).length, 1, 'Repeating an unchanged rating does not notify again');
     await community.ratePost(post.id, reader.id, 5);
+    assert.equal((await notifications('community_rating')).length, 2, 'A changed rating notifies the author');
     const rated = await community.ratePost(post.id, outsider.id, 3);
     assert.equal(rated.ratingCount, 2);
     assert.equal(rated.averageRating, 4);
+    assert.deepEqual(rated.ratings.map(item => [item.author.id, item.author.name, item.rating]), [
+      [String(outsider.id), outsider.full_name, 3],
+      [String(reader.id), reader.full_name, 5],
+    ]);
+    assert.ok(rated.ratings.every(item => !Object.hasOwn(item.author, 'email')));
     assert.equal((await community.getPost(post.id, reader.id)).myRating, 5);
     assert.equal((await community.getPost(post.id)).myRating, null);
-    assert.equal((await community.removeRating(post.id, reader.id)).averageRating, 3);
+    const afterRatingRemoval = await community.removeRating(post.id, reader.id);
+    assert.equal(afterRatingRemoval.averageRating, 3);
+    assert.deepEqual(afterRatingRemoval.ratings.map(item => item.author.id), [String(outsider.id)]);
     const listing = await community.listPosts();
     assert.ok(listing.posts.some(item => item.id === post.id));
     await assert.rejects(() => community.listPosts(null, 'bad-cursor'), error => error.status === 400);
