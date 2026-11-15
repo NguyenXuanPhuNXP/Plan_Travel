@@ -30,6 +30,7 @@ html:has(.landing-page) { scroll-behavior: smooth; }
 .landing-header { position: fixed; z-index: 50; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 25px var(--lp-space); color: var(--lp-paper); transition: background-color .25s ease, padding .25s ease; }
 .landing-header.is-scrolled { background: var(--lp-forest); padding-top: 17px; padding-bottom: 17px; }
 .landing-brand { display: inline-flex; align-items: center; gap: 10px; font-size: 28px; font-weight: 700; letter-spacing: -.045em; flex-shrink: 0; }
+.landing-header .brand-logo img:not(.brand-logo-accent) { filter: brightness(0) invert(1); }
 .landing-desktop-nav, .landing-header-actions { display: flex; align-items: center; gap: clamp(20px, 2.5vw, 40px); }
 .landing-desktop-nav, .landing-login { font-size: 16px; font-weight: 600; }
 .landing-desktop-nav a, .landing-login, .landing-footer nav a { text-underline-offset: 6px; }

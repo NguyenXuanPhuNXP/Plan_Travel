@@ -4,6 +4,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Compass } from 'lucide-react';
 import { motion } from 'framer-motion';
 import GoogleOneTap from '../Components/Auth/GoogleOneTap';
+import { authRedirect } from '../utils/authRedirect';
 import './Auth.css';
 
 const HERO_BG = 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=1600';
@@ -26,8 +27,8 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      await login(email, password);
-      navigate(state?.from || '/dashboard', { replace: true });
+      const user = await login(email, password);
+      navigate(authRedirect(user, state?.from), { replace: true });
     } catch (err) {
       setError(err.message || 'Đăng nhập không thành công');
     } finally {
@@ -39,8 +40,8 @@ const Login = () => {
     setIsSubmitting(true);
     setError('');
     try {
-      await loginWithGoogle(account);
-      navigate(state?.from || '/dashboard', { replace: true });
+      const user = await loginWithGoogle(account);
+      navigate(authRedirect(user, state?.from), { replace: true });
     } catch (err) {
       setError(err.message || 'Lỗi đăng nhập Google');
     } finally {

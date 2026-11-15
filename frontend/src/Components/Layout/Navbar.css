@@ -25,6 +25,10 @@
   gap: 0.65rem;
 }
 
+.navbar-brand .brand-logo {
+  width: clamp(130px, 14vw, 160px);
+}
+
 .navbar-brand-badge {
   width: 36px;
   height: 36px;

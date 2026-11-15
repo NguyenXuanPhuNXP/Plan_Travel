@@ -1,8 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import { Loader2 } from 'lucide-react';
 import ErrorBoundary from './Components/Common/ErrorBoundary';
+import PageLoader from './Components/Common/PageLoader';
 
 // Pages
 const Login = lazy(() => import('./pages/Login'));
@@ -34,12 +34,6 @@ const AdminPlaceEdit = lazy(() => import('./pages/AdminPlaceEdit'));
 const AdminHotPlaceEdit = lazy(() => import('./pages/AdminHotPlaceEdit'));
 
 import ChatWidget from './Components/Chat/ChatWidget';
-
-const PageLoader = () => (
-  <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <Loader2 className="animate-spin" size={48} color="var(--primary)" />
-  </div>
-);
 
 // Protected Route Component
 const ProtectedRoute = ({ children, adminOnly = false }) => {

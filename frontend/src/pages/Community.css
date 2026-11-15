@@ -53,10 +53,12 @@
 .community-stars { display: flex; gap: 3px; margin-block: 12px; }
 .community-stars button { color: #a75920; }
 .community-stars button[aria-pressed="true"] { background: #fcf0e5; }
+.community-reviewer-rating { display: inline-flex; gap: 3px; color: #a75920; }
 .community-comments form { display: grid; gap: 12px; margin: 20px 0; }
 .community-comments form .btn { justify-self: start; min-height: 44px; }
 .community-comment { padding: 20px 0; }
-.community-comment > div { display: flex; gap: 16px; align-items: center; }
+.community-comment > div { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.community-comment strong { min-width: 0; overflow-wrap: anywhere; }
 .community-comment time { font-size: 13px; color: #53655a; }
 .community-comment p { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 8px; }
 .community-page button:disabled, .community-detail button:disabled { opacity: .55; cursor: wait; }
