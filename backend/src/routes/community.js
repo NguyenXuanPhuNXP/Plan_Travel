@@ -4,10 +4,11 @@ import { authenticate, optionalAuth } from '../middleware/authMiddleware.js';
 import * as community from '../services/communityService.js';
 
 const router = express.Router();
-router.get('/', optionalAuth, asyncHandler(async (req, res) => res.json(await community.listPosts(req.user?.id, req.query.before))));
+router.get('/', optionalAuth, asyncHandler(async (req, res) => res.json(await community.listPosts(req.user?.id, req.query.before, req.query))));
 router.get('/:id', optionalAuth, asyncHandler(async (req, res) => res.json(await community.getPost(req.params.id, req.user?.id, req.query.beforeComment))));
 router.use(authenticate);
 router.post('/', asyncHandler(async (req, res) => res.status(201).json(await community.createPost(req.user.id, req.body))));
+router.post('/:id/copy', asyncHandler(async (req, res) => res.status(201).json(await community.copyPostPlan(req.params.id, req.user.id))));
 router.put('/:id', asyncHandler(async (req, res) => res.json(await community.updatePost(req.params.id, req.user.id, req.body))));
 router.delete('/:id', asyncHandler(async (req, res) => { await community.deletePost(req.params.id, req.user.id); res.sendStatus(204); }));
 router.post('/:id/comments', asyncHandler(async (req, res) => res.status(201).json(await community.addComment(req.params.id, req.user.id, req.body))));

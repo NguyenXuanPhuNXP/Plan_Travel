@@ -129,7 +129,16 @@
 .trip-workspace-packing .trip-details-sidebar { display: flex; flex-direction: column; max-width: 850px; }
 .trip-workspace-packing .trip-details-weather-card { display: none; }
 .trip-workspace-overview .trip-details-packing-card { display: none; }
-.trip-map-number { background: var(--primary); color: white; border: 2px solid white; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; box-shadow: 0 1px 4px #0003; }
+.trip-map-number { background: var(--primary); color: white; border: 2px solid white; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 12px; box-shadow: 0 1px 4px #0003; }
+.trip-workspace .trip-details-day-tab[style],
+.trip-workspace .trip-day-toggle { background: var(--day-background); color: var(--day-color); }
+.trip-workspace .trip-details-day-tab[style] { border-color: var(--day-color); }
+.trip-workspace .trip-details-day-tab[style].active,
+.trip-workspace .trip-details-day-tag,
+.trip-workspace .trip-details-timeline-badge,
+.trip-workspace .trip-details-timeline-item.active .trip-details-timeline-badge { background: var(--day-color); color: white; }
+.trip-workspace .trip-day-toggle .trip-details-day-meta { color: var(--day-color); }
+.trip-stop-day-label { display: block; margin-bottom: 4px; color: var(--day-color); font-size: 12px; font-weight: 600; }
 @media (max-width: 1150px) {
   .trip-workspace .trip-details-main-column { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .trip-workspace .trip-details-timeline-thumb-box { display: none; }
@@ -155,7 +164,8 @@
   .trip-workspace .trip-details-timeline-thumb-box { display: block; width: 52px; height: 52px; }
   .trip-workspace .plan-edit-savebar { flex-direction: row; flex-wrap: wrap; gap: 8px; }
   .trip-workspace .plan-edit-savebar span { justify-content: start; font-size: 12px; }
-  .trip-workspace .plan-edit-savebar div { gap: 8px; }
+  .trip-workspace .plan-edit-savebar div { width: 100%; gap: 8px; }
+  .trip-workspace .plan-edit-savebar button { flex: 1 0 auto; white-space: nowrap; }
   .trip-workspace .trip-details-sidebar { grid-template-columns: 1fr; }
   .trip-workspace [data-editor-section="costs"] > div { padding: 16px; }
 }

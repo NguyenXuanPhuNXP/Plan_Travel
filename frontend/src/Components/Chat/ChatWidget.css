@@ -7,7 +7,10 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 16px;
+  pointer-events: none;
 }
+
+.chat-widget-container > * { pointer-events: auto; }
 
 .chat-widget-button {
   width: 56px;
@@ -61,7 +64,7 @@
 .chat-assistant-dialog::backdrop { background: rgb(0 0 0 / .18); }
 .chat-assistant-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; background: #14342b; color: #fff; }
 .chat-assistant-header h2 { margin: 0; color: inherit; font-size: 17px; font-weight: 600; }
-.chat-assistant-header button { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
+.chat-assistant-header button { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
 .chat-assistant-header button:hover { background: rgb(255 255 255 / .15); }
 .chat-assistant-body { display: grid; justify-items: start; gap: 16px; padding: 28px 24px; }
 .chat-assistant-body .brand-mascot { width: 56px; height: 60px; animation-duration: 4s; }
@@ -138,6 +141,8 @@
 }
 
 .chat-header-actions button {
+  width: 44px;
+  height: 44px;
   background: transparent;
   border: none;
   color: white;
@@ -148,6 +153,8 @@
   align-items: center;
   justify-content: center;
 }
+
+.chat-header-actions { flex-shrink: 0; }
 
 .chat-header-actions button:hover {
   background: rgba(255, 255, 255, 0.2);

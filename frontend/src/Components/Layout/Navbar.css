@@ -305,4 +305,8 @@
   .navbar-chevron { display: none; }
   .navbar-search-container { position: absolute; top: 64px; left: 16px; right: 16px; width: auto; }
   .navbar-search-input { height: 44px; font-size: 16px; }
+  .navbar-header:has(.navbar-auth) .navbar-brand .brand-logo { width: clamp(88px, 25vw, 130px); }
+  .navbar-header:has(.navbar-auth) .navbar-bell { display: none; }
+  .navbar-auth { gap: 6px; }
+  .navbar-auth .btn { padding: 8px; min-height: 44px; font-size: 13px; white-space: nowrap; }
 }

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { locationService } from '../services/locationService';
 import './TimelineEditor.css';
+import { itineraryDayStyle } from '../utils/itineraryDayColors';
 
 const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destination, onPlanChange, onAddCustomLocation }) => {
   const [editingPlan, setEditingPlan] = useState(null);
@@ -270,6 +271,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: dayIdx * 0.1 }}
             className="timeline-day"
+            style={itineraryDayStyle(day.dayNumber)}
           >
             {/* Day Header */}
             <button

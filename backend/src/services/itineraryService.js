@@ -1,5 +1,6 @@
 import prisma from "../config/db.js";
 import { createNotification } from './notificationService.js';
+import { resolveManualPlanLocation } from './manualPlanLocation.js';
 
 /**
  * Lấy danh mục đồ cần chuẩn bị mặc định (dùng chung cho tất cả)
@@ -36,6 +37,9 @@ export async function createItinerary(userId, data) {
         for (let index = 0; index < items.length; index++) {
             const itemData = buildItemData(created.id, items[index], index + 1);
             if (itemData) {
+                if (!itemData.location_id && !itemData.business_id && items[index].manualLocation) {
+                    itemData.location_id = await resolveManualPlanLocation(tx, items[index].manualLocation, itemData.custom_name);
+                }
                 await tx.itinerary_items.create({ data: itemData });
             }
         }

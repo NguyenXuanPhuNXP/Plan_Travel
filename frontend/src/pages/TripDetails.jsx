@@ -51,6 +51,7 @@ import { useNotifications } from '../context/NotificationContext';
 import './TripDetails.css';
 import './TripWorkspace.css';
 import { tripStatusLabel } from '../utils/tripStatus';
+import { itineraryDayStyle } from '../utils/itineraryDayColors';
 import { completeItineraryDays } from '../utils/itineraryDays';
 import { destinationImage, handleImageError, DESTINATION_PLACEHOLDER } from '../utils/destinationImages';
 
@@ -670,7 +671,7 @@ const TripDetails = () => {
               </div>}
               <div className="trip-details-map-view">
                 <MapComponent
-                  selectedLocations={visibleDayGroups.flatMap(group => group.items.map((entry, index) => ({ ...entry.loc, stopNumber: index + 1 })))}
+                  selectedLocations={visibleDayGroups.flatMap(group => group.items.map((entry, index) => ({ ...entry.loc, day: group.day, stopNumber: index + 1 })))}
                   focusedLocation={focusedLocation}
                   searchContext={liveDraft?.destination ?? trip.destination}
                   numberMarkers
@@ -705,6 +706,7 @@ const TripDetails = () => {
                     {groupedLocationsByDay.map((dg) => (
                       <button
                         key={dg.day}
+                        style={itineraryDayStyle(dg.day)}
                         type="button"
                         className={`trip-details-day-tab ${activeDayTab === dg.day ? 'active' : ''}`}
                         aria-pressed={activeDayTab === dg.day}
@@ -720,7 +722,7 @@ const TripDetails = () => {
               <div className="trip-details-timeline">
                 <div className="trip-details-timeline-line" />
                 {visibleDayGroups.map((dayGroup) => (
-                  <div key={`day_${dayGroup.day}`} className="trip-details-day-group">
+                  <div key={`day_${dayGroup.day}`} className="trip-details-day-group" style={itineraryDayStyle(dayGroup.day)}>
                     <button type="button" className="trip-details-day-heading trip-day-toggle" aria-expanded={expandedDay === dayGroup.day} aria-controls={`trip-day-${dayGroup.day}`} onClick={() => setExpandedDay(current => current === dayGroup.day ? null : dayGroup.day)}>
                       <span className="trip-details-day-tag">Ngày {dayGroup.day}</span>
                       <span className="trip-details-day-meta">
@@ -760,6 +762,7 @@ const TripDetails = () => {
                               </div>
 
                               <div className="trip-details-timeline-info">
+                                <span className="trip-stop-day-label">Ngày {dayGroup.day} · Điểm {itemIndex + 1}</span>
                                 <div className="trip-details-timeline-title-row">
                                   {canEditTrip && rawItem ? <button type="button" className="trip-stop-name" aria-label={`Sửa điểm dừng ${rawItem.customName || rawItem.location?.name || ''}`} onClick={event => { event.stopPropagation(); setEditingStopKey(String(rawItem.id || rawItem.key)); }}>{rawItem.customName || rawItem.location?.name || 'Nhập điểm đến'}</button> : <h4 className="trip-details-timeline-name">{rawItem?.customName || loc.name}</h4>}
                                   {canEditTrip && rawItem && <button type="button" className="trip-stop-delete" aria-label={`Xóa điểm dừng ${rawItem.customName || loc.name}`} title="Xóa điểm dừng" onClick={event => { event.stopPropagation(); editorRef.current?.removeStop(rawItem.id || rawItem.key); }}><Trash2 size={17} /></button>}

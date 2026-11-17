@@ -10,6 +10,7 @@ import {
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { itineraryDayStyle } from '../../utils/itineraryDayColors';
 import PlaceSearch from './PlaceSearch';
 import NearbyPlaces from './NearbyPlaces';
 import './MapComponent.css';
@@ -80,7 +81,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
 
   // Filter only valid locations with finite lat/lng to prevent Leaflet LatLng crash
   const validLocations = (Array.isArray(selectedLocations) ? selectedLocations : [])
-    .map((loc, index) => loc && ({ ...loc, stopNumber: index + 1 }))
+    .map((loc, index) => loc && ({ ...loc, stopNumber: loc.stopNumber ?? index + 1 }))
     .filter((loc) => loc && (loc.lat ?? loc.latitude) != null && (loc.lng ?? loc.longitude) != null && Number.isFinite(Number(loc.lat ?? loc.latitude)) && Number.isFinite(Number(loc.lng ?? loc.longitude)))
     .map((loc) => ({
       ...loc,
@@ -164,7 +165,8 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
           <Marker 
             key={`${loc.id || 'stop'}_${idx}`}
             position={[loc.lat, loc.lng]}
-            {...(numberMarkers ? { icon: L.divIcon({ className: 'trip-map-number', html: `<span>${Number(loc.stopNumber) || idx + 1}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] }) } : {})}
+            title={`${Number(loc.day) > 0 ? `Ngày ${Number(loc.day)} · ` : ''}Điểm ${Number(loc.stopNumber) || idx + 1}: ${loc.name || ''}`}
+            {...(numberMarkers ? { icon: L.divIcon({ className: 'trip-map-number', html: `<span style="background:${itineraryDayStyle(loc.day)['--day-color']};border-radius:inherit;width:100%;height:100%;display:grid;place-items:center">${Number(loc.day) > 0 ? `${Number(loc.day)}·` : ''}${Number(loc.stopNumber) || idx + 1}</span>`, iconSize: [52, 32], iconAnchor: [26, 16] }) } : {})}
             eventHandlers={{
               click: () => fetchWeatherForLocation(loc.id, loc.lat, loc.lng)
             }}
@@ -172,6 +174,7 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
             <Popup>
               <div style={{ padding: '0.5rem' }}>
                 <img src={loc.image || DESTINATION_PLACEHOLDER} onError={handleImageError} alt={loc.name} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '4px', marginBottom: '0.5rem' }} />
+                {Number(loc.day) > 0 && <p style={{ color: itineraryDayStyle(loc.day)['--day-color'], fontWeight: 700 }}>Ngày {Number(loc.day)} · Điểm {loc.stopNumber}</p>}
                 <h4 style={{ margin: '0 0 0.25rem 0' }}>{loc.name}</h4>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 0.5rem 0' }}>{loc.address}</p>
                 
