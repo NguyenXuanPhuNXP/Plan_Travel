@@ -703,9 +703,9 @@
   align-items: flex-start;
   gap: 0.45rem;
   background: var(--bg-subtle);
-  border-left: 3px solid var(--accent-gold);
+  border: 1px solid var(--border-color);
   padding: 0.45rem 0.75rem;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: var(--radius-sm);
   font-size: 0.8rem;
   color: var(--text-main);
   margin-top: 0.35rem;

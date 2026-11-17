@@ -294,6 +294,7 @@
   background: rgba(200, 90, 50, 0.05);
 }
 
+
 .timeline-day-badge {
   display: flex;
   align-items: center;
@@ -599,3 +600,9 @@
     display: none;
   }
 }
+
+.timeline-day .timeline-day-header,
+.timeline-day .timeline-day-header:hover { background: var(--day-background); color: var(--day-color); }
+.timeline-day .timeline-day-number,
+.timeline-day .timeline-dot-inner { background: var(--day-color); color: white; }
+.timeline-day .timeline-day-count { background: var(--day-background); color: var(--day-color); }

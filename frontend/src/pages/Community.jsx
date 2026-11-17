@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowUpRight, MapPin, MessageCircle, PenLine, Star, Trash2, Pencil, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowUpRight, Copy, MapPin, MessageCircle, PenLine, Star, Trash2, Pencil, Loader2, Search } from 'lucide-react';
 import Layout from '../Components/Layout/Layout';
 import PlanDialog from '../Components/Layout/PlanDialog';
 import { useAuth } from '../context/AuthContext';
+import { useTrips } from '../context/TripContext';
 import { communityService, communityImageUrl } from '../services/communityService';
 import { itineraryService } from '../services/itineraryService';
 import CommunityPlan from '../Components/CommunityPlan';
@@ -15,6 +16,31 @@ const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Mi
 const errorText = error => error.response?.data?.message || 'Chưa kết nối được máy chủ. Vui lòng thử lại.';
 const displayDate = value => new Date(value).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 const ratingText = post => post.ratingCount ? `${Number(post.averageRating).toFixed(1)}/5 (${post.ratingCount})` : 'Chưa có đánh giá';
+const emptyFilters = { destination: '', preference: '', companions: '', transportMode: '', days: '', maxBudget: '', minRating: '' };
+const tripFilters = [
+  ['preference', 'Sở thích', [['beach', 'Biển'], ['mountain', 'Núi rừng'], ['food', 'Ẩm thực'], ['culture', 'Văn hóa'], ['nature', 'Thiên nhiên'], ['shopping', 'Mua sắm'], ['nightlife', 'Về đêm'], ['adventure', 'Mạo hiểm'], ['relax', 'Nghỉ dưỡng'], ['photography', 'Chụp ảnh']]],
+  ['companions', 'Người đồng hành', [['solo', 'Đi một mình'], ['group', 'Đi nhóm']]],
+  ['transportMode', 'Phương tiện', [['flight', 'Máy bay'], ['coach', 'Xe khách'], ['train', 'Tàu hỏa'], ['motorbike', 'Xe máy'], ['car', 'Ô tô'], ['other', 'Đi bộ / Khác']]],
+];
+
+function CopyPlanButton({ post, user }) {
+  const navigate = useNavigate();
+  const { addTrip } = useTrips();
+  const [copying, setCopying] = useState(false);
+  const [error, setError] = useState('');
+  if (!post.plan) return null;
+  if (!user) return <Link className="community-copy" to="/login" state={{ from: `/community?post=${post.id}` }}><Copy size={16} /> Đăng nhập để sao chép</Link>;
+  const copy = async () => {
+    if (copying) return;
+    setCopying(true); setError('');
+    try {
+      const trip = await communityService.copy(post.id);
+      addTrip(trip);
+      navigate(`/trip/${trip.id}`);
+    } catch (error) { setError(errorText(error)); setCopying(false); }
+  };
+  return <div className="community-copy-action"><button type="button" className="community-copy" disabled={copying} onClick={copy}>{copying ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}{copying ? 'Đang sao chép…' : 'Sao chép lịch trình'}</button>{error && <p role="alert" className="community-error">{error}</p>}</div>;
+}
 
 const tripFields = trip => {
   const date = trip.endDate || trip.tripDate || trip.startDate;
@@ -100,6 +126,8 @@ function PostDetail({ id, user, onClose, onChange }) {
   const [post, setPost] = useState(null);
   const [error, setError] = useState('');
   const [comment, setComment] = useState('');
+  const [replyTo, setReplyTo] = useState(null);
+  const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
@@ -113,6 +141,11 @@ function PostDetail({ id, user, onClose, onChange }) {
     try { await run(); } catch (error) { setError(errorText(error)); } finally { setBusy(false); }
   };
   const sendComment = event => { event.preventDefault(); action(async () => { update(await communityService.comment(id, comment)); setComment(''); }); };
+  const sendReply = (event, parentId) => { event.preventDefault(); action(async () => {
+    const next = await communityService.comment(id, reply, parentId);
+    update({ ...post, commentCount: next.commentCount, comments: post.comments.map(item => item.id === parentId ? { ...item, replies: [...(item.replies || []), next.reply] } : item) });
+    setReply(''); setReplyTo(null);
+  }); };
   return <PlanDialog title={post?.title || 'Kế hoạch được chia sẻ'} onClose={onClose} className="community-post-dialog">
     <div className="community-detail">
       {error && <p role="alert" className="community-error">{error}</p>}
@@ -121,6 +154,7 @@ function PostDetail({ id, user, onClose, onChange }) {
         <p className="community-byline">{post.author.name} · {displayDate(post.traveledOn)} · {post.destination}</p>
         {post.content && <p className="community-story-text">{post.content}</p>}
         {post.plan ? <CommunityPlan plan={post.plan} /> : !!post.itinerary.length && <section className="community-attached"><h3>Những điểm đã ghé</h3><ol>{post.itinerary.map((stop, index) => <li key={index}>{stop.name}{stop.startTime && <time> · {new Date(stop.startTime).toLocaleString('vi-VN')}</time>}</li>)}</ol></section>}
+        {post.plan && <div className="community-copy-detail"><CopyPlanButton post={post} user={user} /><p>Tạo bản nháp riêng với ngày và điểm dừng của lịch gốc. Bạn có thể đổi ngày và chỉnh sửa sau khi sao chép.</p></div>}
         {post.photos?.length ? <section className="community-trip-photos"><h3>Ảnh từ chuyến đi ({post.photos.length})</h3><div className="community-photo-gallery">{post.photos.map((photo, index) => <a key={photo} href={communityImageUrl(photo)} target="_blank" rel="noreferrer" aria-label={`Mở ảnh chuyến đi ${index + 1}`}><img src={communityImageUrl(photo)} alt={`Ảnh ${index + 1} trong chuyến đi ${post.destination} của ${post.author.name}`} loading="lazy" onError={handleImageError} /></a>)}</div><p>Mở ảnh để xem kích thước lớn.</p></section> : <><img className="community-detail-cover" src={communityImageUrl(post.coverImage) || destinationImage(post.destination)} alt={post.coverImage ? `Ảnh chuyến đi ${post.destination}` : `Ảnh minh họa ${post.destination}`} onError={handleImageError} referrerPolicy="no-referrer" />{!post.coverImage && <p className="community-photo-note">Ảnh minh họa điểm đến</p>}</>}
         <section className="community-ratings"><h3>Đánh giá chuyến đi</h3><p>{ratingText(post)}</p>
           {user && String(user.id) !== post.author.id && <><div className="community-stars" role="group" aria-label="Chấm điểm chuyến đi">{[1, 2, 3, 4, 5].map(value => <button key={value} type="button" disabled={busy} aria-label={`${value} sao`} aria-pressed={post.myRating === value} onClick={() => action(async () => update(await communityService.rate(id, value)))}><Star size={28} fill={value <= (post.myRating || 0) ? 'currentColor' : 'none'} /></button>)}</div>{post.myRating && <button className="community-text-button" disabled={busy} onClick={() => action(async () => update(await communityService.removeRating(id)))}>Gỡ đánh giá của tôi</button>}</>}
@@ -131,7 +165,27 @@ function PostDetail({ id, user, onClose, onChange }) {
           {!post.comments.length && <p>Chưa có bình luận. Hãy bắt đầu cuộc trò chuyện.</p>}
           {post.comments.map(item => {
             const rating = post.ratings?.find(entry => entry.author.id === item.author.id)?.rating;
-            return <article className="community-comment" key={item.id}><div><strong>{item.author.name}</strong>{rating && <span className="community-reviewer-rating" aria-label={`${rating} trên 5 sao`}>{[1, 2, 3, 4, 5].map(value => <Star key={value} size={16} aria-hidden="true" fill={value <= rating ? 'currentColor' : 'none'} />)}</span>}<time>{displayDate(item.createdAt)}</time></div><p>{item.content}</p>{user && (String(user.id) === item.author.id || String(user.id) === post.author.id) && <button type="button" className="community-text-button" disabled={busy} onClick={() => action(async () => { await communityService.deleteComment(id, item.id); update(await communityService.get(id)); })}>Xóa bình luận</button>}</article>;
+            return <article className="community-comment" key={item.id}>
+              <div><strong>{item.author.name}</strong>{rating && <span className="community-reviewer-rating" aria-label={`${rating} trên 5 sao`}>{[1, 2, 3, 4, 5].map(value => <Star key={value} size={16} aria-hidden="true" fill={value <= rating ? 'currentColor' : 'none'} />)}</span>}<time>{displayDate(item.createdAt)}</time></div>
+              <p>{item.content}</p>
+              <div className="community-comment-actions">
+                {user && String(user.id) === post.author.id && <button type="button" className="community-text-button" disabled={busy} aria-expanded={replyTo === item.id} aria-controls={`reply-form-${item.id}`} onClick={() => { setReplyTo(item.id); setReply(''); }}>Trả lời</button>}
+                {user && (String(user.id) === item.author.id || String(user.id) === post.author.id) && <button type="button" className="community-text-button" disabled={busy} onClick={() => action(async () => { await communityService.deleteComment(id, item.id); update(await communityService.get(id)); })}>Xóa bình luận</button>}
+              </div>
+              {(item.replies || []).map(response => <article className="community-comment community-reply" key={response.id}>
+                <div><strong>{response.author.name}</strong><span className="community-author-label">Tác giả</span><time>{displayDate(response.createdAt)}</time></div>
+                <p>{response.content}</p>
+                {user && String(user.id) === post.author.id && <button type="button" className="community-text-button" disabled={busy} onClick={() => action(async () => {
+                  await communityService.deleteComment(id, response.id);
+                  update({ ...post, commentCount: post.commentCount - 1, comments: post.comments.map(current => current.id === item.id ? { ...current, replies: current.replies.filter(entry => entry.id !== response.id) } : current) });
+                })}>Xóa phản hồi</button>}
+              </article>)}
+              {user && String(user.id) === post.author.id && replyTo === item.id && <form id={`reply-form-${item.id}`} className="community-reply-form" onSubmit={event => sendReply(event, item.id)}>
+                <label htmlFor={`reply-${item.id}`}>Trả lời {item.author.name}</label>
+                <textarea id={`reply-${item.id}`} autoFocus required maxLength={2000} rows={2} disabled={busy} value={reply} onChange={event => setReply(event.target.value)} />
+                <div className="community-comment-actions"><button className="btn btn-forest" disabled={busy || !reply.trim()}>Gửi phản hồi</button><button type="button" className="community-text-button" disabled={busy} onClick={() => { setReplyTo(null); setReply(''); }}>Hủy</button></div>
+              </form>}
+            </article>;
           })}
           {post.nextCommentCursor && <button className="btn btn-outline" disabled={busy} onClick={() => action(async () => { const next = await communityService.get(id, post.nextCommentCursor); setPost(current => ({ ...current, comments: [...current.comments, ...next.comments], nextCommentCursor: next.nextCommentCursor })); })}>Xem bình luận trước</button>}
         </section>
@@ -150,12 +204,21 @@ function CommunityFeed({ user }) {
   const [composer, setComposer] = useState(() => user && params.get('share') ? {} : null);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
+  const [filterDraft, setFilterDraft] = useState(emptyFilters);
+  const [filters, setFilters] = useState(emptyFilters);
+  const listVersion = useRef(0);
+  const filtering = Object.values(filters).some(Boolean);
   useEffect(() => {
     let active = true;
-    communityService.list().then(data => { if (active) { setPosts(data.posts); setCursor(data.nextCursor); setError(''); } }).catch(error => { if (active) setError(errorText(error)); }).finally(() => { if (active) setLoading(false); });
+    listVersion.current += 1;
+    setLoading(true); setError(''); setPosts([]); setCursor(null); setBusy(false);
+    communityService.list(undefined, filters).then(data => { if (active) { setPosts(data.posts); setCursor(data.nextCursor); setError(''); } }).catch(error => { if (active) setError(errorText(error)); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [reload]);
-  const changed = post => setPosts(current => current.map(item => item.id === post.id ? post : item));
+  }, [reload, filters]);
+  const changed = post => {
+    if (filtering) setReload(value => value + 1);
+    else setPosts(current => current.map(item => item.id === post.id ? post : item));
+  };
   const remove = async post => {
     if (busy || !window.confirm('Xóa bài viết và các bình luận, đánh giá của bài viết này?')) return;
     setBusy(true);
@@ -163,26 +226,39 @@ function CommunityFeed({ user }) {
     catch (error) { setError(errorText(error)); } finally { setBusy(false); }
   };
   const loadMore = async () => {
+    if (busy || loading) return;
+    const version = listVersion.current;
     setBusy(true);
-    try { const data = await communityService.list(cursor); setPosts(current => [...current, ...data.posts.filter(post => !current.some(item => item.id === post.id))]); setCursor(data.nextCursor); }
-    catch (error) { setError(errorText(error)); } finally { setBusy(false); }
+    try { const data = await communityService.list(cursor, filters); if (version !== listVersion.current) return; setPosts(current => [...current, ...data.posts.filter(post => !current.some(item => item.id === post.id))]); setCursor(data.nextCursor); }
+    catch (error) { if (version === listVersion.current) setError(errorText(error)); } finally { if (version === listVersion.current) setBusy(false); }
   };
   return <Layout><div className="community-page">
     <header className="community-hero"><div><h1>Đi rồi,<br />kể nhau nghe.</h1><p>Khám phá kế hoạch đã được cộng đồng trải nghiệm: lịch trình từng ngày, điểm dừng và những bức ảnh từ chuyến đi.</p>{user ? <button className="btn btn-primary" onClick={() => setComposer({})}><PenLine size={18} /> Chia sẻ kế hoạch</button> : <Link className="btn btn-primary" to="/login" state={{ from: '/community' }}>Đăng nhập để chia sẻ</Link>}</div><img src="/images/destinations/hoi-an.jpg" alt="Phố cổ Hội An, nguồn cảm hứng cho hành trình mới" width="960" height="640" onError={handleImageError} /></header>
     <div className="community-heading"><h2>Bản tin chuyến đi</h2><span>Trải nghiệm từ cộng đồng PlanTravel</span></div>
+    <form className="community-filters" aria-label="Lọc chuyến đi cộng đồng" onSubmit={event => { event.preventDefault(); setFilters({ ...filterDraft, destination: filterDraft.destination.trim() }); }}>
+      <label>Điểm đến<input type="search" maxLength={200} placeholder="Ví dụ: Hội An" value={filterDraft.destination} onChange={event => setFilterDraft(current => ({ ...current, destination: event.target.value }))} /></label>
+      {tripFilters.map(([key, label, options]) => <label key={key}>{label}<select value={filterDraft[key]} onChange={event => setFilterDraft(current => ({ ...current, [key]: event.target.value }))}><option value="">Tất cả</option>{options.map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>)}
+      <label>Số ngày<input type="number" min="1" max="365" step="1" placeholder="Bất kỳ" value={filterDraft.days} onChange={event => setFilterDraft(current => ({ ...current, days: event.target.value }))} /></label>
+      <label>Ngân sách tối đa (VNĐ)<input type="number" min="0" max="999999999999" step="1" placeholder="Cả chuyến" value={filterDraft.maxBudget} onChange={event => setFilterDraft(current => ({ ...current, maxBudget: event.target.value }))} /></label>
+      <label>Đánh giá<select value={filterDraft.minRating} onChange={event => setFilterDraft(current => ({ ...current, minRating: event.target.value }))}><option value="">Tất cả số sao</option>{[5, 4, 3, 2, 1].map(value => <option key={value} value={value}>{value === 5 ? '5 sao' : `Từ ${value} sao`}</option>)}</select></label>
+      <div className="community-filter-actions"><button type="submit" className="btn btn-primary"><Search size={17} /> Lọc chuyến đi</button><button type="button" className="community-text-button" onClick={() => { setFilterDraft(emptyFilters); setFilters(emptyFilters); }}>Xóa bộ lọc</button></div>
+      <p>Ngân sách tính cho cả chuyến; số sao là điểm trung bình của các đánh giá. Bài thiếu thông tin tương ứng sẽ không xuất hiện khi lọc.</p>
+    </form>
     {error && <div className="community-error" role="alert">{error} <button className="community-text-button" onClick={() => setReload(value => value + 1)}>Thử lại</button></div>}
     {loading && <p role="status">Đang tải các câu chuyện…</p>}
-    {!loading && !error && !posts.length && <div className="community-empty"><h3>Mỗi chuyến đi đều có chuyện để kể.</h3><p>Chưa có bài viết nào. Hãy chia sẻ trải nghiệm đầu tiên của bạn với cộng đồng.</p></div>}
+    {!loading && !error && !posts.length && <div className="community-empty"><h3>{filtering ? 'Chưa có chuyến đi phù hợp.' : 'Mỗi chuyến đi đều có chuyện để kể.'}</h3><p>{filtering ? 'Hãy thử nới điều kiện hoặc xóa bộ lọc để xem thêm chuyến đi.' : 'Chưa có bài viết nào. Hãy chia sẻ trải nghiệm đầu tiên của bạn với cộng đồng.'}</p></div>}
+    {!loading && !error && posts.length > 0 && <p role="status" className="community-result-count">Đã tìm thấy {posts.length}{cursor ? '+' : ''} chuyến đi{filtering ? ' phù hợp' : ''}.</p>}
     <div className="community-feed">{posts.map(post => <article className="community-post" key={post.id}>
       <div className="community-post-cover"><img src={communityImageUrl(post.photos?.[0] || post.coverImage) || destinationImage(post.destination)} alt={post.coverImage || post.photos?.length ? post.title : `Ảnh minh họa ${post.destination}`} loading="lazy" width="960" height="640" onError={handleImageError} referrerPolicy="no-referrer" />{!post.coverImage && !post.photos?.length && <span>Ảnh minh họa điểm đến</span>}</div>
       <div className="community-post-body"><p className="community-byline">{post.author.name} · {displayDate(post.traveledOn)}</p><h3>{post.title}</h3><p className="community-post-destination"><MapPin size={15} />{post.destination}</p>{post.content && <p className="community-post-excerpt">{post.content}</p>}<div className="community-post-stats"><span><Star size={16} />{ratingText(post)}</span><span><MessageCircle size={16} />{post.commentCount} bình luận</span></div>
         {post.plan && <p className="community-plan-summary">{post.plan.totalDays > 0 ? `${post.plan.totalDays} ngày · ` : ''}{post.plan.items.length} điểm dừng{post.photos?.length ? ` · ${post.photos.length} ảnh` : ''}</p>}
         {post.plan && <CommunityPlan plan={post.plan} />}
+        <CopyPlanButton post={post} user={user} />
         <div className="community-post-actions"><button className="community-read" onClick={() => setParams({ post: post.id })}>{post.plan ? 'Xem kế hoạch & ảnh' : 'Đọc hành trình'} <ArrowUpRight size={18} /></button>{user && String(user.id) === post.author.id && <div><button aria-label={`Sửa bài ${post.title}`} onClick={() => setComposer(post)}><Pencil size={18} /></button><button disabled={busy} aria-label={`Xóa bài ${post.title}`} onClick={() => remove(post)}><Trash2 size={18} /></button></div>}</div>
       </div>
     </article>)}</div>
     {cursor && <button className="btn btn-outline community-load-more" disabled={busy} onClick={loadMore}>{busy ? 'Đang tải…' : 'Xem thêm chuyến đi'}</button>}
-    {composer && user && <PostComposer user={user} post={composer.id ? composer : null} initialTripId={params.get('share') || ''} onClose={() => { setComposer(null); if (params.has('share')) setParams({}); }} onSaved={post => { setPosts(current => [post, ...current.filter(item => item.id !== post.id)]); setComposer(null); setParams({ post: post.id }); }} />}
+    {composer && user && <PostComposer user={user} post={composer.id ? composer : null} initialTripId={params.get('share') || ''} onClose={() => { setComposer(null); if (params.has('share')) setParams({}); }} onSaved={post => { if (filtering) setReload(value => value + 1); else setPosts(current => [post, ...current.filter(item => item.id !== post.id)]); setComposer(null); setParams({ post: post.id }); }} />}
     {params.get('post') && !composer && <PostDetail key={params.get('post')} id={params.get('post')} user={user} onClose={() => setParams({})} onChange={changed} />}
     {!user && <p className="community-guest-note">Bạn đang xem bản tin công khai. <Link to="/login" state={{ from: location.pathname + location.search }}>Đăng nhập để cùng trò chuyện.</Link></p>}
   </div></Layout>;
