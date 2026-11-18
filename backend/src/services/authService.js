@@ -274,7 +274,7 @@ function buildUserProfile(user) {
         hasPassword: Boolean(user.password_hash),
         notifyInApp: user.notify_in_app ?? true,
         notifyByEmail: user.notify_by_email ?? false,
-        role: user.role === "admin" ? 1 : 0
+        role: user.role === "admin" ? 1 : user.role === "business" ? 2 : 0
     };
 }
 

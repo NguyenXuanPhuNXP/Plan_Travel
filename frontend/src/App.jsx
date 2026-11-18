@@ -32,11 +32,18 @@ const AdminPlaceCreate = lazy(() => import('./pages/AdminPlaceCreate'));
 const AdminPlaceDetail = lazy(() => import('./pages/AdminPlaceDetail'));
 const AdminPlaceEdit = lazy(() => import('./pages/AdminPlaceEdit'));
 const AdminHotPlaceEdit = lazy(() => import('./pages/AdminHotPlaceEdit'));
+const Business = lazy(() => import('./pages/Business'));
+const BusinessOverview = lazy(() => import('./pages/BusinessOverview'));
+const BusinessReviews = lazy(() => import('./pages/BusinessReviews'));
+const BusinessReports = lazy(() => import('./pages/BusinessReports'));
+const BusinessPlaces = lazy(() => import('./pages/BusinessPlaces'));
+const AdminBusiness = lazy(() => import('./pages/AdminBusiness'));
+const Forbidden = lazy(() => import('./pages/Forbidden'));
 
 import ChatWidget from './Components/Chat/ChatWidget';
 
 // Protected Route Component
-const ProtectedRoute = ({ children, adminOnly = false }) => {
+const ProtectedRoute = ({ children, adminOnly = false, roles }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -48,8 +55,9 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     return <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
   }
 
-  if (adminOnly && !(user.role === 1 || user.role === 'admin')) {
-    return <Navigate to="/" />;
+  const role = user.role === 1 || user.role === 'admin' ? 'admin' : user.role === 2 || user.role === 'business' ? 'business' : 'user';
+  if ((adminOnly && role !== 'admin') || (roles && !roles.includes(role))) {
+    return <Navigate to="/forbidden" state={{ from: location.pathname }} replace />;
   }
 
   return children;
@@ -63,6 +71,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forbidden" element={<Forbidden />} />
 
           {/* Public shared trip & group invite view - no auth required */}
           <Route path="/shared/:token" element={<SharedTripView />} />
@@ -72,55 +81,62 @@ function App() {
           <Route path="/community" element={<Community />} />
 
           <Route path="/dashboard" element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={['user']}>
               <Dashboard />
             </ProtectedRoute>
           } />
 
           {/* AI-powered wizard planner */}
           <Route path="/planner" element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={['user']}>
               <PlannerWizard />
             </ProtectedRoute>
           } />
 
           {/* Quick AI Planner */}
           <Route path="/ai-planner" element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={['user']}>
               <PlannerWizard />
             </ProtectedRoute>
           } />
 
           {/* Manual map-based planner */}
           <Route path="/planner/map" element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={['user']}>
               <TripPlanner />
             </ProtectedRoute>
           } />
           <Route path="/planner/manual" element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={['user']}>
               <TripPlanner />
             </ProtectedRoute>
           } />
 
           <Route path="/history" element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={['user']}>
               <TripHistory />
             </ProtectedRoute>
           } />
 
           <Route path="/trip/:id" element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={['user']}>
               <TripDetails />
             </ProtectedRoute>
           } />
-          <Route path="/trip/:id/edit" element={<ProtectedRoute><TripEditRedirect /></ProtectedRoute>} />
+          <Route path="/trip/:id/edit" element={<ProtectedRoute roles={['user']}><TripEditRedirect /></ProtectedRoute>} />
 
           <Route path="/profile" element={
             <ProtectedRoute>
               <Profile />
             </ProtectedRoute>
           } />
+          <Route path="/business" element={<ProtectedRoute><BusinessOverview /></ProtectedRoute>} />
+          <Route path="/business/registration" element={<ProtectedRoute><Business /></ProtectedRoute>} />
+          <Route path="/business/:id/edit" element={<ProtectedRoute roles={['business']}><Business /></ProtectedRoute>} />
+          <Route path="/business/reviews" element={<ProtectedRoute roles={['business']}><BusinessReviews /></ProtectedRoute>} />
+          <Route path="/business/reports" element={<ProtectedRoute roles={['business']}><BusinessReports /></ProtectedRoute>} />
+          <Route path="/business/places" element={<ProtectedRoute><BusinessPlaces /></ProtectedRoute>} />
+          <Route path="/business/places/:id" element={<ProtectedRoute><BusinessPlaces /></ProtectedRoute>} />
 
           <Route path="/explore" element={
             <ProtectedRoute>
@@ -146,6 +162,7 @@ function App() {
               <AdminUsers />
             </ProtectedRoute>
           } />
+          <Route path="/admin/business" element={<ProtectedRoute adminOnly><AdminBusiness /></ProtectedRoute>} />
 
           <Route path="/admin/users/:id/activity" element={
             <ProtectedRoute adminOnly>

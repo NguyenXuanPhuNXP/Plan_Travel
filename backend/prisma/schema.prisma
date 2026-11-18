@@ -43,6 +43,18 @@ model businesses {
   itinerary_items itinerary_items[]
   reviews         reviews[]
   visit_history   visit_history[]
+  location_id     BigInt?              @unique @db.UnsignedBigInt
+  business_type   String               @default("food") @db.VarChar(30)
+  contact         String?              @db.VarChar(255)
+  price_min       Int?
+  price_max       Int?
+  price_unit      String?              @db.VarChar(30)
+  attributes      Json?
+  gallery         Json?
+  managers        business_managers[]
+  applications    business_applications[]
+  reports         business_review_reports[]
+  location        locations?           @relation(fields: [location_id], references: [id], onDelete: SetNull)
 
   @@index([category_id], map: "idx_businesses_category")
   @@index([latitude, longitude], map: "idx_businesses_latlng")
@@ -195,6 +207,8 @@ model locations {
   itinerary_items    itinerary_items[]
   reviews            reviews[]
   visit_history      visit_history[]
+  business_profile   businesses?
+  business_applications business_applications[]
 
   @@index([category], map: "idx_locations_category")
   @@index([city], map: "idx_locations_city")
@@ -227,11 +241,16 @@ model reviews {
   businesses  businesses? @relation(fields: [business_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_reviews_businesses_business_id")
   locations   locations?  @relation(fields: [location_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_reviews_locations_location_id")
   users       users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_reviews_users_user_id")
+  visit_id    BigInt?     @unique @db.UnsignedBigInt
+  visit       visit_history? @relation(fields: [visit_id], references: [id], onDelete: SetNull)
+  owner_reply String?     @db.Text
+  replied_at  DateTime?   @db.Timestamp(0)
+  is_hidden   Boolean     @default(false)
+  reports     business_review_reports[]
 
-  @@unique([user_id, business_id], map: "uq_user_business_review")
-  @@unique([user_id, location_id], map: "uq_user_location_review")
   @@index([business_id], map: "IX_reviews_business_id")
   @@index([location_id], map: "IX_reviews_location_id")
+  @@index([user_id], map: "idx_reviews_user")
   @@index([rating], map: "idx_reviews_rating")
 }
 
@@ -275,6 +294,9 @@ model users {
   trip_posts          trip_posts[]
   trip_post_comments  trip_post_comments[]
   trip_post_ratings   trip_post_ratings[]
+  business_managers   business_managers[]
+  business_applications business_applications[]
+  business_reviews_reported business_review_reports[]
 }
 
 model trip_posts {
@@ -360,10 +382,87 @@ model visit_history {
   businesses      businesses?          @relation(fields: [business_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_visit_history_businesses_business_id")
   locations       locations?           @relation(fields: [location_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_visit_history_locations_location_id")
   users           users                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_visit_history_users_user_id")
+  accuracy_meters Decimal?             @db.Decimal(8, 2)
+  captured_at     DateTime?            @db.Timestamp(0)
+  visit_key       String?              @unique @db.VarChar(120)
+  review          reviews?
 
   @@index([business_id], map: "IX_visit_history_business_id")
   @@index([location_id], map: "IX_visit_history_location_id")
   @@index([user_id], map: "idx_visit_user")
+}
+
+model business_managers {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  business_id BigInt   @db.UnsignedBigInt
+  user_id     BigInt   @db.UnsignedBigInt
+  status      String   @default("active") @db.VarChar(20)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  business    businesses @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  user        users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  @@unique([business_id, user_id])
+  @@index([user_id, status])
+}
+
+model business_applications {
+  id             BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  applicant_id   BigInt    @db.UnsignedBigInt
+  business_id    BigInt?   @db.UnsignedBigInt
+  location_id    BigInt?   @db.UnsignedBigInt
+  kind           String    @db.VarChar(20)
+  status         String    @default("draft") @db.VarChar(30)
+  payload        Json
+  ai_result      Json?
+  ai_status      String    @default("idle") @db.VarChar(20)
+  ai_error       String?   @db.Text
+  decision_reason String?  @db.Text
+  created_at     DateTime  @default(now()) @db.Timestamp(0)
+  updated_at     DateTime  @updatedAt @db.Timestamp(0)
+  applicant      users     @relation(fields: [applicant_id], references: [id], onDelete: Cascade)
+  business       businesses? @relation(fields: [business_id], references: [id], onDelete: SetNull)
+  location       locations? @relation(fields: [location_id], references: [id], onDelete: SetNull)
+  evidence       business_evidence[]
+  events         business_application_events[]
+  @@index([status, created_at])
+  @@index([applicant_id, status])
+}
+
+model business_evidence {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  application_id BigInt   @db.UnsignedBigInt
+  kind           String   @db.VarChar(30)
+  filename       String   @db.VarChar(255)
+  mime_type      String   @db.VarChar(100)
+  storage_key    String   @unique @db.VarChar(100)
+  created_at     DateTime @default(now()) @db.Timestamp(0)
+  application    business_applications @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  @@index([application_id])
+}
+
+model business_application_events {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  application_id BigInt   @db.UnsignedBigInt
+  actor_id       BigInt   @db.UnsignedBigInt
+  action         String   @db.VarChar(30)
+  reason         String?  @db.Text
+  created_at     DateTime @default(now()) @db.Timestamp(0)
+  application    business_applications @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  @@index([application_id, created_at])
+}
+
+model business_review_reports {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  business_id BigInt   @db.UnsignedBigInt
+  review_id   BigInt   @db.UnsignedBigInt
+  reporter_id BigInt   @db.UnsignedBigInt
+  reason      String   @db.VarChar(500)
+  status      String   @default("pending") @db.VarChar(20)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  business    businesses @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  review      reviews @relation(fields: [review_id], references: [id], onDelete: Cascade)
+  reporter    users @relation(fields: [reporter_id], references: [id], onDelete: Cascade)
+  @@unique([review_id, reporter_id])
+  @@index([status, created_at])
 }
 
 model user_friends {
@@ -409,6 +508,7 @@ enum location_seed_jobs_status {
 
 enum users_role {
   user
+  business
   admin
 }
 

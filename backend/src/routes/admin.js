@@ -227,7 +227,7 @@ router.patch("/users/:id", async (req, res) => {
         const updateData = {};
         if (req.body.isActive !== undefined) updateData.is_active = Boolean(req.body.isActive);
         if (req.body.role !== undefined) {
-            if (!["user", "admin"].includes(req.body.role)) {
+            if (!["user", "business", "admin"].includes(req.body.role)) {
                 return res.status(400).json({ message: "Role không hợp lệ." });
             }
             updateData.role = req.body.role;

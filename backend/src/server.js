@@ -12,6 +12,8 @@ import adminRoutes from "./routes/admin.js";
 import friendRoutes from "./routes/friends.js";
 import chatRoutes from "./routes/chat.js";
 import communityRoutes from './routes/community.js';
+import businessRoutes from './routes/business.js';
+import businessAdminRoutes from './routes/businessAdmin.js';
 import { errorHandler, notFoundHandler } from "./middleware/errorMiddleware.js";
 import { ensureAdminAccount } from "./services/authService.js";
 
@@ -39,10 +41,12 @@ app.use("/api/locations", locationRoutes);
 app.use("/api/itineraries", itineraryRoutes);
 app.use("/api/suggestions", suggestionRoutes);
 app.use("/api/sharing", sharingRoutes);
+app.use('/api/admin/business', businessAdminRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/chat", chatRoutes);
 app.use('/api/community', communityRoutes);
+app.use('/api/business', businessRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 

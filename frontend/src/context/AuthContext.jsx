@@ -26,6 +26,8 @@ export const AuthProvider = ({ children }) => {
     if (storedUser && storedToken && storedToken.split('.').length === 3) {
       try {
         const parsed = JSON.parse(storedUser);
+        // Restore persisted session before the server refresh resolves.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUser(parsed);
         setToken(storedToken || 'local_session');
         // Synchronize tokens across both keys
@@ -37,8 +39,8 @@ export const AuthProvider = ({ children }) => {
         console.error('Lỗi phân tích dữ liệu user:', e);
       }
     }
-    if (storedToken) {
-      apiClient.get('/auth/me').then(({ data }) => {
+    let roleRefresh;
+    const refreshCurrentUser = () => apiClient.get('/auth/me').then(({ data }) => {
         if (!active) return;
         setUser(data);
         setToken(localStorage.getItem('access_token'));
@@ -49,11 +51,14 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
           setToken(null);
         }
-      }).finally(() => { if (active) setLoading(false); });
+      });
+    if (storedToken) {
+      refreshCurrentUser().finally(() => { if (active) setLoading(false); });
+      roleRefresh = window.setInterval(refreshCurrentUser, 30000);
     } else {
       setLoading(false);
     }
-    return () => { active = false; window.removeEventListener('auth:updated', syncSession); };
+    return () => { active = false; if (roleRefresh) window.clearInterval(roleRefresh); window.removeEventListener('auth:updated', syncSession); };
   }, []);
 
   const saveSession = (userData, userToken, refreshToken = null) => {

@@ -9,7 +9,8 @@ import {
   PlusCircle,
   CompassIcon,
   Shield,
-  Newspaper
+  Newspaper,
+  Store
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
@@ -18,8 +19,9 @@ const Sidebar = () => {
   const location = useLocation();
   const { user } = useAuth();
   const isAdmin = user?.role === 1 || user?.role === 'admin';
+  const isBusiness = user?.role === 2 || user?.role === 'business';
 
-  const menuItems = [
+  const travelerItems = [
     { key: 'dashboard', icon: Compass, label: 'Bảng điều khiển', path: '/dashboard', matchStartsWith: ['/dashboard'] },
     { key: 'planner-manual', icon: MapIcon, label: 'Lập kế hoạch thủ công', path: '/planner/map', matchStartsWith: ['/planner/map', '/planner/manual'] },
     { key: 'planner-ai', icon: Sparkles, label: 'Lập kế hoạch (AI)', path: '/planner', matchStartsWith: ['/planner', '/ai-planner'] },
@@ -27,14 +29,29 @@ const Sidebar = () => {
     { key: 'community', icon: Newspaper, label: 'Bản tin chuyến đi', path: '/community', matchStartsWith: ['/community'] },
     { key: 'history', icon: History, label: 'Danh sách chuyến đi', path: '/history', matchStartsWith: ['/history', '/trip'] },
   ];
+  const menuItems = [
+    ...(isBusiness || isAdmin ? [] : travelerItems),
+    { key: 'business-places', icon: Store, label: 'Cơ sở du lịch', path: '/business/places', matchStartsWith: ['/business/places'] },
+    ...(isBusiness ? [
+      { key: 'business-dashboard', icon: Store, label: 'Tổng quan cơ sở', path: '/business', matchStartsWith: ['/business'] },
+      { key: 'business-reviews', icon: Newspaper, label: 'Đánh giá và phản hồi', path: '/business/reviews', matchStartsWith: ['/business/reviews'] },
+      { key: 'business-reports', icon: History, label: 'Báo cáo hoạt động', path: '/business/reports', matchStartsWith: ['/business/reports'] },
+      { key: 'business-registration', icon: PlusCircle, label: 'Hồ sơ Business', path: '/business/registration', matchStartsWith: ['/business/registration'] },
+    ] : []),
+  ];
 
   const profileItems = [
     { icon: User, label: 'Hồ sơ cá nhân', path: '/profile' },
+    { icon: Store, label: user?.role === 2 || user?.role === 'business' ? 'Quản lý cơ sở' : 'Đăng ký Business', path: user?.role === 2 || user?.role === 'business' ? '/business' : '/business/registration' },
   ];
 
   const isMenuItemActive = (item) => {
     const path = location.pathname;
     if (item.key === 'dashboard') return path === '/dashboard';
+    if (item.key === 'business-dashboard') return path === '/business';
+    if (item.key === 'business-reviews') return path === '/business/reviews';
+    if (item.key === 'business-reports') return path === '/business/reports';
+    if (item.key === 'business-registration') return path === '/business/registration' || path.endsWith('/edit');
     if (item.key === 'planner-manual') return path === '/planner/map' || path === '/planner/manual';
     if (item.key === 'planner-ai') return path === '/planner' || path === '/ai-planner';
     return item.matchStartsWith?.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
@@ -94,7 +111,7 @@ const Sidebar = () => {
         </div>
       )}
 
-      <div className="sidebar-cta-card">
+      {!isBusiness && !isAdmin && <div className="sidebar-cta-card">
         <h4 className="sidebar-cta-title">Tạo kế hoạch mới</h4>
         <p className="sidebar-cta-text">Tự do lên kế hoạch thủ công chi tiết hoặc để AI gợi ý thông minh.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem' }}>
@@ -105,7 +122,7 @@ const Sidebar = () => {
             <Sparkles size={16} /> Lập kế hoạch (AI)
           </Link>
         </div>
-      </div>
+      </div>}
       <a href="/images/credits.html" target="_blank" rel="noreferrer" className="sidebar-image-credits">Nguồn ảnh điểm đến</a>
     </aside>
   );
