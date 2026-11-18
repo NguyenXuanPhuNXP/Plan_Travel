@@ -1,11 +1,11 @@
 import express from "express";
 import * as chatController from "../controllers/chatController.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
-import { authenticate } from "../middleware/authMiddleware.js";
+import { authenticate, userOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, userOnly);
 
 // Group chat routes (must be before /:friendId)
 router.get("/groups", asyncHandler(chatController.getTripGroups));

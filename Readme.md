@@ -1,5 +1,13 @@
 # PlanTravel
 
+## Business và cơ sở
+
+Sau khi chạy `npm run db:generate` và `npm run db:migrate`, người dùng mở `/business` để đăng ký cơ sở mới, xin quản lý địa điểm có sẵn hoặc gửi yêu cầu duyệt lại thông tin pháp lý/vị trí. Hồ sơ cần ảnh hoạt động, giấy tờ pháp lý và bằng chứng quyền đại diện. Giấy tờ nằm trong `backend/private-evidence/`, chỉ tải qua API xác thực của người nộp hoặc admin; cần bảo vệ và sao lưu thư mục này cùng database khi triển khai. Admin xử lý tại `/admin/business`; quyền quản lý chỉ phát sinh sau khi duyệt và được kiểm tra theo từng cơ sở. Người dùng xem cơ sở, check-in và đánh giá tại `/business/places`.
+
+Role được kiểm tra lại từ database ở mỗi request xác thực. User là role duy nhất được tạo/sửa lịch trình, Business chỉ vào dashboard và các cơ sở được cấp quyền, Admin dùng khu vực `/admin` riêng. URL ngoài quyền hiển thị trang 403; API không có token trả 401 và API sai role trả 403. Dashboard Business có bộ lọc thống kê riêng tư và tải báo cáo CSV tại `GET /api/business/:businessId/report.csv?from=YYYY-MM-DD&to=YYYY-MM-DD`.
+
+Giá dùng VND theo `VND/person`, `VND/night` hoặc `VND/ticket`. Check-in mặc định cần vị trí trong 50 m, độ chính xác không quá 50 m và thời điểm lấy vị trí mới trong 120 giây; cấu hình qua `CHECKIN_RADIUS_M`, `CHECKIN_MAX_ACCURACY_M`, `CHECKIN_MAX_AGE_MS`. GPS không thể chống giả mạo tuyệt đối. AI đọc tối đa ba ảnh khi cấu hình `GEMINI_API_KEY`, `BUSINESS_AI_MODEL` và `BUSINESS_AI_TIMEOUT_MS`; kết quả chỉ hỗ trợ admin. Chưa tích hợp nguồn tra cứu mã số thuế được phép sử dụng nên mọi hồ sơ hiển thị “Chưa đối chiếu nguồn đăng ký”. Lỗi AI không chặn duyệt thủ công.
+
 Ứng dụng lập kế hoạch du lịch Việt Nam với lịch trình theo ngày, bản đồ, bạn đồng hành, danh sách đồ mang theo và quản lý từng khoản chi. Frontend dùng React/Vite; API dùng Express, Prisma và MySQL. Dịch vụ Python cung cấp các API AI, tìm kiếm và thời tiết.
 
 Luồng lập kế hoạch thủ công hoạt động với frontend, API Node.js và MySQL. Màn lập kế hoạch AI gọi API để lấy địa điểm thực và tạo lịch trình. Nếu Python AI không phản hồi, backend sắp xếp các địa điểm thực theo quy tắc; nếu chưa lấy được địa điểm đúng vùng, giao diện báo lỗi.
@@ -129,6 +137,7 @@ Sau khi `db:init` thành công:
 | `admin@plantravel.com` | `admin123456` | Admin |
 | `an.nguyen.traveler@gmail.com` | `travel123456` | User |
 | `linh.le.wanderlust@gmail.com` | `travel123456` | User |
+| `business.demo@plantravel.com` | `Business123!` | Business demo, cơ sở Coffee 3S |
 
 Đây là tài khoản demo local. Nếu tài khoản đã có và được đổi mật khẩu, seed giữ nguyên mật khẩu đó. Xem thêm [hướng dẫn database](backend/database/README.md).
 

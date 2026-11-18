@@ -1,18 +1,18 @@
 import express from "express";
 import * as sharingController from "../controllers/sharingController.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
-import { authenticate, optionalAuth } from "../middleware/authMiddleware.js";
+import { authenticate, optionalAuth, userOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 router.get("/shared/:token", optionalAuth, asyncHandler(sharingController.getSharedItinerary));
-router.put("/shared/:token", authenticate, asyncHandler(sharingController.updateSharedItinerary));
-router.post("/shared/:token/items", authenticate, asyncHandler(sharingController.addSharedItem));
-router.delete("/shared/:token/items/:itemId", authenticate, asyncHandler(sharingController.removeSharedItem));
+router.put("/shared/:token", authenticate, userOnly, asyncHandler(sharingController.updateSharedItinerary));
+router.post("/shared/:token/items", authenticate, userOnly, asyncHandler(sharingController.addSharedItem));
+router.delete("/shared/:token/items/:itemId", authenticate, userOnly, asyncHandler(sharingController.removeSharedItem));
 router.get("/invite/:token", asyncHandler(sharingController.getGroupInviteInfo));
-router.post("/invite/:token/join", authenticate, asyncHandler(sharingController.joinGroupByInvite));
+router.post("/invite/:token/join", authenticate, userOnly, asyncHandler(sharingController.joinGroupByInvite));
 
-router.use(authenticate);
+router.use(authenticate, userOnly);
 
 router.post("/:id/share", asyncHandler(sharingController.shareItinerary));
 router.post("/:id/invite-link", asyncHandler(sharingController.createGroupInviteLink));

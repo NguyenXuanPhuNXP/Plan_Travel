@@ -302,7 +302,7 @@ export async function notifyItineraryParticipants(itineraryId, actorId, { title,
         type: 'itinerary_update',
         title: notificationTitle,
         message: notificationMessage,
-        forceEmail: true
+        forceEmail: false
     }).catch(error => console.error('Không thể tạo notification chuyến đi:', error.message))));
 }
 
