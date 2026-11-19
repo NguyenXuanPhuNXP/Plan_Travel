@@ -1,0 +1,18 @@
+.planner-start-layout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.15fr); gap: 40px; align-items: start; }
+.planner-intro { color: var(--forest); min-width: 0; }
+.planner-intro h1 { font-size: clamp(38px, 4vw, 60px); font-weight: 600; line-height: 1.06; letter-spacing: -.035em; color: inherit; }
+.planner-intro > p { font-size: 17px; margin: 24px 0; line-height: 1.65; max-width: 440px; }
+.planner-intro figure { margin: 0; background: var(--forest); color: white; }
+.planner-intro figure img { width: 100%; height: 280px; object-fit: cover; display: block; }
+.planner-intro figcaption { padding: 13px 16px; display: flex; align-items: center; gap: 7px; font-size: 14px; }
+.planner-explore-link { display: inline-block; font-size: 16px; margin-top: 20px; text-decoration: underline; text-underline-offset: 5px; }
+.planner-start-form { min-width: 0; padding: 32px; background: white; }
+.planner-start-form h2 { color: var(--forest); font-size: 28px; font-weight: 600; margin-bottom: 8px; }
+.planner-start-form > header { margin-bottom: 28px; }
+.planner-start-form > header p { font-size: 16px; }
+.planner-start-form > footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 28px; }
+.planner-start-form .btn { box-shadow: none; min-height: 46px; border-radius: 0; }
+.planner-manual-page { max-width: 1180px; margin: 0 auto; }
+@media (max-width: 1100px) { .planner-start-layout { gap: 25px; } .planner-intro h1 { font-size: 44px; } .planner-start-form { padding: 24px; } }
+@media (max-width: 760px) { .planner-start-layout { grid-template-columns: 1fr; gap: 30px; } .planner-intro { display: grid; grid-template-columns: 1fr 1fr; column-gap: 26px; } .planner-intro h1 { font-size: 40px; } .planner-intro > p { grid-column: 1; margin: 18px 0; } .planner-intro figure { grid-column: 2; grid-row: 1 / span 2; align-self: stretch; position: relative; } .planner-intro figure img { height: 100%; min-height: 260px; } .planner-intro figcaption { position: absolute; bottom: 0; background: rgba(0,0,0,.6); width: 100%; } .planner-explore-link { grid-column: 1 / -1; } }
+@media (max-width: 540px) { .planner-intro { display: block; } .planner-intro h1 { font-size: 44px; } .planner-intro figure { position: static; } .planner-intro figure img { height: 190px; min-height: 0; } .planner-intro figcaption { position: static; font-size: 14px; background: var(--forest); } .planner-start-form { padding: 22px 18px; } }

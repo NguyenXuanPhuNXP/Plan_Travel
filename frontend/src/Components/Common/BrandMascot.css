@@ -1,0 +1,17 @@
+.brand-mascot { display: block; overflow: visible; animation: mascot-hop 1.8s ease-in-out infinite; }
+.brand-mascot-eyes { transform-box: fill-box; transform-origin: center; animation: mascot-blink 3.6s ease-in-out infinite; }
+
+@keyframes mascot-hop {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  40% { transform: translateY(-7px) rotate(-3deg); }
+  65% { transform: translateY(-3px) rotate(2deg); }
+}
+
+@keyframes mascot-blink {
+  0%, 43%, 49%, 100% { transform: scaleY(1); }
+  46% { transform: scaleY(.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-mascot, .brand-mascot-eyes { animation: none; }
+}
