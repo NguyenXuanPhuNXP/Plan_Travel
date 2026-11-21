@@ -129,7 +129,7 @@ router.get('/:id/dashboard', asyncHandler(async (req, res) => {
     prisma.itinerary_items.findMany({ where: itemWhere, select: { itinerary_id: true, created_at: true }, take: 10000 }),
     prisma.itinerary_items.findMany({ where: { ...itemWhere, itineraries: { visibility: 'private', status: 'completed' } }, select: { itinerary_id: true, created_at: true }, take: 10000 }),
     prisma.visit_history.findMany({ where: { business_id: id, ...(since || until ? { check_in_time: date } : {}) }, select: { check_in_time: true }, take: 10000 }),
-    prisma.reviews.findMany({ where: { ...reviewPlace, ...(since || until ? { created_at: date } : {}) }, include: { users: { select: { full_name: true, avatar_url: true } } }, orderBy: { created_at: 'desc' }, take: 100 }),
+    prisma.reviews.findMany({ where: { ...reviewPlace, is_hidden: false, ...(since || until ? { created_at: date } : {}) }, include: { users: { select: { full_name: true, avatar_url: true } } }, orderBy: { created_at: 'desc' }, take: 100 }),
     prisma.reviews.aggregate({ where: { ...reviewPlace, is_hidden: false, ...(since || until ? { created_at: date } : {}) }, _avg: { rating: true }, _count: true }),
     prisma.business_applications.findMany({ where: { business_id: id }, orderBy: { created_at: 'desc' }, take: 10 })
   ]);
