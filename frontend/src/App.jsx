@@ -32,10 +32,11 @@ const AdminPlaceCreate = lazy(() => import('./pages/AdminPlaceCreate'));
 const AdminPlaceDetail = lazy(() => import('./pages/AdminPlaceDetail'));
 const AdminPlaceEdit = lazy(() => import('./pages/AdminPlaceEdit'));
 const AdminHotPlaceEdit = lazy(() => import('./pages/AdminHotPlaceEdit'));
-const Business = lazy(() => import('./pages/Business'));
+const BusinessRegistration = lazy(() => import('./pages/BusinessRegistration'));
 const BusinessOverview = lazy(() => import('./pages/BusinessOverview'));
 const BusinessReviews = lazy(() => import('./pages/BusinessReviews'));
 const BusinessReports = lazy(() => import('./pages/BusinessReports'));
+const BusinessEdit = lazy(() => import('./pages/BusinessEdit'));
 const BusinessPlaces = lazy(() => import('./pages/BusinessPlaces'));
 const AdminBusiness = lazy(() => import('./pages/AdminBusiness'));
 const Forbidden = lazy(() => import('./pages/Forbidden'));
@@ -131,8 +132,8 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/business" element={<ProtectedRoute><BusinessOverview /></ProtectedRoute>} />
-          <Route path="/business/registration" element={<ProtectedRoute><Business /></ProtectedRoute>} />
-          <Route path="/business/:id/edit" element={<ProtectedRoute roles={['business']}><Business /></ProtectedRoute>} />
+          <Route path="/business/registration" element={<ProtectedRoute><BusinessRegistration /></ProtectedRoute>} />
+          <Route path="/business/:id/edit" element={<ProtectedRoute roles={['business']}><BusinessEdit /></ProtectedRoute>} />
           <Route path="/business/reviews" element={<ProtectedRoute roles={['business']}><BusinessReviews /></ProtectedRoute>} />
           <Route path="/business/reports" element={<ProtectedRoute roles={['business']}><BusinessReports /></ProtectedRoute>} />
           <Route path="/business/places" element={<ProtectedRoute><BusinessPlaces /></ProtectedRoute>} />

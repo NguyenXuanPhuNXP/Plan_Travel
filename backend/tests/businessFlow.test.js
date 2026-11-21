@@ -96,6 +96,17 @@ test('Business application, approval, per-place rights, GPS visit and verified r
     const report = await prisma.business_review_reports.findFirst({ where: { review_id: BigInt(reviewId) } });
     assert.equal((await request('POST', `/admin/business/reports/${report.id}/decision`, admin, { action: 'hide' })).status, 200);
     assert.equal((await request('GET', `/business/${businessId}`, owner)).data.reviewCount, 0);
+    const hiddenDashboard = await request('GET', `/business/${businessId}/dashboard`, owner);
+    assert.equal(hiddenDashboard.status, 200, JSON.stringify(hiddenDashboard.data));
+    assert.equal(hiddenDashboard.data.stats.reviewCount, 0);
+    assert.equal(hiddenDashboard.data.stats.commentCount, 0);
+    assert.equal(hiddenDashboard.data.reviews.length, 0);
+    assert.equal(hiddenDashboard.data.trend.some(row => row.reviewCount > 0), false);
+    const csvResponse = await fetch(`${base}/business/${businessId}/report.csv`, { headers: { Authorization: `Bearer ${owner}` } });
+    assert.equal(csvResponse.status, 200);
+    const csv = await csvResponse.text();
+    assert.equal(csv.includes('Good'), false);
+    assert.match(csv, /,"1","1","1","0","0",""\r?\n/);
     assert.equal((await request('POST', `/admin/business/businesses/${businessId}/suspend`, admin, { userId: String(users[0].id), reason: 'Kiểm tra vi phạm' })).status, 200);
     assert.equal((await request('PATCH', `/business/${businessId}`, owner, { description: 'After suspension' })).status, 403);
   } finally {
