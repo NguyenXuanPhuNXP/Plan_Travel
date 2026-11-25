@@ -1,6 +1,7 @@
 import prisma from "../config/db.js";
 import { createNotification } from './notificationService.js';
 import { resolveManualPlanLocation } from './manualPlanLocation.js';
+import { deletePlanWithExecutionGuard } from './executionService.js';
 
 /**
  * Lấy danh mục đồ cần chuẩn bị mặc định (dùng chung cho tất cả)
@@ -319,14 +320,12 @@ export async function deleteItinerary(itineraryId, userId) {
         throw { status: 403, message: "Bạn không có quyền xóa." };
     }
 
-    await notifyItineraryParticipants(itinerary.id, userId, {
-        title: 'Lịch trình đã bị xóa',
-        message: `Lịch trình "${itinerary.name}" đã được xóa khỏi PlanTravel.`
-    });
-
-    await prisma.itineraries.delete({
-        where: { id: BigInt(itineraryId) }
-    });
+    const deleted = await deletePlanWithExecutionGuard(prisma, itineraryId, userId);
+    const recipients = new Set([String(deleted.user_id), ...deleted.collaborators.map(member => String(member.user_id))]);
+    await Promise.all([...recipients].map(recipient => createNotification({
+        userId: BigInt(recipient), type: 'itinerary_update', title: `Lịch trình đã bị xóa — ${deleted.name}`,
+        message: `Lịch trình "${deleted.name}" đã được xóa khỏi PlanTravel.`
+    }).catch(error => console.error('Không thể tạo notification xóa chuyến đi:', error.code || 'DB_ERROR'))));
 }
 
 /**

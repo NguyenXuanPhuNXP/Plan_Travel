@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Xem trước hiệu ứng tải</title>
+    <style>body { margin: 0; } * { box-sizing: border-box; }</style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import PageLoader from '/src/Components/Common/PageLoader.jsx';
+      createRoot(document.getElementById('root')).render(React.createElement(PageLoader));
+    </script>
+  </body>
+</html>

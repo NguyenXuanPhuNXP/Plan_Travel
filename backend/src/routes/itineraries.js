@@ -3,6 +3,7 @@ import * as itineraryController from "../controllers/itineraryController.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authenticate, optionalAuth, userOnly } from "../middleware/authMiddleware.js";
 import { savePlan } from '../services/planEditingService.js';
+import { executionService } from '../services/executionService.js';
 
 const router = express.Router();
 
@@ -10,6 +11,10 @@ const router = express.Router();
 router.get("/packing-catalog", optionalAuth, asyncHandler(itineraryController.getPackingCatalog));
 
 router.use(authenticate, userOnly);
+router.get('/summary', asyncHandler(async (req, res) => res.json(await executionService.summaries(req.user.id, req.query))));
+router.post('/:id/execution', asyncHandler(async (req, res) => res.json(await executionService.start(req.params.id, req.user.id))));
+router.get('/:id/execution', asyncHandler(async (req, res) => res.json(await executionService.get(req.params.id, req.user.id))));
+router.get('/:id/member-locations', asyncHandler(async (req, res) => res.json(await executionService.memberLocations(req.params.id, req.user.id))));
 
 // Itinerary CRUD
 router.post("/", asyncHandler(itineraryController.createItinerary));

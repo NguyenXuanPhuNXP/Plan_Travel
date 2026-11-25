@@ -116,3 +116,20 @@ test('missing configuration fails closed', () => {
   try { assert.throws(() => fixture().auth.challenge(), error => error.status === 503); }
   finally { process.env.GOOGLE_CLIENT_ID = old; }
 });
+
+test('Native Google login verifies server audience and allowed presenter without weakening web nonce checks', async () => {
+  process.env.GOOGLE_MOBILE_SERVER_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+  process.env.GOOGLE_MOBILE_CLIENT_IDS = 'android-client.apps.googleusercontent.com';
+  const f = fixture();
+  const { credential } = f.credentials({ azp: 'android-client.apps.googleusercontent.com' });
+  assert.equal((await f.auth.loginMobile({ credential })).token, 'app-access');
+  await assert.rejects(f.auth.login({ credential }), error => error.status === 400);
+  const wrongPresenter = f.credentials({ azp: 'untrusted-client' }).credential;
+  await assert.rejects(f.auth.loginMobile({ credential: wrongPresenter }), error => error.status === 401);
+  const wrongAudience = f.credentials({ aud: 'other-server', azp: 'android-client.apps.googleusercontent.com' }).credential;
+  await assert.rejects(f.auth.loginMobile({ credential: wrongAudience }), error => error.status === 401);
+  delete process.env.GOOGLE_MOBILE_CLIENT_IDS;
+  await assert.rejects(f.auth.loginMobile({ credential }), error => error.status === 401);
+  delete process.env.GOOGLE_MOBILE_SERVER_CLIENT_ID;
+  await assert.rejects(f.auth.loginMobile({ credential }), error => error.status === 503);
+});
