@@ -2,6 +2,7 @@ import express from "express";
 import prisma from "../config/db.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 import { adminOnly } from "../middleware/adminMiddleware.js";
+import { deletePlanWithExecutionGuard } from '../services/executionService.js';
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import path from "path";
@@ -437,13 +438,11 @@ router.patch("/plans/:id", async (req, res) => {
 
 router.delete("/plans/:id", async (req, res) => {
     try {
-        await prisma.itineraries.delete({
-            where: { id: BigInt(req.params.id) }
-        });
+        await deletePlanWithExecutionGuard(prisma, req.params.id);
 
         res.json({ message: "Da xoa ke hoach." });
     } catch (error) {
-        res.status(500).json({ message: error.message || "Khong the xoa ke hoach." });
+        res.status(error.status || 500).json({ code: error.code || 'INTERNAL_ERROR', message: error.message || "Khong the xoa ke hoach." });
     }
 });
 

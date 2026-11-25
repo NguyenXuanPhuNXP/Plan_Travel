@@ -59,3 +59,14 @@ function getJwtSecret() {
 
     return process.env.JWT_SECRET;
 }
+
+// This capability can only upload/stop one execution's current sharing session.
+export function generateLocationToken(userId, executionId, sharingVersion) {
+    return jwt.sign({ executionId: String(executionId), sharingVersion, purpose: 'location-upload' }, getJwtSecret(), {
+        subject: String(userId), audience: 'TravelPlannerLocationUpload', expiresIn: '24h', algorithm: 'HS256'
+    });
+}
+
+export function verifyLocationToken(token) {
+    return jwt.verify(token, getJwtSecret(), { audience: 'TravelPlannerLocationUpload', algorithms: ['HS256'] });
+}
