@@ -1,0 +1,15 @@
+[
+    {
+        "input": {
+            "destination_type": "biển",
+            "preferred_place_types": [
+                "cafe",
+                "quán ăn"
+            ],
+            "region": "Da Nang",
+            "weather": "nắng nhẹ",
+            "budget": 3000000
+        },
+        "output_shape_note": "Trả về 3 kế hoạch JSON, mỗi kế hoạch có title, region, summary, estimatedBudget, reason, destinations, schedule"
+    }
+]

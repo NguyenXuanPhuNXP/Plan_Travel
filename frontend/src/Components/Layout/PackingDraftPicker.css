@@ -1,0 +1,15 @@
+.packing-draft-picker { max-height: calc(100dvh - 32px); }
+.packing-draft-picker .friend-modal-header { gap: 16px; padding: 20px 24px; }
+.packing-draft-picker .friend-modal-title { min-width: 0; line-height: 1.3; }
+.packing-draft-picker .friend-modal-close { flex-shrink: 0; }
+.packing-draft-picker .friend-modal-body { min-height: 0; padding: 24px; overscroll-behavior: contain; }
+.packing-draft-picker .trip-draft-packing-form { align-items: stretch; }
+.packing-draft-picker .trip-draft-packing-form > * { min-width: 0; min-height: 44px; }
+.packing-draft-picker .friend-search-input { padding: 12px; min-height: 44px; }
+.packing-draft-picker .trip-draft-packing-catalog { display: flex; flex-direction: column; gap: 8px; max-height: none; overflow: visible; }
+.packing-draft-picker .friend-item { gap: 12px; }
+.packing-draft-picker .friend-item > span { min-width: 0; overflow-wrap: anywhere; }
+.packing-draft-picker .friend-item > button { flex-shrink: 0; min-width: 80px; min-height: 40px; white-space: nowrap; }
+@media (max-width: 520px) {
+  .packing-draft-picker .friend-modal-header, .packing-draft-picker .friend-modal-body { padding: 16px; }
+}

@@ -1,0 +1,174 @@
+- generic [ref=e3]:
+  - link "Đến nội dung chính" [ref=e4] [cursor=pointer]:
+    - /url: "#landing-content"
+  - banner [ref=e5]:
+    - link "PlanTravel — Trang chủ" [ref=e6] [cursor=pointer]:
+      - /url: /
+      - img "plantravel." [ref=e8]
+    - navigation "Điều hướng chính" [ref=e10]:
+      - link "Điểm đến" [ref=e11] [cursor=pointer]:
+        - /url: "#diem-den"
+      - link "Lịch trình AI" [ref=e12] [cursor=pointer]:
+        - /url: "#lich-trinh"
+      - link "Cùng đồng hành" [ref=e13] [cursor=pointer]:
+        - /url: "#dong-hanh"
+      - link "Bản tin" [ref=e14] [cursor=pointer]:
+        - /url: /community
+    - link "Đăng nhập" [ref=e16] [cursor=pointer]:
+      - /url: /login
+  - main [ref=e17]:
+    - region "Đi để thấy. Đi để nhớ." [ref=e18]:
+      - generic [ref=e22]:
+        - heading "Đi để thấy. Đi để nhớ." [level=1] [ref=e23]:
+          - generic [ref=e24]: Đi để thấy.
+          - generic [ref=e26]: Đi để nhớ.
+        - generic [ref=e28]:
+          - paragraph [ref=e29]: PlanTravel giúp bạn lên lịch trình bằng AI, chọn điểm đến và chuẩn bị chuyến đi cùng bạn bè.
+          - link "Lên lịch trình" [ref=e30] [cursor=pointer]:
+            - /url: /planner
+      - generic [ref=e34]:
+        - link "Khám phá Việt Nam" [ref=e35] [cursor=pointer]:
+          - /url: "#diem-den"
+        - generic [ref=e39]:
+          - generic [ref=e43]: Vịnh Hạ Long, Việt Nam
+          - button "Tạm dừng video nền" [ref=e44] [cursor=pointer]
+    - region "Việt Nam, còn nhiều điều để thấy." [ref=e48]:
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - heading "Việt Nam, còn nhiều điều để thấy." [level=2] [ref=e53]: Việt Nam, còn nhiềuđiều để thấy.
+            - paragraph [ref=e54]: Một vịnh biển xanh, một con phố cũ, hay buổi sáng giữa đồi thông. Chuyến đi tiếp theo bắt đầu từ nơi bạn muốn đến.
+          - generic [ref=e55]:
+            - img "Khung cảnh Hạ Long" [ref=e56]
+            - generic [ref=e57]:
+              - heading "Hạ Long" [level=3] [ref=e58]
+              - paragraph [ref=e59]: Giữa ngàn đảo xanh
+        - img [ref=e62]:
+          - generic [ref=e66]: Hà Nội
+          - generic [ref=e70]: Hạ Long
+          - generic [ref=e74]: Huế
+          - generic [ref=e78]: Hội An
+          - generic [ref=e82]: Đà Lạt
+          - generic [ref=e86]: TP. HCM
+          - generic [ref=e90]: Phú Quốc
+          - generic [ref=e94]:
+            - generic [ref=e96]: Quần đảo Hoàng Sa
+            - generic [ref=e98]: Quần đảo Trường Sa
+          - generic [ref=e99]: Biển Đông
+      - generic [ref=e100]:
+        - paragraph [ref=e102]: Dọc miền Việt Nam
+        - generic [ref=e103]:
+          - link "Giữa ngàn đảo xanh ở Hạ Long Lên lịch trình Hạ Long Hạ Long Giữa ngàn đảo xanh 3 ngày" [ref=e104] [cursor=pointer]:
+            - /url: /planner?destination=H%E1%BA%A1%20Long&totalDays=3
+            - generic [ref=e105]:
+              - img "Giữa ngàn đảo xanh ở Hạ Long" [ref=e106]
+              - generic [ref=e107]: Lên lịch trình Hạ Long
+            - generic [ref=e112]:
+              - generic [ref=e113]:
+                - heading "Hạ Long" [level=3] [ref=e114]
+                - paragraph [ref=e115]: Giữa ngàn đảo xanh
+              - generic [ref=e116]: 3 ngày
+          - link "Hẹn nhau nơi phố cũ ở Hội An Lên lịch trình Hội An Hội An Hẹn nhau nơi phố cũ 3 ngày" [ref=e117] [cursor=pointer]:
+            - /url: /planner?destination=H%E1%BB%99i%20An&totalDays=3
+            - generic [ref=e118]:
+              - img "Hẹn nhau nơi phố cũ ở Hội An" [ref=e119]
+              - generic [ref=e120]: Lên lịch trình Hội An
+            - generic [ref=e125]:
+              - generic [ref=e126]:
+                - heading "Hội An" [level=3] [ref=e127]
+                - paragraph [ref=e128]: Hẹn nhau nơi phố cũ
+              - generic [ref=e129]: 3 ngày
+          - link "Một chút bình yên ở Đà Lạt Lên lịch trình Đà Lạt Đà Lạt Một chút bình yên" [ref=e130] [cursor=pointer]:
+            - /url: /planner?destination=%C4%90%C3%A0%20L%E1%BA%A1t&totalDays=3
+            - generic [ref=e131]:
+              - img "Một chút bình yên ở Đà Lạt" [ref=e132]
+              - generic [ref=e133]: Lên lịch trình Đà Lạt
+            - generic [ref=e139]:
+              - heading "Đà Lạt" [level=3] [ref=e140]
+              - paragraph [ref=e141]: Một chút bình yên
+          - link "Theo nắng về phía biển ở Phú Quốc Lên lịch trình Phú Quốc Phú Quốc Theo nắng về phía biển" [ref=e142] [cursor=pointer]:
+            - /url: /planner?destination=Ph%C3%BA%20Qu%E1%BB%91c&totalDays=4
+            - generic [ref=e143]:
+              - img "Theo nắng về phía biển ở Phú Quốc" [ref=e144]
+              - generic [ref=e145]: Lên lịch trình Phú Quốc
+            - generic [ref=e151]:
+              - heading "Phú Quốc" [level=3] [ref=e152]
+              - paragraph [ref=e153]: Theo nắng về phía biển
+    - region "Một ý tưởng. Cả hành trình." [ref=e154]:
+      - generic [ref=e155]:
+        - heading "Một ý tưởng. Cả hành trình." [level=2] [ref=e156]: Một ý tưởng.Cả hành trình.
+        - paragraph [ref=e157]: Bạn chọn nơi muốn đến. AI gợi ý lịch trình theo thời gian, ngân sách và sở thích của bạn. Mỗi điểm dừng đều có thể sửa lại.
+        - group "Chọn điểm đến để xem lịch trình minh họa" [ref=e158]:
+          - button "Hạ Long" [pressed] [ref=e159] [cursor=pointer]
+          - button "Hội An" [ref=e160] [cursor=pointer]
+          - button "Đà Lạt" [ref=e161] [cursor=pointer]
+        - link "Lên lịch trình" [ref=e162] [cursor=pointer]:
+          - /url: /planner?destination=H%E1%BA%A1%20Long&totalDays=3
+        - paragraph [ref=e166]: Chọn một điểm đến để xem trước hành trình.
+      - generic [ref=e167]:
+        - generic [ref=e168]:
+          - img "Khung cảnh Hạ Long" [ref=e169]
+          - generic [ref=e170]:
+            - text: Lịch trình minh họa
+            - heading "Hạ Long trong 3 ngày" [level=3] [ref=e171]
+        - generic [ref=e172]:
+          - generic [ref=e173]:
+            - strong [ref=e174]: Ngày đầu tiên
+            - generic [ref=e175]: 3 trải nghiệm
+          - list [ref=e179]:
+            - listitem [ref=e180]:
+              - time [ref=e181]: 08:00
+              - generic [ref=e182]:
+                - strong [ref=e183]: Đón gió trên vịnh
+                - paragraph [ref=e184]: Bắt đầu ngày mới ở cảng Tuần Châu.
+            - listitem [ref=e185]:
+              - time [ref=e186]: 11:30
+              - generic [ref=e187]:
+                - strong [ref=e188]: Một bữa trưa vị biển
+                - paragraph [ref=e189]: Thưởng thức hải sản địa phương.
+            - listitem [ref=e190]:
+              - time [ref=e191]: 15:00
+              - generic [ref=e192]:
+                - strong [ref=e193]: Chèo kayak ở hang Luồn
+                - paragraph [ref=e194]: Đi chậm lại giữa làn nước xanh.
+          - paragraph [ref=e195]: Có thể điều chỉnh theo cách bạn thích
+    - region "Đi cùng nhau. Nhẹ gánh lo." [ref=e198]:
+      - generic [ref=e199]:
+        - heading "Đi cùng nhau. Nhẹ gánh lo." [level=2] [ref=e200]: Đi cùng nhau.Nhẹ gánh lo.
+        - paragraph [ref=e201]: Những điều cần cho chuyến đi, ở cùng một nơi. Để nhóm mình dành nhiều thời gian hơn cho những kỷ niệm.
+        - link "Hoặc tự tạo lịch trình trên bản đồ" [ref=e202] [cursor=pointer]:
+          - /url: /planner/map
+      - generic [ref=e206]:
+        - article [ref=e207]:
+          - img "Những ngôi nhà cổ bên dòng sông ở Hội An" [ref=e209]
+          - generic [ref=e210]:
+            - heading "Đi cùng nhau, dễ hơn." [level=3] [ref=e211]
+            - paragraph [ref=e212]: Mời bạn bè vào chuyến đi, chia sẻ lịch trình và trò chuyện cùng nhóm. Mọi người đều biết điểm hẹn tiếp theo.
+        - article [ref=e213]:
+          - img "Bờ cát trắng và hàng dừa bên biển Phú Quốc" [ref=e215]
+          - generic [ref=e216]:
+            - heading "Sẵn sàng từ trước lúc đi." [level=3] [ref=e217]
+            - paragraph [ref=e218]: Theo dõi ngân sách, chia các khoản chi và chuẩn bị danh sách hành lý. Bớt những lần hỏi “ai mang gì, ai trả nhé?”.
+    - region "Chuyến đi tới, là của bạn." [ref=e219]:
+      - generic [ref=e220]:
+        - img "Thung lũng và núi đồi Sa Pa" [ref=e222]
+        - generic [ref=e224]:
+          - heading "Chuyến đi tới, là của bạn." [level=2] [ref=e225]: Chuyến đi tới,là của bạn.
+          - paragraph [ref=e226]: Một nơi mới. Những người thân quen.Và một hành trình theo cách của riêng mình.
+          - link "Lên lịch trình" [ref=e227] [cursor=pointer]:
+            - /url: /planner
+  - contentinfo [ref=e231]:
+    - generic [ref=e232]:
+      - link "Hẹn ở một hành trình mới." [ref=e233] [cursor=pointer]:
+        - /url: /
+      - navigation "Liên kết cuối trang" [ref=e238]:
+        - link "Điểm đến" [ref=e239] [cursor=pointer]:
+          - /url: "#diem-den"
+        - link "Đăng nhập" [ref=e240] [cursor=pointer]:
+          - /url: /login
+        - link "Nguồn ảnh & video" [ref=e241] [cursor=pointer]:
+          - /url: /images/credits.html
+    - generic [aria-hidden] [ref=e242]: PlanTravel
+    - generic [ref=e243]:
+      - generic [ref=e244]: © 2026 PlanTravel
+      - generic [ref=e245]: Lên kế hoạch. Cùng nhau đi.
