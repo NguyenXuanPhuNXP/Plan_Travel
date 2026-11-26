@@ -94,7 +94,7 @@ export async function savePlan(itineraryId, userId, draft) {
             start_location: text(draft.startLocation, 255, 'Điểm khởi hành'), end_location: text(draft.endLocation, 255, 'Điểm kết thúc'),
             start_location_id: draft.startLocationId ? id(draft.startLocationId) : null,
             start_latitude: coordinate(draft.startLocationLatitude, 'Vĩ độ vị trí khởi hành', -90, 90), start_longitude: coordinate(draft.startLocationLongitude, 'Kinh độ vị trí khởi hành', -180, 180),
-            departure_time: clock(draft.departureTime || '08:00'), max_stops_per_day: boundedNumber(draft.maxStopsPerDay || 8, 'Số địa điểm tối đa mỗi ngày', 8, true),
+            departure_time: clock(draft.departureTime || '08:00'), max_stops_per_day: boundedNumber(draft.maxStopsPerDay || 8, 'Số địa điểm tối đa mỗi ngày', 20, true),
             start_time: start, end_time: end, trip_date: calendarStart,
             total_days: calendarStart && calendarEnd ? Math.round((Date.UTC(calendarEnd.getUTCFullYear(), calendarEnd.getUTCMonth(), calendarEnd.getUTCDate()) - Date.UTC(calendarStart.getUTCFullYear(), calendarStart.getUTCMonth(), calendarStart.getUTCDate())) / 86400000) + 1 : Math.max(1, number(draft.totalDays || 1, 'Số ngày', 365, true)),
             traveler_count: travelerCount, transport_mode: text(draft.transportMode, 100, 'Phương tiện'),
@@ -130,19 +130,21 @@ export async function savePlan(itineraryId, userId, draft) {
             const day = number(item.day || 1, 'Ngày của điểm dừng', update.total_days, true);
             if (day < 1) fail('Ngày của điểm dừng phải từ 1.');
             const note = text(item.note, 470, 'Ghi chú điểm dừng') || '';
-            preparedItems.push({ id: item.id, data: {
-                location_id: locationId, business_id: businessId, custom_name: customName,
-                planned_start_time: itemStart, planned_end_time: itemEnd,
-                duration_minutes: item.durationMinutes === '' || item.durationMinutes == null ? null : number(item.durationMinutes, 'Thời lượng', 525600, true),
-                travel_minutes: item.travelMinutes === '' || item.travelMinutes == null ? null : number(item.travelMinutes, 'Thời gian di chuyển', 525600, true),
-                travel_distance_km: item.travelDistanceKm === '' || item.travelDistanceKm == null ? null : number(item.travelDistanceKm, 'Khoảng cách', 999999.99),
-                travel_is_estimated: Boolean(item.travelIsEstimated),
-                travel_minutes_from_previous: item.travelMinutesFromPrevious === '' || item.travelMinutesFromPrevious == null ? null : number(item.travelMinutesFromPrevious, 'Thời gian di chuyển từ điểm trước', 525600, true),
-                travel_distance_from_previous_km: item.travelDistanceFromPreviousKm === '' || item.travelDistanceFromPreviousKm == null ? null : number(item.travelDistanceFromPreviousKm, 'Khoảng cách từ điểm trước', 999999.99),
-                travel_is_estimated_from_previous: Boolean(item.travelIsEstimatedFromPrevious),
-                schedule_conflict: text(item.scheduleConflict, 255, 'Cảnh báo thời gian điểm dừng'),
-                note: formatStopNote(day, note)
-            } });
+            preparedItems.push({
+                id: item.id, data: {
+                    location_id: locationId, business_id: businessId, custom_name: customName,
+                    planned_start_time: itemStart, planned_end_time: itemEnd,
+                    duration_minutes: item.durationMinutes === '' || item.durationMinutes == null ? null : number(item.durationMinutes, 'Thời lượng', 525600, true),
+                    travel_minutes: item.travelMinutes === '' || item.travelMinutes == null ? null : number(item.travelMinutes, 'Thời gian di chuyển', 525600, true),
+                    travel_distance_km: item.travelDistanceKm === '' || item.travelDistanceKm == null ? null : number(item.travelDistanceKm, 'Khoảng cách', 999999.99),
+                    travel_is_estimated: Boolean(item.travelIsEstimated),
+                    travel_minutes_from_previous: item.travelMinutesFromPrevious === '' || item.travelMinutesFromPrevious == null ? null : number(item.travelMinutesFromPrevious, 'Thời gian di chuyển từ điểm trước', 525600, true),
+                    travel_distance_from_previous_km: item.travelDistanceFromPreviousKm === '' || item.travelDistanceFromPreviousKm == null ? null : number(item.travelDistanceFromPreviousKm, 'Khoảng cách từ điểm trước', 999999.99),
+                    travel_is_estimated_from_previous: Boolean(item.travelIsEstimatedFromPrevious),
+                    schedule_conflict: text(item.scheduleConflict, 255, 'Cảnh báo thời gian điểm dừng'),
+                    note: formatStopNote(day, note)
+                }
+            });
         }
         if (!ledger && nextCostEstimates?.isEstimated) {
             const deletedItems = existing.itinerary_items.filter(item => !keepItems.has(String(item.id)));
