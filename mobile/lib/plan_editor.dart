@@ -5,7 +5,13 @@ import 'api_client.dart';
 class PlanEditor extends StatefulWidget {
   final ApiClient api;
   final Json? initial;
-  const PlanEditor({super.key, required this.api, this.initial});
+  final String? destination;
+  const PlanEditor({
+    super.key,
+    required this.api,
+    this.initial,
+    this.destination,
+  });
   @override
   State<PlanEditor> createState() => _PlanEditorState();
 }
@@ -16,7 +22,7 @@ class _PlanEditorState extends State<PlanEditor> {
     text: widget.initial?['name'] as String? ?? '',
   );
   late final destination = TextEditingController(
-    text: widget.initial?['destination'] as String? ?? '',
+    text: widget.initial?['destination'] as String? ?? widget.destination ?? '',
   );
   late final stops = ((widget.initial?['items'] ?? []) as List)
       .map((item) => Json.from(item as Map))
