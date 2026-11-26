@@ -663,6 +663,12 @@
   color: var(--primary);
 }
 
+.trip-details-schedule-conflict {
+  margin: 0.4rem 0;
+  color: #9a3412;
+  font-size: 0.875rem;
+}
+
 /* Schedule Chips Row */
 .trip-details-schedule-chips {
   display: flex;

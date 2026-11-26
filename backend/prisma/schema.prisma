@@ -77,6 +77,11 @@ model itineraries {
   start_time         DateTime?                 @db.DateTime(6)
   end_time           DateTime?                 @db.DateTime(6)
   start_location     String?                   @db.VarChar(255)
+  start_location_id  BigInt?                   @db.UnsignedBigInt
+  start_latitude     Decimal?                  @db.Decimal(10, 7)
+  start_longitude    Decimal?                  @db.Decimal(10, 7)
+  departure_time     String                    @default("08:00") @db.VarChar(5)
+  max_stops_per_day  Int                       @default(8)
   end_location       String?                   @db.VarChar(255)
   status             itineraries_status        @default(draft)
   destination        String?                   @db.VarChar(200)
@@ -91,6 +96,7 @@ model itineraries {
   cost_accommodation Decimal?                  @default(0) @db.Decimal(12, 0)
   cost_contingency   Decimal?                  @default(0) @db.Decimal(12, 0)
   total_cost         Decimal?                  @default(0) @db.Decimal(12, 0)
+  cost_estimates     Json?
   expenses           Json?
   preferences        Json?
   description        String?                   @db.Text
@@ -104,6 +110,7 @@ model itineraries {
   packing_items      itinerary_packing_items[]
   messages           itinerary_messages[]
   trip_posts         trip_posts[]
+  start_location_ref locations?                @relation("itinerary_start_location", fields: [start_location_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_itineraries_user")
   @@index([share_token], map: "idx_itineraries_share_token")
@@ -122,6 +129,11 @@ model itinerary_items {
   duration_minutes   Int?        @db.UnsignedInt
   travel_minutes     Int?        @db.UnsignedInt
   travel_distance_km Decimal?    @db.Decimal(8, 2)
+  travel_is_estimated Boolean     @default(false)
+  travel_minutes_from_previous Int? @db.UnsignedInt
+  travel_distance_from_previous_km Decimal? @db.Decimal(8, 2)
+  travel_is_estimated_from_previous Boolean @default(false)
+  schedule_conflict  String?     @db.VarChar(255)
   note               String?     @db.VarChar(500)
   created_at         DateTime    @default(now()) @db.Timestamp(0)
   businesses         businesses? @relation(fields: [business_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_itinerary_items_businesses_business_id")
@@ -205,6 +217,7 @@ model locations {
   created_at         DateTime             @default(now()) @db.Timestamp(0)
   updated_at         DateTime             @default(now()) @db.Timestamp(0)
   itinerary_items    itinerary_items[]
+  itineraries_start_location itineraries[]     @relation("itinerary_start_location")
   reviews            reviews[]
   visit_history      visit_history[]
   business_profile   businesses?

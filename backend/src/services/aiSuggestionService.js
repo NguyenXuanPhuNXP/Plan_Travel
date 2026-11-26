@@ -92,18 +92,24 @@ export async function getSuggestions({ region, days, budget, preferences }) {
 /**
  * AI tự động tạo lịch trình chi tiết theo ngày
  */
-export async function generateAutoPlan({ region, days, budget, preferences, selectedLocationIds, focusLocationId, travelerCount = 1, startDate = null, endDate = null, transportMode = 'other' }) {
+export async function generateAutoPlan({ region, days, budget, preferences, selectedLocationIds, focusLocationId, travelerCount = 1, startDate = null, endDate = null, transportMode = 'other', departureTime = '08:00', startLocation = null, maxStopsPerDay = 8 }) {
     console.log(`[AI] generateAutoPlan for region="${region}", days=${days}, selectedIds=${selectedLocationIds?.length || 0}, focusId=${focusLocationId}`);
 
     // 1. Lấy thông tin các địa điểm đã chọn
+    const { schedulePlan } = await import('./aiPlannerEngine.js');
     let selectedLocations = [];
+    const selectedLocationOrder = (Array.isArray(selectedLocationIds) ? selectedLocationIds : []).map(String);
     if (selectedLocationIds && selectedLocationIds.length > 0) {
         const rows = await prisma.locations.findMany({
             where: {
                 id: { in: selectedLocationIds.map(id => BigInt(id)) }
             }
         });
-        selectedLocations = rows.map(serializeLocation);
+        const orderIndex = new Map(selectedLocationOrder.map((id, index) => [id, index]));
+        selectedLocations = rows.map(serializeLocation).sort((a, b) => {
+            return (orderIndex.get(String(a.id)) ?? Number.MAX_SAFE_INTEGER)
+                - (orderIndex.get(String(b.id)) ?? Number.MAX_SAFE_INTEGER);
+        });
     }
 
     // 2. Nếu có địa điểm chính (focus), nhưng ít địa điểm khác -> Tự động tìm thêm địa điểm lân cận
@@ -142,7 +148,7 @@ export async function generateAutoPlan({ region, days, budget, preferences, sele
     // 4. Dùng Python AI để tổ chức lịch trình chi tiết (Gửi tối đa 30 địa điểm để AI có đủ lựa chọn ăn/ngủ/chơi)
     try {
         const payload = {
-            travelerCount, startDate, endDate, transportMode,
+            travelerCount, startDate, endDate, transportMode, departureTime, startLocation, maxStopsPerDay,
             region,
             days: Number(days) || 3,
             budget: budget ?? null,
@@ -152,31 +158,82 @@ export async function generateAutoPlan({ region, days, budget, preferences, sele
                 id: l?.id != null ? String(l.id) : null,
                 name: l?.name || "Địa điểm chưa đặt tên",
                 category: l?.category || "general",
-                estimatedCost: Number(l?.estimatedCost || 0),
+                estimatedCost: l?.estimatedCost != null ? Number(l.estimatedCost) : null,
                 latitude: l?.latitude != null ? Number(l.latitude) : null,
                 longitude: l?.longitude != null ? Number(l.longitude) : null,
-                suggestedDuration: l?.suggestedDuration || "1-2h"
+                suggestedDuration: l?.suggestedDuration || "1-2h",
+                openingHours: l?.openingHours || null
             }))
         };
 
         const response = await axios.post(`${PYTHON_AI_URL}/ai/organize-plan`, payload, { timeout: 60000 });
 
         if (response.data) {
-            return { ...mapPlanToLocations(response.data, selectedLocations), generationMethod: response.data.generationMethod || 'ai' };
+            const mapped = mapPlanToLocations(response.data, selectedLocations);
+            mapped.focusLocationId = focusLocationId || null;
+            const effectiveTransportMode = resolveTransportMode(transportMode, response.data.transport);
+            const options = { days, travelerCount, departureTime, startLocation, maxStopsPerDay, transportMode: effectiveTransportMode, budget, focusLocationId, selectedLocationOrder };
+            const routeDraft = schedulePlan(mapped, options);
+            const routeEstimates = await buildRouteEstimates(routeDraft, { startLocation, transportMode: effectiveTransportMode });
+            return { ...schedulePlan(mapped, { ...options, routeEstimates }), generationMethod: response.data.generationMethod || 'ai' };
         }
     } catch (err) {
         const status = err?.response?.status;
         const detail = err?.response?.data?.detail || err?.response?.data?.message || err?.response?.data;
         console.error("[AI] Python organize-plan error:", {
-            message: err?.message,
+            url: `${PYTHON_AI_URL}/ai/organize-plan`,
+            code: err?.code,
+            message: err?.message || err?.cause?.message || 'Unknown request error',
             status,
-            detail
+            detail: detail || err?.cause?.code || null
         });
     }
 
     // Fallback
     console.log("[AI] Using rule-based plan as fallback");
-    return { ...generateRuleBasedPlan(selectedLocations, days || 3), generationMethod: 'rule-based' };
+    const fallbackPlan = generateRuleBasedPlan(selectedLocations, days || 3);
+    fallbackPlan.transport = transportMode && transportMode !== 'auto'
+        ? `Phương tiện theo lựa chọn của bạn: ${transportMode}. Thời gian chặng được ước tính từ vị trí địa lý; hãy xác nhận tuyến thực tế.`
+        : 'Phương tiện đề xuất: taxi hoặc xe máy cho chặng nội thành; hãy xác nhận phương tiện phù hợp với từng chặng.';
+    fallbackPlan.focusLocationId = focusLocationId || null;
+    const effectiveTransportMode = resolveTransportMode(transportMode, fallbackPlan.transport);
+    const options = { days, travelerCount, departureTime, startLocation, maxStopsPerDay, transportMode: effectiveTransportMode, budget, focusLocationId, selectedLocationOrder };
+    const routeDraft = schedulePlan(fallbackPlan, options);
+    const routeEstimates = await buildRouteEstimates(routeDraft, { startLocation, transportMode: effectiveTransportMode });
+    return { ...schedulePlan(fallbackPlan, { ...options, routeEstimates }), generationMethod: 'rule-based' };
+}
+
+export async function recalculateGeneratedPlan({ plan, action, dayNumber, locationId, locationName, travelerCount = 1, departureTime = '08:00', startLocation = null, maxStopsPerDay = 8, transportMode = 'other', budget = null }) {
+    if (!Array.isArray(plan?.days) || plan.days.length < 1 || plan.days.length > 30) {
+        throw { status: 400, message: 'Lịch trình cần điều chỉnh không hợp lệ.' };
+    }
+    const { applyPlanAdjustment, schedulePlan } = await import('./aiPlannerEngine.js');
+    let adjusted;
+    try {
+        adjusted = applyPlanAdjustment(plan, { action, dayNumber, locationId, locationName, maxStopsPerDay });
+    } catch (error) {
+        throw { status: 400, message: error.message };
+    }
+    const options = {
+        days: adjusted.days.length,
+        travelerCount,
+        departureTime,
+        startLocation,
+        maxStopsPerDay,
+        transportMode,
+        budget,
+        focusLocationId: plan.focusLocationId || null
+    };
+    const routeDraft = schedulePlan(adjusted, options);
+    const routeEstimates = await buildRouteEstimates(routeDraft, { startLocation, transportMode });
+    return {
+        ...schedulePlan(adjusted, {
+            ...options,
+            routeEstimates
+        }),
+        generationMethod: plan.generationMethod || 'ai',
+        adjustmentApplied: action
+    };
 }
 
 
@@ -194,6 +251,67 @@ async function getLocationsFromDB(region) {
     );
 
     return (rows || []).map(serializeLocation);
+}
+
+function resolveTransportMode(requestedMode, suggestion = '') {
+    if (requestedMode && requestedMode !== 'auto') return requestedMode;
+    const recommendation = String(suggestion || '').toLowerCase();
+    if (/đi bộ|walking|walk/.test(recommendation)) return 'other';
+    if (/xe máy|motorbike|scooter/.test(recommendation)) return 'motorbike';
+    if (/xe khách|coach|bus/.test(recommendation)) return 'coach';
+    if (/tàu hỏa|tàu hoả|đường sắt|train/.test(recommendation)) return 'train';
+    if (/máy bay|flight|hàng không/.test(recommendation)) return 'flight';
+    if (/taxi|ô tô|ô-tô|xe hơi|car/.test(recommendation)) return 'car';
+    return 'auto';
+}
+
+async function buildRouteEstimates(plan, { startLocation = null, transportMode = 'auto' } = {}) {
+    if (!process.env.GEOAPIFY_API_KEY) return {};
+    const pairs = [];
+    const { isAccommodationItem } = await import('./aiPlannerEngine.js');
+    for (const [dayIndex, day] of (plan?.days || []).entries()) {
+        const previousDay = dayIndex > 0 ? plan.days[dayIndex - 1] : null;
+        const previousStay = previousDay?.items?.slice().reverse().find(isAccommodationItem);
+        const previousLocation = previousStay ? (previousStay.location || previousStay) : previousDay?.items?.at(-1)?.location || null;
+        let previous = dayIndex === 0 ? startLocation : previousLocation;
+        for (const item of day.items || []) {
+            if (item.scheduleConflict) continue;
+            const location = item.location || item;
+            if (previous && location) pairs.push([previous, location]);
+            previous = location;
+        }
+    }
+    const uniquePairs = [...new Map(pairs
+        .filter(([from, to]) => routeEstimateKey(from, to))
+        .map(([from, to]) => [routeEstimateKey(from, to), [from, to]])).values()].slice(0, 80);
+    const resolved = await Promise.all(uniquePairs.map(async ([from, to]) => {
+        try {
+            const { fetchRouteEstimate } = await import('./geoapify.js');
+            const estimate = await fetchRouteEstimate(from, to, transportMode);
+            return estimate ? [routeEstimateKey(from, to), estimate] : null;
+        } catch (error) {
+            console.warn('[AI] Routing API unavailable; using Haversine fallback:', error?.message || error);
+            return null;
+        }
+    }));
+    return Object.fromEntries(resolved.filter(Boolean));
+}
+
+function routeEstimateKey(from, to) {
+    const point = (value) => {
+        const rawLatitude = value?.latitude ?? value?.lat;
+        const rawLongitude = value?.longitude ?? value?.lng;
+        if (rawLatitude == null || rawLatitude === '' || rawLongitude == null || rawLongitude === '') return null;
+        const latitude = Number(rawLatitude);
+        const longitude = Number(rawLongitude);
+        return Number.isFinite(latitude) && latitude >= -90 && latitude <= 90
+            && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180
+            ? `${latitude.toFixed(6)},${longitude.toFixed(6)}`
+            : null;
+    };
+    const fromKey = point(from);
+    const toKey = point(to);
+    return fromKey && toKey ? `${fromKey}>${toKey}` : null;
 }
 
 async function fetchAndCacheFromGeoapify(region) {
@@ -253,16 +371,18 @@ async function getGeminiSuggestions(region, days, budget, preferences, locations
                 id: l.id != null ? String(l.id) : null,
                 name: l.name,
                 category: l.category,
-                estimatedCost: l.estimatedCost || 0
+                estimatedCost: l.estimatedCost ?? null
             }))
         }, { timeout: 15000 });
         
         return response.data.rankings;
     } catch (error) {
         console.error("[AI] Error calling Python rank-locations:", {
-            message: error?.message,
+            url: `${PYTHON_AI_URL}/ai/rank-locations`,
+            code: error?.code,
+            message: error?.message || error?.cause?.message || 'Unknown request error',
             status: error?.response?.status,
-            detail: error?.response?.data?.detail || error?.response?.data
+            detail: error?.response?.data?.detail || error?.response?.data || error?.cause?.code || null
         });
         return null;
     }
@@ -389,10 +509,18 @@ function serializeLocation(row) {
         description: row.description,
         latitude: Number(row.latitude),
         longitude: Number(row.longitude),
-        estimatedCost: row.estimated_cost,
+        estimatedCost: row.estimated_cost != null && Number(row.estimated_cost) > 0 ? Number(row.estimated_cost) : null,
         suggestedDuration: row.suggested_duration,
         imageUrl: row.image_url,
         rating: row.rating ? Number(row.rating) : null,
-        tags: row.tags || []
+        tags: row.tags || [],
+        openingHours: serializeOpeningHours(row.raw_json)
     };
+}
+
+function serializeOpeningHours(rawJson) {
+    const value = rawJson?.properties?.opening_hours || rawJson?.properties?.openingHours || rawJson?.opening_hours || rawJson?.openingHours;
+    if (!value) return null;
+    if (typeof value === 'string') return value;
+    try { return JSON.stringify(value); } catch { return null; }
 }

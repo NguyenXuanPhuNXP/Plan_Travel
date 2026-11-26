@@ -27,18 +27,38 @@ export async function createItinerary(userId, data) {
     const collaboratorIds = Array.isArray(data.collaboratorIds) ? data.collaboratorIds : [];
 
     const itinerary = await prisma.$transaction(async (tx) => {
+        const requestedStartLocationId = toBigIntId(data.startLocationId);
+        const startLocationExists = requestedStartLocationId
+            ? await tx.locations.findUnique({ where: { id: requestedStartLocationId }, select: { id: true } })
+            : null;
+        const itineraryData = buildItineraryData(userId, data);
+        if (requestedStartLocationId && !startLocationExists) itineraryData.start_location_id = null;
         const created = await tx.itineraries.create({
             data: {
-                ...buildItineraryData(userId, data),
+                ...itineraryData,
                 visibility: collaboratorIds.length > 0 ? "shared" : (data.visibility || "private")
             }
         });
 
+        const requestedLocationIds = [...new Set(items
+            .map(item => toBigIntId(item?.locationId))
+            .filter(Boolean)
+            .map(String))].map(BigInt);
+        const existingLocationRows = requestedLocationIds.length
+            ? await tx.locations.findMany({ where: { id: { in: requestedLocationIds } }, select: { id: true } })
+            : [];
+        const existingLocationIds = new Set(existingLocationRows.map(row => String(row.id)));
+
         for (let index = 0; index < items.length; index++) {
-            const itemData = buildItemData(created.id, items[index], index + 1);
+            const sourceItem = { ...items[index] };
+            if (sourceItem.locationId && !existingLocationIds.has(String(sourceItem.locationId))) {
+                sourceItem.locationId = null;
+                sourceItem.customName ||= sourceItem.locationName || sourceItem.name || sourceItem.title;
+            }
+            const itemData = buildItemData(created.id, sourceItem, index + 1);
             if (itemData) {
-                if (!itemData.location_id && !itemData.business_id && items[index].manualLocation) {
-                    itemData.location_id = await resolveManualPlanLocation(tx, items[index].manualLocation, itemData.custom_name);
+                if (!itemData.location_id && !itemData.business_id && sourceItem.manualLocation) {
+                    itemData.location_id = await resolveManualPlanLocation(tx, sourceItem.manualLocation, itemData.custom_name);
                 }
                 await tx.itinerary_items.create({ data: itemData });
             }
@@ -211,6 +231,11 @@ export async function updateItinerary(itineraryId, userId, data) {
     if (data.name !== undefined) updateData.name = data.name;
     if (data.destination !== undefined) updateData.destination = data.destination;
     if (data.startLocation !== undefined) updateData.start_location = data.startLocation;
+    if (data.startLocationId !== undefined) updateData.start_location_id = toBigIntId(data.startLocationId);
+    if (data.startLocationLatitude !== undefined) updateData.start_latitude = validLatitude(data.startLocationLatitude);
+    if (data.startLocationLongitude !== undefined) updateData.start_longitude = validLongitude(data.startLocationLongitude);
+    if (data.departureTime !== undefined) updateData.departure_time = validDepartureTime(data.departureTime);
+    if (data.maxStopsPerDay !== undefined) updateData.max_stops_per_day = validMaxStops(data.maxStopsPerDay);
     if (data.endLocation !== undefined) updateData.end_location = data.endLocation;
     if (data.tripDate !== undefined) updateData.trip_date = data.tripDate ? new Date(data.tripDate) : null;
     if (data.startDate !== undefined) updateData.start_time = data.startDate ? new Date(data.startDate) : null;
@@ -225,12 +250,14 @@ export async function updateItinerary(itineraryId, userId, data) {
     if (data.travelerCount !== undefined) updateData.traveler_count = currentTravelerCount;
     if (data.transportMode !== undefined) updateData.transport_mode = data.transportMode;
     if (data.costScope !== undefined) updateData.cost_scope = data.costScope;
+    if (data.costEstimates !== undefined) updateData.cost_estimates = data.costEstimates;
 
-    const costTransport = data.costTransport !== undefined ? toDecimalNumber(data.costTransport) : Number(itinerary.cost_transport || 0);
-    const costMeals = data.costMeals !== undefined ? toDecimalNumber(data.costMeals) : Number(itinerary.cost_meals || 0);
-    const costAttractions = data.costAttractions !== undefined ? toDecimalNumber(data.costAttractions) : Number(itinerary.cost_attractions || 0);
-    const costAccommodation = data.costAccommodation !== undefined ? toDecimalNumber(data.costAccommodation) : Number(itinerary.cost_accommodation || 0);
-    const costContingency = data.costContingency !== undefined ? toDecimalNumber(data.costContingency) : Number(itinerary.cost_contingency || 0);
+    const costTransport = data.costTransport !== undefined ? toDecimalNumber(data.costTransport) : nullableStoredCost(itinerary.cost_transport);
+    const costMeals = data.costMeals !== undefined ? toDecimalNumber(data.costMeals) : nullableStoredCost(itinerary.cost_meals);
+    const costAttractions = data.costAttractions !== undefined ? toDecimalNumber(data.costAttractions) : nullableStoredCost(itinerary.cost_attractions);
+    const costAccommodation = data.costAccommodation !== undefined ? toDecimalNumber(data.costAccommodation) : nullableStoredCost(itinerary.cost_accommodation);
+    const costContingency = data.costContingency !== undefined ? toDecimalNumber(data.costContingency) : nullableStoredCost(itinerary.cost_contingency);
+    const costEstimates = data.costEstimates !== undefined ? data.costEstimates : itinerary.cost_estimates;
 
     if (data.costTransport !== undefined) updateData.cost_transport = costTransport;
     if (data.costMeals !== undefined) updateData.cost_meals = costMeals;
@@ -240,7 +267,8 @@ export async function updateItinerary(itineraryId, userId, data) {
 
     const perPersonSum = costTransport + costMeals + costAttractions + costAccommodation + costContingency;
     const scope = (data.costScope || itinerary.cost_scope || 'PERSON').toUpperCase();
-    const computedTotal = scope === 'GROUP' ? perPersonSum : (perPersonSum * currentTravelerCount);
+    const hasUnknownCosts = Boolean(costEstimates?.unknownCategories?.length) || [costTransport, costMeals, costAttractions, costAccommodation, costContingency].some(value => value == null);
+    const computedTotal = hasUnknownCosts ? null : scope === 'GROUP' ? perPersonSum : (perPersonSum * currentTravelerCount);
     updateData.total_cost = computedTotal;
 
     if (data.budget !== undefined) {
@@ -356,6 +384,10 @@ export async function addItem(itineraryId, userId, data) {
             duration_minutes: toPositiveInt(data.durationMinutes),
             travel_minutes: toPositiveInt(data.travelMinutes),
             travel_distance_km: data.travelDistanceKm || null,
+            travel_is_estimated: Boolean(data.travelIsEstimated),
+            travel_minutes_from_previous: toPositiveInt(data.travelMinutesFromPrevious),
+            travel_distance_from_previous_km: data.travelDistanceFromPreviousKm == null || data.travelDistanceFromPreviousKm === '' ? null : Number(data.travelDistanceFromPreviousKm),
+            travel_is_estimated_from_previous: Boolean(data.travelIsEstimatedFromPrevious),
             note: data.note || null
         },
         include: { locations: true }
@@ -391,6 +423,11 @@ export async function updateItem(itineraryId, itemId, userId, data) {
     if (data.endTime !== undefined) updateData.planned_end_time = data.endTime ? new Date(data.endTime) : null;
     if (data.durationMinutes !== undefined) updateData.duration_minutes = toPositiveInt(data.durationMinutes);
     if (data.travelMinutes !== undefined) updateData.travel_minutes = toPositiveInt(data.travelMinutes);
+    if (data.travelIsEstimated !== undefined) updateData.travel_is_estimated = Boolean(data.travelIsEstimated);
+    if (data.travelMinutesFromPrevious !== undefined) updateData.travel_minutes_from_previous = toPositiveInt(data.travelMinutesFromPrevious);
+    if (data.travelDistanceFromPreviousKm !== undefined) updateData.travel_distance_from_previous_km = data.travelDistanceFromPreviousKm === '' || data.travelDistanceFromPreviousKm == null ? null : Number(data.travelDistanceFromPreviousKm);
+    if (data.travelIsEstimatedFromPrevious !== undefined) updateData.travel_is_estimated_from_previous = Boolean(data.travelIsEstimatedFromPrevious);
+    if (data.scheduleConflict !== undefined) updateData.schedule_conflict = data.scheduleConflict ? String(data.scheduleConflict).slice(0, 255) : null;
 
     const item = await prisma.itinerary_items.update({
         where: { id: BigInt(itemId) },
@@ -542,8 +579,13 @@ export async function removePackingItem(itineraryId, packingItemId, userId) {
 // ===== HELPERS =====
 
 function toDecimalNumber(val) {
+    if (val === null || val === '') return null;
     const num = Number(val);
     return Number.isFinite(num) && num >= 0 ? num : 0;
+}
+
+function nullableStoredCost(value) {
+    return value == null ? null : Number(value);
 }
 
 function buildItineraryData(userId, data) {
@@ -557,7 +599,8 @@ function buildItineraryData(userId, data) {
 
     // Tổng chi phí = theo người * số người (nếu scope là PERSON), hoặc tổng nếu scope là GROUP
     const perPersonSum = costTransport + costMeals + costAttractions + costAccommodation + costContingency;
-    const computedTotal = costScope === 'GROUP' ? perPersonSum : (perPersonSum * travelerCount);
+    const hasUnknownCosts = Boolean(data.costEstimates?.unknownCategories?.length) || [costTransport, costMeals, costAttractions, costAccommodation, costContingency].some(value => value == null);
+    const computedTotal = hasUnknownCosts ? null : costScope === 'GROUP' ? perPersonSum : (perPersonSum * travelerCount);
     
     const rawBudget = Number(data.budget);
     const finalBudget = Number.isFinite(rawBudget) && rawBudget > 0 ? rawBudget : (computedTotal > 0 ? computedTotal : null);
@@ -567,6 +610,11 @@ function buildItineraryData(userId, data) {
         name: data.name || data.title,
         destination: data.destination || null,
         start_location: data.startLocation || null,
+        start_location_id: toBigIntId(data.startLocationId),
+        start_latitude: validLatitude(data.startLocationLatitude),
+        start_longitude: validLongitude(data.startLocationLongitude),
+        departure_time: validDepartureTime(data.departureTime),
+        max_stops_per_day: validMaxStops(data.maxStopsPerDay),
         end_location: data.endLocation || null,
         trip_date: data.tripDate ? new Date(data.tripDate) : null,
         start_time: data.startDate ? new Date(data.startDate) : null,
@@ -581,6 +629,7 @@ function buildItineraryData(userId, data) {
         cost_accommodation: costAccommodation,
         cost_contingency: costContingency,
         total_cost: computedTotal,
+        cost_estimates: data.costEstimates || null,
         budget: finalBudget,
         preferences: data.preferences || null,
         description: data.description || data.notes || null,
@@ -607,6 +656,11 @@ function buildItemData(itineraryId, item, sortOrder) {
         duration_minutes: toPositiveInt(item.durationMinutes),
         travel_minutes: toPositiveInt(item.travelMinutes ?? item.travelMinutesToNext),
         travel_distance_km: item.travelDistanceKm || null,
+        travel_is_estimated: Boolean(item.travelIsEstimated ?? item.travelIsEstimatedToNext),
+        travel_minutes_from_previous: toPositiveInt(item.travelMinutesFromPrevious),
+        travel_distance_from_previous_km: item.travelDistanceFromPreviousKm == null || item.travelDistanceFromPreviousKm === '' ? null : Number(item.travelDistanceFromPreviousKm),
+        travel_is_estimated_from_previous: Boolean(item.travelIsEstimatedFromPrevious),
+        schedule_conflict: item.scheduleConflict ? String(item.scheduleConflict).slice(0, 255) : null,
         note: item.day == null ? (item.note || null) : formatStopNote(item.day, item.note)
     };
 }
@@ -626,8 +680,30 @@ function toBigIntId(value) {
 }
 
 function toPositiveInt(value) {
+    if (value == null || value === '') return null;
     const number = Number(value);
     return Number.isInteger(number) && number >= 0 ? number : null;
+}
+
+function validLatitude(value) {
+    if (value == null || value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= -90 && number <= 90 ? number : null;
+}
+
+function validLongitude(value) {
+    if (value == null || value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= -180 && number <= 180 ? number : null;
+}
+
+function validDepartureTime(value) {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || '')) ? String(value) : '08:00';
+}
+
+function validMaxStops(value) {
+    const number = Number(value);
+    return Number.isInteger(number) && number >= 1 && number <= 8 ? number : 8;
 }
 
 async function checkEditPermission(itineraryId, userId) {
@@ -649,7 +725,9 @@ async function checkEditPermission(itineraryId, userId) {
 function serializeItinerary(it) {
     const rawTotalCost = Number(it.total_cost || 0);
     const rawBudget = it.budget ? Number(it.budget) : 0;
-    const resolvedTotalCost = it.total_cost != null ? rawTotalCost : rawBudget;
+    const storedCostValues = [it.cost_transport, it.cost_meals, it.cost_attractions, it.cost_accommodation, it.cost_contingency];
+    const hasUnknownCosts = Boolean(it.cost_estimates?.unknownCategories?.length) || storedCostValues.some(value => value == null);
+    const resolvedTotalCost = hasUnknownCosts ? null : it.total_cost != null ? rawTotalCost : rawBudget;
     const items = it.itinerary_items?.map(serializeItem) || [];
 
     return {
@@ -659,6 +737,11 @@ function serializeItinerary(it) {
         title: it.name,
         destination: it.destination,
         startLocation: it.start_location,
+        startLocationId: it.start_location_id?.toString() || null,
+        startLocationLatitude: it.start_latitude != null ? Number(it.start_latitude) : null,
+        startLocationLongitude: it.start_longitude != null ? Number(it.start_longitude) : null,
+        departureTime: it.departure_time || '08:00',
+        maxStopsPerDay: it.max_stops_per_day || 8,
         endLocation: it.end_location,
         tripDate: it.trip_date,
         startDate: it.start_time,
@@ -668,11 +751,12 @@ function serializeItinerary(it) {
         travelerCount: it.traveler_count ?? 1,
         transportMode: it.transport_mode ?? null,
         costScope: it.cost_scope ?? "PERSON",
-        costTransport: it.cost_transport ? Number(it.cost_transport) : 0,
-        costMeals: it.cost_meals ? Number(it.cost_meals) : 0,
-        costAttractions: it.cost_attractions ? Number(it.cost_attractions) : 0,
-        costAccommodation: it.cost_accommodation ? Number(it.cost_accommodation) : 0,
-        costContingency: it.cost_contingency ? Number(it.cost_contingency) : 0,
+        costTransport: nullableStoredCost(it.cost_transport),
+        costMeals: nullableStoredCost(it.cost_meals),
+        costAttractions: nullableStoredCost(it.cost_attractions),
+        costAccommodation: nullableStoredCost(it.cost_accommodation),
+        costContingency: nullableStoredCost(it.cost_contingency),
+        costEstimates: it.cost_estimates || null,
         totalCost: resolvedTotalCost,
         expenses: Array.isArray(it.expenses) ? it.expenses : null,
         preferences: it.preferences,
@@ -726,7 +810,14 @@ function serializeItem(item) {
         endTime: item.planned_end_time,
         durationMinutes: item.duration_minutes,
         travelMinutes: item.travel_minutes,
+        travelMinutesToNext: item.travel_minutes,
         travelDistanceKm: item.travel_distance_km ? Number(item.travel_distance_km) : null,
+        travelIsEstimated: Boolean(item.travel_is_estimated),
+        travelIsEstimatedToNext: Boolean(item.travel_is_estimated),
+        travelMinutesFromPrevious: item.travel_minutes_from_previous,
+        travelDistanceFromPreviousKm: item.travel_distance_from_previous_km != null ? Number(item.travel_distance_from_previous_km) : null,
+        travelIsEstimatedFromPrevious: Boolean(item.travel_is_estimated_from_previous),
+        scheduleConflict: item.schedule_conflict || null,
         day: Number(String(item.note || '').match(/\[DAY:(\d+)\]/i)?.[1]) || 1,
         note: item.note,
         createdAt: item.created_at,

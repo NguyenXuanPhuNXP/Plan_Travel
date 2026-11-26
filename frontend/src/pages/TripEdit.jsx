@@ -122,7 +122,7 @@ export default function TripEdit({ embedded = false, onSaved, onCancel, onDraftC
       change('items', draft.items.map(item => Number(item.day) === Number(day) ? items[index++] : item));
     }
   }));
-  const updateRow = (list, index, key, value) => change(list, draft[list].map((row, rowIndex) => rowIndex === index ? { ...row, [key]: value } : row));
+  const updateRow = (list, index, key, value) => change(list, draft[list].map((row, rowIndex) => rowIndex === index ? { ...row, [key]: value, ...(list === 'items' && ['startTime', 'endTime'].includes(key) ? { scheduleConflict: null } : {}) } : row));
   const removeRow = (list, index) => change(list, draft[list].filter((_, rowIndex) => rowIndex !== index));
   const moveStop = (index, direction) => {
     const next = [...draft.items];
@@ -187,6 +187,8 @@ export default function TripEdit({ embedded = false, onSaved, onCancel, onDraftC
       </div><details className="trip-info-more"><summary>Thông tin khác</summary><div className="plan-edit-grid">
         <Field label="Điểm khởi hành">{input('startLocation')}</Field><Field label="Điểm kết thúc">{input('endLocation')}</Field>
         <Field label="Số ngày (khi chưa đặt ngày đi/về)">{input('totalDays', 'number', { min: 1, max: 365 })}</Field>
+        <Field label="Giờ khởi hành">{input('departureTime', 'time')}</Field>
+        <Field label="Số địa điểm tối đa/ngày">{input('maxStopsPerDay', 'number', { min: 1, max: 20 })}</Field>
         <Field label="Phương tiện (có thể tự nhập)">{input('transportMode', 'text', { list: 'plan-transport' })}<datalist id="plan-transport"><option value="flight">Máy bay</option><option value="train">Tàu hỏa</option><option value="car">Ô tô</option><option value="motorbike">Xe máy</option><option value="coach">Xe khách</option><option value="walk">Đi bộ</option></datalist></Field>
         <Field label="Trạng thái"><select value={draft.status} onChange={event => change('status', event.target.value)}><option value="draft">Đang lên kế hoạch</option><option value="generated">Sẵn sàng khởi hành</option><option value="completed">Đã hoàn thành</option><option value="cancelled">Đã hủy</option></select></Field>
         <Field label="Sở thích (phân cách bằng dấu phẩy)">{input('preferences')}</Field>
@@ -197,10 +199,12 @@ export default function TripEdit({ embedded = false, onSaved, onCancel, onDraftC
         <button type="button" className="btn btn-outline" onClick={() => addStop(null)}><Plus size={16} /> Thêm hoạt động riêng</button>
         {!draft.items.length && <p>Chưa có điểm dừng. Thêm địa điểm hoặc hoạt động đầu tiên.</p>}
         {draft.items.map((item, index) => <section key={item.key} className="plan-edit-row"><div className="plan-edit-row-heading"><h3>{index + 1}. {item.customName || item.displayName}</h3><div><button type="button" aria-label="Đưa điểm dừng lên" disabled={index === 0} onClick={() => moveStop(index, -1)}><ArrowUp size={16} /></button><button type="button" aria-label="Đưa điểm dừng xuống" disabled={index === draft.items.length - 1} onClick={() => moveStop(index, 1)}><ArrowDown size={16} /></button><button type="button" aria-label="Xóa điểm dừng" onClick={() => removeRow('items', index)}><Trash2 size={16} /></button></div></div>
+          {item.scheduleConflict && <p role="alert" className="plan-edit-warning">Lịch chưa xếp được: {item.scheduleConflict}. Sửa giờ bắt đầu/kết thúc để xác nhận bạn đã xử lý cảnh báo.</p>}
           <div className="plan-edit-grid"><Field label="Tên riêng cho điểm dừng"><input value={item.customName} placeholder={item.displayName} maxLength={255} onChange={event => updateRow('items', index, 'customName', event.target.value)} /></Field><Field label="Ngày thứ"><input type="number" min={1} max={365} value={item.day} onChange={event => updateRow('items', index, 'day', event.target.value)} /></Field>
           <Field label="Bắt đầu"><input type="datetime-local" value={item.startTime} onChange={event => updateRow('items', index, 'startTime', event.target.value)} /></Field><Field label="Kết thúc"><input type="datetime-local" value={item.endTime} onChange={event => updateRow('items', index, 'endTime', event.target.value)} /></Field>
           <Field label="Thời lượng (phút)"><input type="number" min={0} value={item.durationMinutes} onChange={event => updateRow('items', index, 'durationMinutes', event.target.value)} /></Field><Field label="Di chuyển tới điểm tiếp theo (phút)"><input type="number" min={0} value={item.travelMinutes} onChange={event => updateRow('items', index, 'travelMinutes', event.target.value)} /></Field>
-          <Field label="Khoảng cách tới điểm tiếp theo (km)"><input type="number" min={0} step="0.01" value={item.travelDistanceKm} onChange={event => updateRow('items', index, 'travelDistanceKm', event.target.value)} /></Field></div>
+          <Field label="Di chuyển từ điểm trước (phút)"><input type="number" min={0} value={item.travelMinutesFromPrevious ?? ''} onChange={event => change('items', draft.items.map((row, rowIndex) => rowIndex === index ? { ...row, travelMinutesFromPrevious: event.target.value, travelIsEstimatedFromPrevious: false } : row))} /></Field>
+          <Field label="Khoảng cách tới điểm tiếp theo (km)"><input type="number" min={0} step="0.01" value={item.travelDistanceKm} onChange={event => updateRow('items', index, 'travelDistanceKm', event.target.value)} /></Field><Field label="Khoảng cách từ điểm trước (km)"><input type="number" min={0} step="0.01" value={item.travelDistanceFromPreviousKm ?? ''} onChange={event => change('items', draft.items.map((row, rowIndex) => rowIndex === index ? { ...row, travelDistanceFromPreviousKm: event.target.value, travelIsEstimatedFromPrevious: false } : row))} /></Field></div>
           <Field label="Ghi chú hoạt động"><textarea maxLength={470} rows={2} value={item.note} onChange={event => updateRow('items', index, 'note', event.target.value)} /></Field>
         </section>)}
       </EditorSection>

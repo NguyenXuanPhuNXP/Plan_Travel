@@ -5,14 +5,18 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "prestart": "prisma generate",
     "dev": "nodemon src/server.js",
+    "predev": "prisma generate",
     "test": "node --test tests/*.test.js",
+    "pretest": "prisma generate",
     "seed:explore": "node src/scripts/seedExploreSamples.js",
     "seed:vietnam": "node src/scripts/seedVietnamLocations.js",
     "init:seed-jobs": "node src/scripts/initVietnamSeedJobs.js",
     "cache:vietnam": "npm run init:seed-jobs && npm run seed:vietnam",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
+    "db:prepare": "prisma generate && prisma migrate deploy",
     "db:seed": "node src/scripts/seedDemo.js",
     "db:init": "node src/scripts/initDatabase.js"
   },

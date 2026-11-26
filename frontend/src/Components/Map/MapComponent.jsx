@@ -36,7 +36,7 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-function MapViewport({ coordinates, focusedLocation, destinationLocation, searchedLocation }) {
+function MapViewport({ coordinates, departureLocation, focusedLocation, destinationLocation, searchedLocation }) {
   const map = useMap();
   const previousDestination = useRef(null);
   useEffect(() => {
@@ -47,9 +47,10 @@ function MapViewport({ coordinates, focusedLocation, destinationLocation, search
       return;
     }
     const points = coordinates ? coordinates.split(';').map(point => point.split(',').map(Number).reverse()) : [];
+    if (departureLocation) points.push([departureLocation.lat, departureLocation.lng]);
     if (points.length) map.fitBounds(points, { padding: [48, 48], maxZoom: 13 });
     else if (destinationLocation) map.setView([destinationLocation.lat, destinationLocation.lng], 12);
-  }, [map, coordinates, destinationLocation]);
+  }, [map, coordinates, departureLocation, destinationLocation]);
   useEffect(() => {
     if (focusedLocation?.hasRealCoords) map.setView([focusedLocation.lat, focusedLocation.lng], 15);
   }, [map, focusedLocation]);
@@ -64,7 +65,7 @@ function MapViewport({ coordinates, focusedLocation, destinationLocation, search
   return null;
 }
 
-const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove, showRoute = true, focusedLocation, numberMarkers = false, searchContext = '' }) => {
+const MapComponent = ({ selectedLocations = [], startLocation = null, onLocationAdd, onLocationRemove, showRoute = true, focusedLocation, numberMarkers = false, searchContext = '' }) => {
   const [weatherData, setWeatherData] = useState({});
   const [controlsElement, setControlsElement] = useState(null);
   const [destinationResult, setDestinationResult] = useState(null);
@@ -90,10 +91,13 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
       lat: Number(loc.lat ?? loc.latitude),
       lng: Number(loc.lng ?? loc.longitude)
     }));
+  const departureLocation = startLocation && Number.isFinite(Number(startLocation.latitude ?? startLocation.lat)) && Number.isFinite(Number(startLocation.longitude ?? startLocation.lng))
+    ? { ...startLocation, lat: Number(startLocation.latitude ?? startLocation.lat), lng: Number(startLocation.longitude ?? startLocation.lng) }
+    : null;
 
   const center = validLocations.length > 0
     ? [validLocations[0].lat, validLocations[0].lng]
-    : [16.05, 108.2];
+    : departureLocation ? [departureLocation.lat, departureLocation.lng] : [16.05, 108.2];
 
   const fetchWeatherForLocation = async (id, lat, lng) => {
     if (!id || !Number.isFinite(lat) || !Number.isFinite(lng) || weatherData[id]) return;
@@ -155,7 +159,10 @@ const MapComponent = ({ selectedLocations = [], onLocationAdd, onLocationRemove,
         />
         
         <ZoomControl position="bottomright" />
-        <MapViewport coordinates={routeCoordinates} focusedLocation={focusedLocation} destinationLocation={destinationLocation} searchedLocation={searchedLocation} />
+        <MapViewport coordinates={routeCoordinates} departureLocation={departureLocation} focusedLocation={focusedLocation} destinationLocation={destinationLocation} searchedLocation={searchedLocation} />
+        {departureLocation && <Marker position={[departureLocation.lat, departureLocation.lng]}>
+          <Popup><strong>Điểm khởi hành</strong><p>{departureLocation.address || departureLocation.name || `${departureLocation.lat}, ${departureLocation.lng}`}</p></Popup>
+        </Marker>}
         <NearbyPlaces selectedLocations={validLocations} onLocationAdd={onLocationAdd} controlsElement={controlsElement} viewportKey={viewportKey} />
         {searchedLocation && <Marker position={[searchedLocation.latitude, searchedLocation.longitude]}>
           <Popup><strong>{searchedLocation.name}</strong><p>{searchedLocation.address}</p>{typeof onLocationAdd === 'function' && <button type="button" className="btn btn-primary" onClick={() => { onLocationAdd(searchedLocation); setSearchResult(null); }}>Thêm vào lịch trình</button>}</Popup>

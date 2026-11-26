@@ -41,3 +41,19 @@
   .trip-setup-row { grid-template-columns: 1fr; }
   .trip-setup-page h1 { font-size: 26px; }
 }
+.ai-planner-details { margin-top: 1.25rem; padding: 1rem; border: 1px solid var(--border, #e2e8f0); border-radius: 16px; background: rgba(248, 250, 252, .8); }
+.ai-planner-details h3 { display: flex; align-items: center; gap: .45rem; margin: 0 0 1rem; }
+.ai-planner-details .trip-setup-field > button { width: 100%; text-align: left; }
+.ai-planner-details .trip-setup-field small { color: #64748b; font-size: .78rem; line-height: 1.35; }
+.ai-start-location-button { display: block; max-width: 100%; overflow-x: auto; overflow-y: hidden; white-space: nowrap; text-overflow: clip; scrollbar-width: thin; }
+.ai-start-map-modal { position: fixed; inset: 7vh 7vw; z-index: 4000; background: white; border-radius: 18px; box-shadow: 0 24px 80px rgba(15, 23, 42, .3); overflow: hidden; display: flex; flex-direction: column; }
+.ai-start-map-toolbar { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: .8rem 1rem; border-bottom: 1px solid #e2e8f0; }
+.ai-start-map-toolbar > div { display: flex; flex-wrap: wrap; gap: .5rem; }
+.ai-start-map-toolbar label { display: flex; align-items: center; gap: .35rem; font-size: .78rem; color: #334155; }
+.ai-start-map-toolbar input { width: 6rem; min-width: 0; padding: .45rem; border: 1px solid #cbd5e1; border-radius: 8px; }
+.ai-start-map { min-height: 360px; flex: 1; }
+@media (max-width: 800px) {
+  .ai-start-map-modal { inset: 2vh 2vw; }
+  .ai-start-map-toolbar { align-items: flex-start; flex-direction: column; }
+  .ai-start-map-toolbar > div { width: 100%; }
+}

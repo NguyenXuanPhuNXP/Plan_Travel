@@ -5,10 +5,10 @@ import { aiTripDates, aiPlanItems } from '../../frontend/src/utils/aiPlan.js';
 import { aiPlanCosts, aiPlanDescription } from '../../frontend/src/utils/aiPlanDetails.js';
 
 test('AI budget is for the entire group and advisory details survive saving', () => {
-    const input = parseAiPlannerInput({ region: 'Hanoi', budget: 10000000, travelerCount: 4, startDate: '2026-11-01', endDate: '2026-11-03', transportMode: 'train' });
+    const input = parseAiPlannerInput({ region: 'Hanoi', budget: 10000000, travelerCount: 4, startDate: '2026-12-01', endDate: '2026-12-03', transportMode: 'train' });
     assert.equal(input.budget, 10000000);
     assert.equal(input.travelerCount, 4);
-    assert.equal(input.startDate, '2026-11-01');
+    assert.equal(input.startDate, '2026-12-01');
     const plan = { description: 'Trip', transport: 'Train', accommodation: 'Two rooms', weather: 'No verified forecast', risks: ['Check tickets'], costAllocation: { transport: 2000000, accommodation: 3000000, meals: 2000000, attractions: 2000000, contingency: 1000000 } };
     assert.equal(aiPlanCosts(plan).totalCost, input.budget);
     assert.equal(aiPlanCosts(plan).costAccommodation, 3000000);
@@ -27,6 +27,37 @@ test('AI requests normalize selected IDs, preserve zero budget and reject invali
     for (const changes of [{ region: ' ' }, { days: 0 }, { days: 31 }, { days: 1.5 }, { budget: -1 }, { budget: 'bad' }, { preferences: 'food' }, { selectedLocationIds: ['bad-id'] }, { focusLocationId: 'bad' }]) {
         assert.throws(() => parseAiPlannerInput({ region: 'Hà Nội', ...changes }), error => error.status === 400);
     }
+});
+
+test('AI requests require a departure date from today and accept a requested daily stop count', () => {
+    const now = new Date();
+    now.setDate(now.getDate() - 1);
+    const pad = value => String(value).padStart(2, '0');
+    const yesterday = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    assert.throws(() => parseAiPlannerInput({ region: 'Hà Nội', startDate: yesterday, endDate: yesterday }), error => error.status === 400 && /Ngày xuất phát/.test(error.message));
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 1);
+    const futureEnd = new Date(futureDate);
+    futureEnd.setDate(futureEnd.getDate() + 2);
+    const future = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    const result = parseAiPlannerInput({ region: 'Hà Nội', startDate: future(futureDate), endDate: future(futureEnd), maxStopsPerDay: 12 });
+    assert.equal(result.maxStopsPerDay, 12);
+});
+
+test('AI planner rejects blank departure coordinates without treating them as zero', () => {
+    for (const startLocation of [
+        { name: 'Unknown', latitude: '', longitude: '' },
+        { name: 'Unknown', latitude: null, longitude: 105 },
+        { name: 'Unknown', latitude: 21, longitude: '' }
+    ]) {
+        assert.throws(
+            () => parseAiPlannerInput({ region: 'Hà Nội', startLocation }),
+            error => error.status === 400 && error.message.includes('Tọa độ')
+        );
+    }
+    assert.deepEqual(parseAiPlannerInput({ region: 'Hà Nội', startLocation: { latitude: 0, longitude: 0 } }).startLocation, {
+        name: '', address: '', latitude: 0, longitude: 0
+    });
 });
 
 test('AI plan persistence uses real trip dates and keeps custom activities, duration and zero travel time', () => {

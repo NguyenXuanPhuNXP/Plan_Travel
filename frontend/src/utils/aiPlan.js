@@ -37,6 +37,11 @@ export function aiPlanItems(plan, startDate) {
       durationMinutes: item.durationMinutes ?? (start && end ? Math.round((end - start) / 60000) : null),
       travelMinutes: item.travelMinutesToNext ?? item.travelMinutes ?? null,
       travelDistanceKm: item.travelDistanceKm ?? null,
+      travelIsEstimated: item.travelIsEstimatedToNext ?? item.travelIsEstimated ?? true,
+      travelMinutesFromPrevious: item.travelMinutesFromPrevious ?? item.travelMinutesFromStart ?? null,
+      travelDistanceFromPreviousKm: item.travelDistanceFromPreviousKm ?? item.travelDistanceFromStartKm ?? null,
+      travelIsEstimatedFromPrevious: item.travelIsEstimatedFromPrevious ?? item.travelIsEstimated ?? true,
+      scheduleConflict: item.scheduleConflict || null,
       note: `[DAY:${dayNumber}] ${String(item.note || '').replace(/\[DAY:\d+\]\s*/g, '')}`.trim().slice(0, 500)
     };
   })).filter(item => item.locationId || item.customName);

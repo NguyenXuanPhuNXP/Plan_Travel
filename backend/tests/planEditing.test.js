@@ -31,7 +31,7 @@ test('Full plan edits persist times, stop order, custom activities, costs, packi
             budget: 0, costScope: 'PERSON', costTransport: 100, costMeals: 50, costAttractions: 20, costAccommodation: 200, costContingency: 30,
             items: [
                 { ...draft.items[1], day: 1, customName: 'First now' },
-                { ...draft.items[0], day: 2, note: 'My own note', startTime: '2026-11-02T02:00:00.000Z', endTime: '2026-11-02T04:00:00.000Z', durationMinutes: 120, travelMinutes: 15, travelDistanceKm: 4.5 },
+                { ...draft.items[0], day: 2, note: 'My own note', startTime: '2026-11-02T02:00:00.000Z', endTime: '2026-11-02T04:00:00.000Z', durationMinutes: 120, travelMinutes: 15, travelDistanceKm: 4.5, travelMinutesFromPrevious: 45, travelDistanceFromPreviousKm: 12.5, travelIsEstimatedFromPrevious: true, scheduleConflict: 'Chưa đủ thời gian trước giờ đóng cửa' },
                 { customName: 'Free afternoon', day: 3, note: 'No coordinates needed' }
             ],
             packingItems: [{ ...draft.packingItems[0], itemName: 'Large backpack', quantity: 2, notes: 'Waterproof', isPacked: true }, { itemName: 'Camera', category: 'devices', quantity: 1 }],
@@ -50,6 +50,10 @@ test('Full plan edits persist times, stop order, custom activities, costs, packi
         assert.equal(saved.items[1].note, '[DAY:2] My own note');
         assert.equal(saved.items[1].durationMinutes, 120);
         assert.equal(saved.items[1].travelDistanceKm, 4.5);
+        assert.equal(saved.items[1].travelMinutesFromPrevious, 45);
+        assert.equal(saved.items[1].travelDistanceFromPreviousKm, 12.5);
+        assert.equal(saved.items[1].travelIsEstimatedFromPrevious, true);
+        assert.equal(saved.items[1].scheduleConflict, 'Chưa đủ thời gian trước giờ đóng cửa');
         assert.equal(new Date(saved.items[1].startTime).toISOString(), draft.items[1].startTime);
         assert.equal(saved.items[2].location.latitude, null, 'Custom activity must not invent coordinates');
         assert.equal(saved.packingItems[0].id, trip.packingItems[0].id);
@@ -135,6 +139,26 @@ test('A map-selected location is persisted with its coordinates only as part of 
     } finally {
         await deleteItinerary(trip.id, owner.id);
         if (locationId) await prisma.locations.delete({ where: { id: locationId } });
+        await prisma.$disconnect();
+    }
+});
+
+test('Manual save preserves AI costs that are still unknown instead of converting them to zero', async () => {
+    const owner = await prisma.users.findFirst();
+    const trip = await createItinerary(owner.id, {
+        name: 'Unknown AI costs fixture', totalDays: 2, travelerCount: 2, costScope: 'GROUP',
+        costTransport: null, costMeals: 0, costAttractions: 0, costAccommodation: null, costContingency: 0,
+        costEstimates: { isEstimated: true, unknownCategories: ['transport', 'accommodation'], currency: 'VND' },
+        items: [{ customName: 'Stay and visit', note: '[DAY:1] Check unknown estimates' }]
+    });
+    try {
+        const saved = await savePlan(trip.id, owner.id, draftOf(trip));
+        assert.equal(saved.costTransport, null);
+        assert.equal(saved.costAccommodation, null);
+        assert.equal(saved.totalCost, null);
+        assert.deepEqual(saved.costEstimates.unknownCategories.sort(), ['accommodation', 'transport']);
+    } finally {
+        await deleteItinerary(trip.id, owner.id);
         await prisma.$disconnect();
     }
 });

@@ -19,6 +19,12 @@ import { aiPlanDescription } from '../utils/aiPlanDetails';
 import AiPlanOverview from '../Components/AiPlanOverview';
 import './PlannerWizard.css';
 
+const nullableCost = value => value == null || value === '' ? null : Number(value);
+const isAccommodationStop = item => /khách sạn|khach san|hotel|hostel|resort|homestay|guest.?house|accommodation|nhà nghỉ|nha nghi|lưu trú|luu tru/i.test(`${item?.locationName || ''} ${item?.location?.name || ''} ${item?.location?.category || ''} ${item?.category || ''}`);
+const stopName = item => item?.locationName || item?.location?.name || item?.customName || 'Điểm dừng';
+const localTodayIso = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; };
+const warningKey = warning => `${warning.day || 'all'}-${warning.locationId || warning.location || warning.reason}`;
+
 const PlannerWizard = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -47,8 +53,11 @@ const PlannerWizard = () => {
     totalDays: Number.isFinite(initialTotalDays) && initialTotalDays > 0 ? initialTotalDays : 3,
     budget: initialBudget,
     preferences: initialPrefs,
-    travelerCount: 2,
-    transportMode: 'flight'
+    travelerCount: 1,
+    departureTime: '08:00',
+    maxStopsPerDay: 'auto',
+    startLocation: null,
+    transportMode: 'auto'
   });
 
   const [friendsList, setFriendsList] = useState([]);
@@ -67,6 +76,9 @@ const PlannerWizard = () => {
   const [currentPlan, setCurrentPlan] = useState(null);
   const [planNotice, setPlanNotice] = useState('');
   const [showEditTripInfo, setShowEditTripInfo] = useState(false);
+  const [pendingAdjustment, setPendingAdjustment] = useState(null);
+  const [adjustmentLoading, setAdjustmentLoading] = useState(false);
+  const [acknowledgedLongTravel, setAcknowledgedLongTravel] = useState(new Set());
 
   // Computed days from dates
   const computeDays = () => {
@@ -116,6 +128,7 @@ const PlannerWizard = () => {
   const handleNextToStep2 = async () => {
     if (loading) return;
     if (!tripInfo.startDate || !tripInfo.endDate) { setToast('Hãy chọn ngày xuất phát và ngày kết thúc.'); return; }
+    if (tripInfo.startDate < localTodayIso()) { setToast('Ngày xuất phát không thể trước ngày hiện tại.'); return; }
     try { aiTripDates(tripInfo.startDate, tripInfo.endDate, computeDays()); }
     catch (error) { setToast(error.message); return; }
     if (!Number.isFinite(Number(tripInfo.budget || 0)) || Number(tripInfo.budget || 0) < 0) { setToast('Ngân sách phải là số không âm.'); return; }
@@ -132,6 +145,15 @@ const PlannerWizard = () => {
     if (loading) return;
     setLoading(true); setToast('');
     try {
+      const travelerCount = Number(tripInfo.travelerCount);
+      if (!Number.isInteger(travelerCount) || travelerCount < 1 || travelerCount > 100) throw new Error('Số người tham gia phải từ 1 đến 100.');
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(tripInfo.departureTime || ''))) throw new Error('Giờ khởi hành phải theo định dạng HH:mm.');
+      if (tripInfo.maxStopsPerDay !== 'auto' && (!Number.isInteger(Number(tripInfo.maxStopsPerDay)) || Number(tripInfo.maxStopsPerDay) < 1 || Number(tripInfo.maxStopsPerDay) > 20)) throw new Error('Số điểm hoạt động mỗi ngày phải từ 1 đến 20.');
+      const start = tripInfo.startLocation;
+      const hasValidStart = start && start.latitude != null && start.latitude !== '' && start.longitude != null && start.longitude !== ''
+        && Number.isFinite(Number(start.latitude)) && Number(start.latitude) >= -90 && Number(start.latitude) <= 90
+        && Number.isFinite(Number(start.longitude)) && Number(start.longitude) >= -180 && Number(start.longitude) <= 180;
+      if (!hasValidStart) throw new Error('Hãy xác định vị trí khởi hành bằng GPS hoặc chọn thủ công trên bản đồ trước khi tạo lịch.');
       const selectedLocationIds = [];
       for (const location of locations) {
         const saved = /^\d+$/.test(String(location.id)) ? location : await locationService.createManual({
@@ -144,18 +166,21 @@ const PlannerWizard = () => {
       }
       const plan = await locationService.getAutoPlan({
         region: tripInfo.destination.trim(), days: computeDays(), budget: getEffectiveBudget(),
-        preferences: tripInfo.preferences, travelerCount: Number(tripInfo.travelerCount) || 1,
+        preferences: tripInfo.preferences, travelerCount,
         transportMode: tripInfo.transportMode, startDate: tripInfo.startDate, endDate: tripInfo.endDate,
-        selectedLocationIds
+        selectedLocationIds, departureTime: tripInfo.departureTime, maxStopsPerDay: tripInfo.maxStopsPerDay,
+        startLocation: tripInfo.startLocation
       });
       if (!plan.days?.some(day => day.items?.length)) throw new Error('Chưa có dữ liệu địa điểm cho điểm đến này. Hãy thử lại sau.');
-      const stops = plan.days.flatMap(day => day.items.map(item => item.location).filter(Boolean));
-      const uniqueStops = [...new Map(stops.map(stop => [stop.id, stop])).values()];
+      const stops = plan.days.flatMap(day => [...day.items, ...(day.unassignedItems || [])].map(item => item.location || item).filter(stop => stop && (stop.id || stop.name)));
+      const uniqueStops = [...new Map(stops.map(stop => [String(stop.id || stop.name), stop])).values()];
       setSuggestions(uniqueStops);
       setSelectedLocations(uniqueStops);
       setAutoPlan(plan);
       setCurrentPlan(plan);
-      setPlanNotice(plan.generationMethod === 'rule-based' ? 'Lịch trình được sắp xếp từ các địa điểm thực có sẵn; dịch vụ AI hiện chưa phản hồi.' : plan.description || '');
+      setAcknowledgedLongTravel(new Set());
+      const recommendation = plan.recommendedStopsPerDay ? `AI gợi ý khoảng ${plan.recommendedStopsPerDay} điểm hoạt động mỗi ngày dựa trên thời lượng và thời gian di chuyển.` : '';
+      setPlanNotice([plan.generationMethod === 'rule-based' ? 'Lịch trình được sắp xếp từ các địa điểm thực có sẵn; dịch vụ AI hiện chưa phản hồi.' : plan.description, recommendation].filter(Boolean).join(' '));
       setStep(3);
     } catch (error) { setToast(error.response?.data?.message || error.message || 'Chưa lấy được dữ liệu địa điểm. Hãy thử lại.'); }
     finally { setLoading(false); }
@@ -168,6 +193,47 @@ const PlannerWizard = () => {
     return null;
   };
 
+  const previewWarningAdjustment = async (warning, action) => {
+    if (!currentPlan || adjustmentLoading) return;
+    const matchingItem = (currentPlan.days?.[Number(warning.day) - 1]?.items || []).find(item => {
+      const id = item.locationId || item.location?.id;
+      const name = item.locationName || item.location?.name || item.customName;
+      return warning.locationId != null ? String(id) === String(warning.locationId) : name === warning.location;
+    });
+    if (!matchingItem) return;
+    setAdjustmentLoading(true);
+    setToast('');
+    try {
+      const revised = await locationService.reviseAutoPlan({
+        plan: currentPlan,
+        action,
+        dayNumber: Number(warning.day),
+        locationId: matchingItem.locationId || matchingItem.location?.id || null,
+        locationName: matchingItem.locationName || matchingItem.location?.name || matchingItem.customName || null,
+        travelerCount: Number(tripInfo.travelerCount) || 1,
+        departureTime: tripInfo.departureTime,
+        startLocation: tripInfo.startLocation,
+        maxStopsPerDay: tripInfo.maxStopsPerDay === 'auto' ? 8 : Number(tripInfo.maxStopsPerDay),
+        transportMode: currentPlan.transportMode || tripInfo.transportMode,
+        budget: getEffectiveBudget()
+      });
+      setPendingAdjustment({ plan: revised, warning, action, itemName: matchingItem.locationName || matchingItem.location?.name || matchingItem.customName });
+    } catch (error) {
+      setToast(error.response?.data?.message || error.message || 'Không thể tính trước phương án điều chỉnh.');
+    } finally {
+      setAdjustmentLoading(false);
+    }
+  };
+
+  const applyWarningAdjustment = () => {
+    if (!pendingAdjustment?.plan) return;
+    const revisedPlan = pendingAdjustment.plan;
+    setCurrentPlan(revisedPlan);
+    const revisedLocations = revisedPlan.days.flatMap(day => [...day.items, ...(day.unassignedItems || [])].map(item => item.location || item).filter(location => location && (location.id || location.name)));
+    setSelectedLocations([...new Map(revisedLocations.map(location => [String(location.id || location.name), location])).values()]);
+    setPendingAdjustment(null);
+  };
+
   const saveManualPlan = async () => {
 
     const itinerary = await itineraryService.create({
@@ -178,7 +244,13 @@ const PlannerWizard = () => {
       totalDays: computeDays(),
       budget: getEffectiveBudget(),
       travelerCount: Number(tripInfo.travelerCount) || 1,
-      transportMode: tripInfo.transportMode || 'flight',
+      transportMode: tripInfo.transportMode || 'auto',
+      startLocation: tripInfo.startLocation?.address || tripInfo.startLocation?.name || null,
+      startLocationId: /^\d+$/.test(String(tripInfo.startLocation?.id || '')) ? tripInfo.startLocation.id : null,
+      startLocationLatitude: tripInfo.startLocation?.latitude ?? null,
+      startLocationLongitude: tripInfo.startLocation?.longitude ?? null,
+      departureTime: tripInfo.departureTime,
+      maxStopsPerDay: tripInfo.maxStopsPerDay === 'auto' ? 8 : Number(tripInfo.maxStopsPerDay),
       costScope: 'GROUP',
 
       preferences: tripInfo.preferences,
@@ -206,13 +278,25 @@ const PlannerWizard = () => {
       totalDays: computeDays(),
       budget: getEffectiveBudget(),
       travelerCount: Number(tripInfo.travelerCount) || 1,
-      transportMode: tripInfo.transportMode || 'flight',
+      transportMode: finalPlan?.transportMode || tripInfo.transportMode || 'auto',
+      startLocation: tripInfo.startLocation?.address || tripInfo.startLocation?.name || null,
+      startLocationId: /^\d+$/.test(String(tripInfo.startLocation?.id || '')) ? tripInfo.startLocation.id : null,
+      startLocationLatitude: tripInfo.startLocation?.latitude ?? null,
+      startLocationLongitude: tripInfo.startLocation?.longitude ?? null,
+      departureTime: tripInfo.departureTime,
+      maxStopsPerDay: tripInfo.maxStopsPerDay === 'auto' ? 8 : Number(tripInfo.maxStopsPerDay),
       costScope: 'GROUP',
+      costTransport: nullableCost(finalPlan?.costSummary?.transport ?? finalPlan?.costAllocation?.transport),
+      costMeals: nullableCost(finalPlan?.costSummary?.meals ?? finalPlan?.costAllocation?.meals),
+      costAttractions: nullableCost(finalPlan?.costSummary?.attractions ?? finalPlan?.costAllocation?.attractions),
+      costAccommodation: nullableCost(finalPlan?.costSummary?.accommodation ?? finalPlan?.costAllocation?.accommodation),
+      costContingency: nullableCost(finalPlan?.costSummary?.contingency ?? finalPlan?.costAllocation?.contingency),
+      costEstimates: finalPlan?.costEstimates || { isEstimated: true, unknownCategories: [], currency: 'VND' },
 
       preferences: tripInfo.preferences,
       packingItems: [],
       collaboratorIds: selectedFriendIds,
-      description: aiPlanDescription({ ...finalPlan, costAllocation: null }),
+      description: aiPlanDescription({ ...finalPlan, costAllocation: null }) + (finalPlan?.warnings?.length ? `\n\nCảnh báo cần xác nhận:\n${finalPlan.warnings.map(item => `Ngày ${item.day}: ${item.reason}`).join('\n')}` : ''),
       items: allItems
     });
 
@@ -233,11 +317,20 @@ const PlannerWizard = () => {
       navigate(`/trip/${itinerary.id}`);
     } catch (error) {
       console.error('Save error:', error);
-      setToast('Có lỗi khi lưu. Vui lòng thử lại.');
+      const detail = error.response?.data?.message || error.response?.data?.error || error.message;
+      setToast(detail ? `Không thể lưu kế hoạch: ${detail}` : 'Có lỗi khi lưu. Vui lòng thử lại.');
       setTimeout(() => setToast(''), 2500);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleLongTravelAction = (warning, action) => {
+    const key = warningKey(warning);
+    if (action === 'continue') setAcknowledgedLongTravel(previous => new Set([...previous, key]));
+    if (action === 'change_dates') { setCurrentPlan(null); setAutoPlan(null); setStep(1); }
+    if (action === 'change_locations') setStep(2);
+    if (action === 'cancel') { setCurrentPlan(null); setStep(1); }
   };
 
   return (
@@ -332,13 +425,45 @@ const PlannerWizard = () => {
               className="wizard-step-content"
             >
               {planNotice && <p role="status" className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>{planNotice}</p>}
+              {currentPlan?.warnings?.some(warning => !warning.location || warning.longTravel) && <section className="card" style={{ padding: '1rem', marginBottom: '1rem' }} role="alert"><strong>Lịch trình cần bạn xác nhận</strong>{currentPlan.warnings.filter(warning => !warning.location || warning.longTravel).map((warning, index) => {
+                if (warning.longTravel && acknowledgedLongTravel.has(warningKey(warning))) return null;
+                const dayItems = currentPlan.days?.find(day => Number(day.dayNumber) === Number(warning.day))?.items || [];
+                const affectedItem = dayItems.find(item => {
+                  const itemId = item.locationId || item.location?.id;
+                  const itemName = item.locationName || item.location?.name || item.customName;
+                  return warning.locationId != null ? String(itemId) === String(warning.locationId) : itemName === warning.location;
+                });
+                return <div key={`${warning.day}-${index}`} style={{ marginTop: '.65rem' }}>
+                  <p style={{ margin: 0 }}><strong>{warning.longTravel ? 'Cảnh báo thời gian di chuyển quá dài:' : `Ngày ${warning.day || 'toàn chuyến'}${warning.location ? ` · ${warning.location}` : ''}:`}</strong> {warning.reason}. {warning.longTravel && warning.suggestedTransport ? `Gợi ý: cân nhắc ${warning.suggestedTransport === 'flight' ? 'máy bay' : warning.suggestedTransport === 'train' ? 'tàu hỏa' : warning.suggestedTransport}.` : `Gợi ý: ${warning.suggestions?.join(' · ') || ''}`}</p>
+                  {warning.longTravel && <div className="wizard-nav-buttons" style={{ justifyContent: 'flex-start', marginTop: '.5rem' }}>
+                    <button type="button" className="btn btn-outline" onClick={() => handleLongTravelAction(warning, 'change_dates')}>Đổi ngày</button>
+                    <button type="button" className="btn btn-outline" onClick={() => handleLongTravelAction(warning, 'change_locations')}>Đổi địa điểm</button>
+                    <button type="button" className="btn btn-outline" onClick={() => handleLongTravelAction(warning, 'continue')}>Tiếp tục</button>
+                    <button type="button" className="btn btn-outline" onClick={() => handleLongTravelAction(warning, 'cancel')}>Hủy tạo lịch</button>
+                  </div>}
+                  {affectedItem && <div className="wizard-nav-buttons" style={{ justifyContent: 'flex-start', marginTop: '.5rem' }}>
+                    <button type="button" className="btn btn-outline" disabled={adjustmentLoading} onClick={() => previewWarningAdjustment(warning, 'remove_item')}>{adjustmentLoading ? 'Đang tính…' : 'Xem trước bỏ điểm này'}</button>
+                    {Number(warning.day) < currentPlan.days.length && <button type="button" className="btn btn-outline" disabled={adjustmentLoading} onClick={() => previewWarningAdjustment(warning, 'move_item_next_day')}>Xem trước chuyển sang ngày sau</button>}
+                  </div>}
+                  {!affectedItem && !warning.day && warning.reason.toLowerCase().includes('vượt ngân sách') && <ul aria-label="Chọn điểm để xem trước điều chỉnh chi phí">{currentPlan.days.flatMap(day => day.items.filter(item => !isAccommodationStop(item)).map(item => ({ day, item }))).map(({ day, item }, itemIndex) => <li key={`${day.dayNumber}-${itemIndex}`}>Ngày {day.dayNumber} · {stopName(item)} <button type="button" className="btn btn-outline" disabled={adjustmentLoading} onClick={() => previewWarningAdjustment({ ...warning, day: day.dayNumber, locationId: item.locationId || item.location?.id || null, location: stopName(item) }, 'remove_item')}>Xem trước bỏ điểm này</button></li>)}</ul>}
+                </div>;
+              })}</section>}
+              {pendingAdjustment && <section className="card" style={{ padding: '1rem', marginBottom: '1rem', border: '1px solid #d7a66b' }} aria-label="Xem trước phương án điều chỉnh">
+                <strong>Xem trước phương án</strong>
+                <p>{pendingAdjustment.action === 'remove_item' ? `Bỏ “${pendingAdjustment.itemName}” khỏi lịch trình.` : `Chuyển “${pendingAdjustment.itemName}” sang ngày ${Number(pendingAdjustment.warning.day) + 1}.`} Lịch trình, thời gian di chuyển, chi phí và cảnh báo đã được tính lại.</p>
+                <p>{pendingAdjustment.plan.days.map(day => `Ngày ${day.dayNumber}: ${day.items.filter(item => !isAccommodationStop(item)).length} điểm hoạt động`).join(' · ')} · {pendingAdjustment.plan.warnings.length} cảnh báo · {pendingAdjustment.plan.costSummary?.total == null ? 'Tổng chi phí chưa xác định đủ' : `Tổng dự kiến ${Number(pendingAdjustment.plan.costSummary.total).toLocaleString('vi-VN')} VNĐ`}</p>
+                <div className="wizard-nav-buttons" style={{ justifyContent: 'flex-start' }}><button type="button" className="btn btn-primary" onClick={applyWarningAdjustment}>Áp dụng phương án</button><button type="button" className="btn btn-outline" onClick={() => setPendingAdjustment(null)}>Giữ lịch hiện tại</button></div>
+              </section>}
               <details className="wizard-trip-advice"><summary>Gợi ý di chuyển, lưu trú & chuẩn bị</summary><AiPlanOverview plan={currentPlan} budget={getEffectiveBudget()} showCosts={false} /></details>
               <TimelineEditor
                 plan={currentPlan}
                 selectedLocations={selectedLocations}
                 totalDays={computeDays()}
+                maxStopsPerDay={tripInfo.maxStopsPerDay === 'auto' ? 8 : Number(tripInfo.maxStopsPerDay)}
                 destination={tripInfo.destination}
                 onPlanChange={(updatedPlan) => setCurrentPlan(updatedPlan)}
+                acknowledgedLongTravel={acknowledgedLongTravel}
+                onLongTravelAction={handleLongTravelAction}
                 onAddCustomLocation={(loc) => {
                   setSelectedLocations((prev) => {
                     const exists = prev.some((l) => String(l._clientKey || l.id) === String(loc._clientKey || loc.id));
@@ -388,11 +513,11 @@ const PlannerWizard = () => {
                         <div className="wizard-field-row" style={{ marginTop: '0.75rem' }}>
                           <div className="wizard-field">
                             <label className="wizard-label"><Calendar size={16} /> Ngày đi</label>
-                            <input type="date" className="wizard-input" value={tripInfo.startDate} onChange={(e) => setTripInfo((p) => ({ ...p, startDate: e.target.value }))} />
+                            <input type="date" className="wizard-input" min={localTodayIso()} value={tripInfo.startDate} onChange={(e) => { const startDate = e.target.value < localTodayIso() ? localTodayIso() : e.target.value; setTripInfo((p) => ({ ...p, startDate, endDate: p.endDate && p.endDate < startDate ? startDate : p.endDate })); }} />
                           </div>
                           <div className="wizard-field">
                             <label className="wizard-label"><Calendar size={16} /> Ngày về</label>
-                            <input type="date" className="wizard-input" value={tripInfo.endDate} onChange={(e) => setTripInfo((p) => ({ ...p, endDate: e.target.value }))} />
+                            <input type="date" className="wizard-input" min={tripInfo.startDate || localTodayIso()} value={tripInfo.endDate} onChange={(e) => setTripInfo((p) => ({ ...p, endDate: e.target.value }))} />
                           </div>
                           <div className="wizard-field wizard-field-small">
                             <label className="wizard-label">Số ngày</label>

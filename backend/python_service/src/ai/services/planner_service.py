@@ -1,5 +1,6 @@
 import json
 import re
+from typing import Optional
 from google import genai
 from google.genai import types
 from pydantic import ValidationError
@@ -28,6 +29,10 @@ def _strip_code_fence(raw_text: str) -> str:
     return text.strip()
 
 
+def _format_price(value: Optional[int]) -> str:
+    return f"{value:,}đ" if value is not None else "chưa có dữ liệu giá"
+
+
 def _normalize_hhmm(value: str, fallback: str) -> str:
     if value is None:
         return fallback
@@ -49,7 +54,7 @@ def _normalize_hhmm(value: str, fallback: str) -> str:
     return fallback
 
 
-def _normalize_organized_plan_payload(parsed: dict) -> dict:
+def _normalize_organized_plan_payload(parsed: dict, max_items_per_day: int = 6) -> dict:
     if not isinstance(parsed, dict):
         return {"planName": "Kế hoạch chuyến đi", "description": "", "days": []}
 
@@ -75,6 +80,9 @@ def _normalize_organized_plan_payload(parsed: dict) -> dict:
         items_raw = day.get("items")
         if not isinstance(items_raw, list):
             items_raw = []
+        # The backend scheduler applies the activity limit after mapping locations.
+        # Keep overnight stays here because they are not part of that limit.
+        items_raw = items_raw[:40]
 
         items = []
         for item_idx, item in enumerate(items_raw):
@@ -120,10 +128,12 @@ def _normalize_organized_plan_payload(parsed: dict) -> dict:
         })
 
     return {
+        "generationMethod": str(parsed.get("generationMethod") or "ai"),
         "planName": plan_name,
         "description": description,
+        "recommendedStopsPerDay": parsed.get("recommendedStopsPerDay"),
         "days": days,
-        **{key: parsed[key] for key in ('transport', 'accommodation', 'costAllocation', 'risks', 'weather') if key in parsed}
+        **{key: parsed[key] for key in ('transport', 'accommodation', 'costAllocation', 'costBreakdown', 'risks', 'weather') if key in parsed}
     }
 
 
@@ -186,7 +196,7 @@ class PlannerService:
     def rank_locations(self, request: LocationRankingRequest) -> LocationRankingResponse:
         preferences_text = ", ".join(request.preferences or [])
         location_list = "\n".join([
-            f"- {l.name} (ID: {l.id}, category: {l.category or 'general'}, cost: ~{l.estimatedCost or 0}đ)"
+            f"- {l.name} (ID: {l.id}, category: {l.category or 'general'}, cost: {_format_price(l.estimatedCost)})"
             for l in request.locations
         ])
 
@@ -216,8 +226,10 @@ class PlannerService:
             raise ValueError(f"Lỗi xếp hạng địa điểm: {str(exc)}")
 
     def organize_plan(self, request: OrganizePlanRequest) -> OrganizedTripPlan:
+        max_stops = request.maxStopsPerDay if isinstance(request.maxStopsPerDay, int) else 8
+        max_stops = max(1, min(max_stops, 20))
         location_list = "\n".join([
-            f"- {l.name} (ID: {l.id}, {l.category or 'general'}, lat: {l.latitude}, lng: {l.longitude}, cost: {l.estimatedCost or 0}đ, duration: {l.suggestedDuration or '1-2h'})"
+            f"- {l.name} (ID: {l.id}, {l.category or 'general'}, lat: {l.latitude}, lng: {l.longitude}, cost: {_format_price(l.estimatedCost)}, duration: {l.suggestedDuration or '1-2h'}, giờ mở cửa: {l.openingHours or 'chưa biết'})"
             for l in request.locations
         ])
 
@@ -235,21 +247,24 @@ class PlannerService:
             f"- Ngân sách: {budget_str} VNĐ\n"
             f"- Đây là TỔNG ngân sách cho {request.travelerCount} người trong TOÀN BỘ chuyến đi, không phải mỗi người hay mỗi ngày.\n"
             f"- Ngày đi: {request.startDate or 'Chưa chọn'}, ngày về: {request.endDate or 'Chưa chọn'}; phương tiện ưu tiên: {request.transportMode}.\n"
+            f"- Giờ khởi hành: {request.departureTime}; số hoạt động/điểm dừng tối đa mỗi ngày theo mong muốn người dùng: {max_stops}.\n"
             f"- Thông tin thời tiết từ hệ thống: {request.weatherContext or 'Chưa có dữ liệu xác thực'}. Đây là quan trắc hiện tại, KHÔNG phải dự báo cho ngày đi.\n"
-            "- Trả lời tiếng Việt. transport: đề xuất phương tiện và cách đi giữa các điểm; chưa có điểm xuất phát thì nêu giả định, không bịa tuyến bay.\n"
+            "- Trả lời tiếng Việt. transport: đề xuất phương tiện và cách đi giữa các điểm. Nếu phương tiện là 'auto' hoặc chưa chọn, bắt buộc chọn phương tiện phù hợp dựa trên khoảng cách, địa hình và thời gian; ghi rõ 'Phương tiện đề xuất: ...'. Không bịa tuyến bay.\n"
             "- accommodation: đề xuất khu vực, loại lưu trú, số đêm và số phòng phù hợp số người; giá chỉ là ước tính, không khẳng định còn phòng.\n"
-            "- costAllocation: 5 khoản transport, accommodation, meals, attractions, contingency bằng VNĐ cho CẢ NHÓM, tổng không vượt ngân sách. Dự phòng khoảng 10%. Nếu ngân sách không khả thi phải nói rõ trong description và gợi ý giảm ngày/dịch vụ, không bịa giá để ép vừa ngân sách.\n"
+            "- costAllocation: 5 khoản transport, accommodation, meals, attractions, contingency bằng VNĐ cho CẢ NHÓM. costBreakdown: liệt kê từng khoản có cơ sở; costType PERSON = đơn giá nhân quantity (mặc định 1) nhân số người, GROUP = đơn giá nhân quantity (mặc định 1), hoặc nhân ceil(số người/capacity) nếu chi phí tính theo phương tiện có sức chứa, ROOM = đơn giá/phòng/đêm nhân ceil(số người/capacity) nhân số đêm, FIXED = phí cố định nhân quantity (mặc định 1). Với ROOM, ghi capacity và nights; không tự đoán sức chứa. Ghi dayNumber nếu xác định được ngày phát sinh và locationId nếu khoản tham quan gắn với một địa điểm cụ thể. Tổng costAllocation phải khớp tổng các dòng, không cộng trùng. Nếu thiếu giá/sức chứa, dùng null và ghi rõ khoản chưa xác định; không dùng 0 để giả vờ miễn phí, không bịa giá để ép vừa ngân sách. Các giá AI đề xuất phải đánh dấu isEstimated=true. Nếu ngân sách không khả thi, nói rõ trong description và gợi ý giảm ngày/dịch vụ.\n"
             "- risks: các rủi ro cụ thể và phương án thay thế. weather: nếu có quan trắc từ hệ thống thì tóm tắt và ghi thời điểm quan trắc; luôn ghi rõ chưa có dự báo xác thực cho ngày đi, chỉ nêu lưu ý mùa và phương án mưa, không bịa nhiệt độ hay dự báo.\n"
             f"- Sở thích: {', '.join(request.preferences) if request.preferences else 'Đa dạng'}"
             f"{focus_info}\n\n"
             f"Danh sách địa điểm có sẵn (bao gồm cả quán ăn, khách sạn và điểm tham quan):\n{location_list}\n\n"
             "YÊU CẦU LỊCH TRÌNH:\n"
-            "1. ĂN UỐNG: Mỗi ngày phải bao gồm ít nhất 3 bữa (Sáng, Trưa, Tối). Hãy chọn các quán ăn/nhà hàng từ danh sách nếu có, hoặc gợi ý tên quán phù hợp nếu không có trong danh sách.\n"
+            "1. ĂN UỐNG: Bảo đảm người dùng có phương án cho 3 bữa Sáng, Trưa, Tối; nếu giới hạn điểm dừng nhỏ hơn 3 thì gộp thông tin bữa ăn vào ghi chú thay vì tạo thêm hoạt động vượt giới hạn. Hãy chọn các quán ăn/nhà hàng từ danh sách nếu có, hoặc gợi ý tên quán phù hợp nếu không có trong danh sách.\n"
             "2. ĐI LẠI: Mô tả phương tiện di chuyển hợp lý giữa các điểm (ví dụ: đi bộ, taxi, xe máy) trong trường 'note'.\n"
             "3. LƯU TRÚ: Nếu đi trên 1 ngày, hãy bao gồm hoạt động 'Check-in khách sạn' vào chiều ngày 1 và 'Nghỉ ngơi tại khách sạn' vào cuối mỗi ngày.\n"
-            "4. SỐ LƯỢNG: Mỗi ngày tối đa 10 hoạt động gồm ăn uống, nghỉ và 2-4 điểm tham quan; không nhồi kín lịch. Đừng cố dùng hết danh sách đầu vào.\n"
-            "5. THỜI GIAN: BẮT BUỘC định dạng HH:mm (ví dụ: 08:30, 14:00). Tuyệt đối không để trống hoặc để --:--. Sắp xếp thời gian tăng dần từ 07:00 đến 22:00.\n"
-            "6. ĐỊNH DẠNG: Trả về JSON chi tiết. BẮT BUỘC trường 'locationId' khớp với ID trong danh sách nếu địa điểm đó có trong danh sách.\n\n"
+            f"4. SỐ LƯỢNG: Mỗi ngày tối đa {max_stops} điểm hoạt động, bao gồm quán ăn/nhà hàng; KHÔNG tính khách sạn, check-in, lưu trú hoặc nghỉ đêm vào giới hạn. Hãy thêm trường recommendedStopsPerDay là số điểm thực tế nên xếp mỗi ngày dựa trên thời lượng, thời gian di chuyển và giờ mở cửa (không vượt {max_stops}). Không nhồi kín lịch và không cố dùng hết danh sách đầu vào.\n"
+            "5. THỜI GIAN: BẮT BUỘC định dạng HH:mm. Mỗi hoạt động nên kéo dài 60-90 phút, chừa 15-30 phút di chuyển; kết thúc hoạt động cuối cùng không muộn hơn 21:30. Nếu không đủ thời gian, bỏ bớt điểm ít ưu tiên thay vì xếp chồng lịch.\n"
+            "6. GIỜ MỞ CỬA: Nếu danh sách có giờ mở cửa, tuyệt đối không xếp thời gian bắt đầu/kết thúc ngoài khung đó; phải chừa đủ thời gian tham quan trước giờ đóng cửa. Nếu giờ mở cửa là 'chưa biết', ưu tiên xếp điểm tham quan vào ban ngày và không xếp các địa điểm như bảo tàng, nhà lưu niệm, di tích sau 17:00.\n"
+            "7. NGÀY ĐẦU: Thứ tự các địa điểm người dùng đã chọn trong danh sách đầu vào là thứ tự ưu tiên của người dùng; hãy giữ thứ tự đó cho các hoạt động được xếp vào Ngày 1, không tự ý đổi sang thứ tự AI gợi ý. Chỉ điều chỉnh giờ bắt đầu, thời lượng hoặc bỏ bớt điểm khi cần để tránh chồng lịch, giờ đóng cửa hoặc di chuyển không khả thi. Ngày 1 bắt đầu hoạt động tại thời điểm đến địa điểm đầu tiên sau khi tính thời gian di chuyển từ vị trí khởi hành.\n"
+            "8. ĐỊNH DẠNG: Trả về JSON chi tiết. BẮT BUỘC trường 'locationId' khớp với ID trong danh sách nếu địa điểm đó có trong danh sách.\n\n"
             "Lưu ý: Nếu budget nhỏ, ưu tiên các địa điểm miễn phí, quán ăn bình dân. Nếu budget lớn, ưu tiên nhà hàng và khách sạn cao cấp."
         )
 
@@ -269,7 +284,7 @@ class PlannerService:
         except json.JSONDecodeError as exc:
             raise ValueError(f"Lỗi tổ chức lịch trình (JSON decode): {str(exc)} | raw={raw_text[:500]}")
 
-        normalized = _normalize_organized_plan_payload(parsed)
+        normalized = _normalize_organized_plan_payload(parsed, max_items_per_day=max_stops)
 
         try:
             return OrganizedTripPlan.model_validate(normalized)

@@ -672,6 +672,7 @@ const TripDetails = () => {
               <div className="trip-details-map-view">
                 <MapComponent
                   selectedLocations={visibleDayGroups.flatMap(group => group.items.map((entry, index) => ({ ...entry.loc, day: group.day, stopNumber: index + 1 })))}
+                  startLocation={liveDraft?.startLocation ? { name: liveDraft.startLocation, latitude: liveDraft.startLocationLatitude, longitude: liveDraft.startLocationLongitude } : { name: trip.startLocation, latitude: trip.startLocationLatitude, longitude: trip.startLocationLongitude }}
                   focusedLocation={focusedLocation}
                   searchContext={liveDraft?.destination ?? trip.destination}
                   numberMarkers
@@ -782,9 +783,10 @@ const TripDetails = () => {
                                 <p className="trip-details-timeline-address">
                                   <MapPin size={13} /> {loc.address || 'Chưa có địa chỉ chi tiết'}
                                 </p>
+                                {rawItem?.scheduleConflict && <p className="trip-details-schedule-conflict" role="alert">Lịch chưa xếp được: {rawItem.scheduleConflict}. Hãy xác nhận giờ hoặc chỉnh sửa điểm dừng trước chuyến đi.</p>}
                                 {loc.hasRealCoords && <button type="button" className="trip-workspace-locate" onClick={event => { event.stopPropagation(); setFocusedLocation({ ...loc }); setMobileMap(true); }}><Navigation size={13} /> Xem trên bản đồ</button>}
 
-                                {(rawItem?.startTime || rawItem?.endTime || loc.startTime || rawItem?.durationMinutes || rawItem?.travelMinutes) && (
+                                {(rawItem?.startTime || rawItem?.endTime || loc.startTime || rawItem?.durationMinutes || rawItem?.travelMinutes || rawItem?.travelMinutesFromPrevious) && (
                                   <div className="trip-details-schedule-chips">
                                     {(rawItem?.startTime || loc.startTime) && (
                                       <span className="chip chip-time">
@@ -803,6 +805,7 @@ const TripDetails = () => {
                                         <Car size={12} /> Di chuyển: {rawItem.travelMinutes} phút
                                       </span>
                                     ) : null}
+                                    {rawItem?.travelMinutesFromPrevious > 0 ? <span className="chip chip-travel"><Car size={12} /> Từ {Number(rawItem.day) === 1 ? 'điểm khởi hành' : 'nơi lưu trú/điểm trước'}: {rawItem.travelMinutesFromPrevious} phút{rawItem.travelIsEstimatedFromPrevious ? ' (ước tính)' : ''}</span> : null}
                                   </div>
                                 )}
 

@@ -9,5 +9,6 @@ router.use(authenticate, userOnly);
 
 router.post("/destinations", asyncHandler(suggestionController.getDestinationSuggestions));
 router.post("/auto-plan", asyncHandler(suggestionController.createAutoPlan));
+router.post("/revise-plan", asyncHandler(suggestionController.reviseAutoPlan));
 
 export default router;
