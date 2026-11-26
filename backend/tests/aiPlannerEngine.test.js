@@ -68,11 +68,12 @@ test('day one starts activities after arrival from the departure location', () =
     assert.equal(plan.days[0].items[0].travelMinutesFromStart, 45);
 });
 
-test('AI planner accepts a user-requested daily stop count above eight', () => {
+test('AI planner never accepts a requested daily stop count above eight', () => {
     const items = Array.from({ length: 12 }, (_, index) => ({ locationName: `P${index}`, location: { name: `P${index}` }, durationMinutes: 30 }));
     const plan = schedulePlan({ days: [{ dayNumber: 1, items }] }, { days: 1, maxStopsPerDay: 12 });
-    assert.equal(plan.days[0].items.length, 12);
-    assert.equal(plan.warnings.some(warning => warning.reason.includes('Vượt giới hạn')), false);
+    assert.equal(plan.days[0].items.length, 8);
+    assert.equal(plan.days[0].unassignedItems.length, 4);
+    assert.ok(plan.warnings.some(warning => warning.reason.includes('Vượt giới hạn 8')));
 });
 
 test('AI planner separates per-person and fixed group costs', () => {
@@ -154,19 +155,19 @@ test('AI gives an overnight stay a full rest window and carries it to the next d
     assert.equal(stay.isOvernightStay, true);
     assert.equal(stay.overnightRestMinutes, 480);
     assert.equal(stay.startTime, '18:00');
-    assert.equal(stay.endTime, '23:59');
+    assert.equal(stay.endTime, '21:30');
     assert.equal(stay.overnightRestContinuesNextDay, true);
     assert.ok(plan.days[1].items[0].travelMinutesFromPrevious > 0);
 });
 
-test('AI does not schedule an activity past 23:59 of the day', () => {
+test('AI does not schedule an activity past 21:30 of the day', () => {
     const plan = schedulePlan({ days: [{ dayNumber: 1, items: [
         { locationName: 'Điểm tối', location: { name: 'Điểm tối', latitude: 16, longitude: 108 }, durationMinutes: 120 }
     ] }] }, { days: 1, departureTime: '22:30', startLocation: { latitude: 16, longitude: 108 } });
     const item = plan.days[0].items[0];
     assert.equal(item.startTime, null);
     assert.equal(item.endTime, null);
-    assert.match(item.scheduleConflict, /23:59/);
+    assert.match(item.scheduleConflict, /21:30/);
 });
 
 test('AI moves a late activity to the next day when another day is available', () => {

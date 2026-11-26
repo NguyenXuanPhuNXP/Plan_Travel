@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseAiPlannerInput } from '../src/services/aiPlannerInput.js';
 import { aiTripDates, aiPlanItems } from '../../frontend/src/utils/aiPlan.js';
-import { aiPlanCosts, aiPlanDescription } from '../../frontend/src/utils/aiPlanDetails.js';
+import { aiPlanCosts, aiPlanDescription, getPlanDayWarnings } from '../../frontend/src/utils/aiPlanDetails.js';
 
 test('AI budget is for the entire group and advisory details survive saving', () => {
     const input = parseAiPlannerInput({ region: 'Hanoi', budget: 10000000, travelerCount: 4, startDate: '2026-12-01', endDate: '2026-12-03', transportMode: 'train' });
@@ -58,6 +58,20 @@ test('AI planner rejects blank departure coordinates without treating them as ze
     assert.deepEqual(parseAiPlannerInput({ region: 'Hà Nội', startLocation: { latitude: 0, longitude: 0 } }).startLocation, {
         name: '', address: '', latitude: 0, longitude: 0
     });
+});
+
+test('Manual timeline edits warn about overlaps, insufficient travel gaps, and ignore lodging in the stop limit', () => {
+    const warnings = getPlanDayWarnings({ items: [
+        { locationName: 'A', startTime: '08:00', endTime: '09:00', travelMinutesToNext: 30 },
+        { locationName: 'B', startTime: '09:20', endTime: '10:00', travelMinutesToNext: 15 },
+        { locationName: 'C', startTime: '09:50', endTime: '10:30' },
+        { locationName: 'Khách sạn', category: 'accommodation', startTime: '18:00', endTime: '21:00' },
+        { locationName: 'D', startTime: '21:00', endTime: '21:45' }
+    ] }, { maxStopsPerDay: 4 });
+    assert.ok(warnings.some(message => message.includes('chưa đủ 30 phút di chuyển')));
+    assert.ok(warnings.some(message => message.includes('chồng lấn')));
+    assert.ok(warnings.some(message => message.includes('sau 21:30')));
+    assert.ok(!warnings.some(message => message.includes('vượt giới hạn')));
 });
 
 test('AI plan persistence uses real trip dates and keeps custom activities, duration and zero travel time', () => {

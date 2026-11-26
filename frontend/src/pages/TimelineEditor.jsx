@@ -8,6 +8,7 @@ import {
 import { locationService } from '../services/locationService';
 import './TimelineEditor.css';
 import { itineraryDayStyle } from '../utils/itineraryDayColors';
+import { getPlanDayWarnings } from '../utils/aiPlanDetails';
 
 const isAccommodationStop = item => /khách sạn|khach san|hotel|hostel|resort|homestay|guest.?house|accommodation|nhà nghỉ|nha nghi|lưu trú|luu tru/i.test(`${item?.locationName || ''} ${item?.location?.name || ''} ${item?.location?.category || ''} ${item?.category || ''}`);
 const warningKey = warning => `${warning.day || 'all'}-${warning.locationId || warning.location || warning.reason}`;
@@ -319,6 +320,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
               >
                 <div className="timeline-line" />
                 {day.summary && <p className="timeline-plan-desc">{day.summary}</p>}
+                {getPlanDayWarnings(day, { maxStopsPerDay }).length > 0 && <ul role="alert" className="timeline-schedule-conflict">{getPlanDayWarnings(day, { maxStopsPerDay }).map((message, index) => <li key={`${day.dayNumber}-${index}`}>{message}</li>)}</ul>}
                 {day.items.some(item => item.estimatedCost != null) && <p>Ăn uống và hoạt động cả nhóm: <strong>{day.items.reduce((sum, item) => sum + Number(item.estimatedCost || 0), 0).toLocaleString('vi-VN')} VNĐ</strong> · Di chuyển, lưu trú và dự phòng tính riêng ở phần tổng chi phí.</p>}
                 {(() => { const departure = dayDeparture(editingPlan, dayIdx); const firstItem = day.items.find(item => item.startTime || item.travelMinutesFromPrevious != null); const travelMinutes = firstItem?.travelMinutesFromPrevious ?? firstItem?.travelMinutesFromStart; return <div className="timeline-departure-card">
                   <div className="timeline-departure-icon"><Navigation size={16} /></div>

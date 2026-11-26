@@ -1,18 +1,26 @@
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $PSScriptRoot | Split-Path -Parent
-$pythonExe = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
-if (-not (Test-Path -LiteralPath $pythonExe)) {
-    $pythonExe = Join-Path $projectRoot '.venv\Scripts\python.exe'
+$pythonCandidates = @(
+    (Join-Path $PSScriptRoot '.venv\Scripts\python.exe'),
+    (Join-Path $projectRoot '.venv\Scripts\python.exe')
+) | Select-Object -Unique
+$pythonExe = $null
+$environmentErrors = @()
+
+foreach ($candidate in $pythonCandidates) {
+    if (-not (Test-Path -LiteralPath $candidate)) { continue }
+    $uvicornCheck = & $candidate -c 'import uvicorn' 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        $pythonExe = $candidate
+        break
+    }
+    $environmentErrors += "$candidate`: $uvicornCheck"
 }
 
-if (-not (Test-Path -LiteralPath $pythonExe)) {
-    throw "Không tìm thấy Python environment. Tạo môi trường tại $PSScriptRoot\.venv hoặc sửa/chọn lại $projectRoot\.venv."
-}
-
-$uvicornCheck = & $pythonExe -c 'import uvicorn' 2>&1
-if ($LASTEXITCODE -ne 0) {
-    throw "Không import được uvicorn từ $pythonExe. Hãy kiểm tra/re tạo .venv rồi chạy: `"$pythonExe`" -m pip install -r `"$PSScriptRoot\requirements.txt`". Lỗi: $uvicornCheck"
+if (-not $pythonExe) {
+    $installTarget = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
+    throw "Không tìm thấy môi trường AI có uvicorn. Tạo môi trường tại $PSScriptRoot\.venv hoặc cài requirements.txt. Ví dụ: `"$installTarget`" -m pip install -r `"$PSScriptRoot\requirements.txt`". $($environmentErrors -join ' | ')"
 }
 
 Set-Location $PSScriptRoot
