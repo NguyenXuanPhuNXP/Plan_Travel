@@ -26,6 +26,9 @@ const id = value => {
     if (!/^\d+$/.test(String(value))) fail('Mã dữ liệu không hợp lệ.');
     return BigInt(value);
 };
+const coordinate = (value, label, min, max) => { if (value == null || value === '') return null; const number = Number(value); if (!Number.isFinite(number) || number < min || number > max) fail(`${label} không hợp lệ.`); return number; };
+const clock = value => { if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(value))) fail('Giờ khởi hành không hợp lệ.'); return String(value); };
+const boundedNumber = (value, label, max, integer = false) => { const number = Number(value); if (!Number.isFinite(number) || (integer && !Number.isInteger(number)) || number < 1 || number > max) fail(`${label} không hợp lệ.`); return number; };
 
 // One save either persists the complete draft or leaves the existing plan intact.
 export async function savePlan(itineraryId, userId, draft) {
@@ -68,19 +71,37 @@ export async function savePlan(itineraryId, userId, draft) {
             } else members.push(...existing.collaborators.map(member => String(member.user_id)));
             ledger = normalizeTripExpenses(draft.expenses ?? existing.expenses, members);
         }
-        const costs = ledger?.costs || Object.fromEntries(['Transport', 'Meals', 'Attractions', 'Accommodation', 'Contingency'].map(key => [key, number(draft[`cost${key}`], 'Chi phí')]));
+        const costEstimates = draft.costEstimates === undefined ? existing.cost_estimates : draft.costEstimates;
+        const costFields = [['Transport', 'transport'], ['Meals', 'meals'], ['Attractions', 'attractions'], ['Accommodation', 'accommodation'], ['Contingency', 'contingency']];
+        const costs = ledger?.costs || Object.fromEntries(costFields.map(([key, category]) => {
+            const value = draft[`cost${key}`];
+            return [key, value === '' || (costEstimates?.unknownCategories?.includes(category) && value == null) ? null : number(value, `Chi phí ${category}`)];
+        }));
+        let nextCostEstimates = !ledger ? (() => {
+            const unknown = new Set(costEstimates?.unknownCategories || []);
+            for (const [key, category] of costFields) costs[key] == null ? unknown.add(category) : unknown.delete(category);
+            if (!costEstimates && !unknown.size) return null;
+            return { ...(costEstimates || {}), isEstimated: Boolean(costEstimates?.isEstimated), currency: costEstimates?.currency || 'VND', unknownCategories: [...unknown] };
+        })() : costEstimates;
         if (draft.preferences !== undefined && (!Array.isArray(draft.preferences) || draft.preferences.length > 30 || draft.preferences.some(value => typeof value !== 'string' || value.length > 80))) fail('Sở thích không hợp lệ.');
-        const sum = Object.values(costs).reduce((total, value) => total + value, 0);
-        const total = ledger?.total ?? number(sum * (draft.costScope === 'PERSON' ? travelerCount : 1), 'Tổng chi phí');
+        let total = null;
+        if (draft.startLocationId) {
+            const startLocationId = id(draft.startLocationId);
+            const startLocation = await tx.locations.findUnique({ where: { id: startLocationId }, select: { id: true } });
+            if (!startLocation) fail('Không tìm thấy địa điểm khởi hành.');
+        }
         const update = {
             name: text(draft.name, 200, 'Tên kế hoạch', true), destination: text(draft.destination, 200, 'Điểm đến'),
             start_location: text(draft.startLocation, 255, 'Điểm khởi hành'), end_location: text(draft.endLocation, 255, 'Điểm kết thúc'),
+            start_location_id: draft.startLocationId ? id(draft.startLocationId) : null,
+            start_latitude: coordinate(draft.startLocationLatitude, 'Vĩ độ vị trí khởi hành', -90, 90), start_longitude: coordinate(draft.startLocationLongitude, 'Kinh độ vị trí khởi hành', -180, 180),
+            departure_time: clock(draft.departureTime || '08:00'), max_stops_per_day: boundedNumber(draft.maxStopsPerDay || 8, 'Số địa điểm tối đa mỗi ngày', 20, true),
             start_time: start, end_time: end, trip_date: calendarStart,
             total_days: calendarStart && calendarEnd ? Math.round((Date.UTC(calendarEnd.getUTCFullYear(), calendarEnd.getUTCMonth(), calendarEnd.getUTCDate()) - Date.UTC(calendarStart.getUTCFullYear(), calendarStart.getUTCMonth(), calendarStart.getUTCDate())) / 86400000) + 1 : Math.max(1, number(draft.totalDays || 1, 'Số ngày', 365, true)),
             traveler_count: travelerCount, transport_mode: text(draft.transportMode, 100, 'Phương tiện'),
             description: text(draft.description, 20000, 'Ghi chú'), status: draft.status,
             ...(draft.preferences !== undefined ? { preferences: draft.preferences } : {}),
-            budget: number(draft.budget, 'Ngân sách'), cost_scope: ledger ? 'GROUP' : draft.costScope,
+            budget: number(draft.budget, 'Ngân sách'), cost_scope: ledger ? 'GROUP' : draft.costScope, cost_estimates: nextCostEstimates || null,
             ...(ledger ? { expenses: ledger.expenses } : {}),
             cost_transport: costs.Transport, cost_meals: costs.Meals, cost_attractions: costs.Attractions,
             cost_accommodation: costs.Accommodation, cost_contingency: costs.Contingency, total_cost: total, updated_at: new Date()
@@ -116,9 +137,87 @@ export async function savePlan(itineraryId, userId, draft) {
                 duration_minutes: item.durationMinutes === '' || item.durationMinutes == null ? null : number(item.durationMinutes, 'Thời lượng', 525600, true),
                 travel_minutes: item.travelMinutes === '' || item.travelMinutes == null ? null : number(item.travelMinutes, 'Thời gian di chuyển', 525600, true),
                 travel_distance_km: item.travelDistanceKm === '' || item.travelDistanceKm == null ? null : number(item.travelDistanceKm, 'Khoảng cách', 999999.99),
+                travel_is_estimated: Boolean(item.travelIsEstimated),
+                travel_minutes_from_previous: item.travelMinutesFromPrevious === '' || item.travelMinutesFromPrevious == null ? null : number(item.travelMinutesFromPrevious, 'Thời gian di chuyển từ điểm trước', 525600, true),
+                travel_distance_from_previous_km: item.travelDistanceFromPreviousKm === '' || item.travelDistanceFromPreviousKm == null ? null : number(item.travelDistanceFromPreviousKm, 'Khoảng cách từ điểm trước', 999999.99),
+                travel_is_estimated_from_previous: Boolean(item.travelIsEstimatedFromPrevious),
+                schedule_conflict: text(item.scheduleConflict, 255, 'Cảnh báo thời gian điểm dừng'),
                 note: formatStopNote(day, note)
             } });
         }
+        if (!ledger && nextCostEstimates?.isEstimated) {
+            const deletedItems = existing.itinerary_items.filter(item => !keepItems.has(String(item.id)));
+            const existingById = new Map(existing.itinerary_items.map(item => [String(item.id), item]));
+            const existingOrderedItems = [...existing.itinerary_items].sort((a, b) => a.sort_order - b.sort_order);
+            const changedItems = preparedItems.filter(item => {
+                if (!item.id) return true;
+                const previous = existingById.get(String(item.id));
+                const previousIndex = existingOrderedItems.findIndex(existingItem => String(existingItem.id) === String(item.id));
+                const previousDay = Number(previous?.note?.match(/\[DAY:(\d+)\]/)?.[1] || 1);
+                const nextDay = Number(item.data.note?.match(/\[DAY:(\d+)\]/)?.[1] || 1);
+                return previous && (String(previous.location_id || '') !== String(item.data.location_id || '') || String(previous.business_id || '') !== String(item.data.business_id || '') || String(previous.custom_name || '') !== String(item.data.custom_name || '') || previousIndex !== preparedItems.indexOf(item) || previousDay !== nextDay);
+            });
+            const coordinateChanged = (previous, next) => previous == null || next == null ? previous != null || next != null : Number(previous) !== Number(next);
+            const routeSettingsChanged = existing.transport_mode !== update.transport_mode
+                || existing.departure_time !== update.departure_time
+                || String(existing.start_location_id || '') !== String(update.start_location_id || '')
+                || coordinateChanged(existing.start_latitude, update.start_latitude)
+                || coordinateChanged(existing.start_longitude, update.start_longitude);
+            const routeChanged = routeSettingsChanged || deletedItems.length > 0 || changedItems.length > 0 || preparedItems.some(item => !item.id);
+            if (routeChanged) {
+                const retainedLocationIds = new Set(preparedItems.map(item => item.data.location_id?.toString()).filter(Boolean));
+                const deletedLocationIds = new Set(deletedItems.map(item => item.location_id?.toString()).filter(locationId => locationId && !retainedLocationIds.has(locationId)));
+                let activitiesChanged = preparedItems.some(item => !item.id);
+                for (const item of changedItems) {
+                    const previous = item.id && existingById.get(String(item.id));
+                    const oldLocationId = previous?.location_id?.toString();
+                    if (oldLocationId && !retainedLocationIds.has(oldLocationId)) deletedLocationIds.add(oldLocationId);
+                    if (!previous || String(previous.location_id || '') !== String(item.data.location_id || '') || String(previous.business_id || '') !== String(item.data.business_id || '') || String(previous.custom_name || '') !== String(item.data.custom_name || '')) activitiesChanged = true;
+                }
+                const originalLines = Array.isArray(nextCostEstimates.costBreakdown) ? nextCostEstimates.costBreakdown : [];
+                const affectedCategories = new Set();
+                affectedCategories.add('transport');
+                if (activitiesChanged || !originalLines.length) affectedCategories.add('attractions');
+                for (const line of originalLines) {
+                    if (line.locationId && deletedLocationIds.has(String(line.locationId))) affectedCategories.add(line.category);
+                    else if (!line.locationId && ['attractions', 'meals', 'accommodation'].includes(line.category)) affectedCategories.add(line.category);
+                }
+                let remainingLines = originalLines.filter(line => !(line.locationId && deletedLocationIds.has(String(line.locationId))) && !(affectedCategories.has(line.category) && (line.category === 'transport' || !line.locationId || (activitiesChanged && line.category === 'attractions'))));
+                const costKeyFor = category => ({ transport: 'Transport', accommodation: 'Accommodation', meals: 'Meals', attractions: 'Attractions', contingency: 'Contingency' })[category];
+                const unknown = new Set(nextCostEstimates.unknownCategories || []);
+                for (const category of affectedCategories) {
+                    const key = costKeyFor(category);
+                    if (!key) continue;
+                    const categoryLines = remainingLines.filter(line => line.category === category);
+                    if (categoryLines.length && categoryLines.every(line => line.totalCost != null)) {
+                        costs[key] = categoryLines.reduce((sum, line) => sum + Number(line.totalCost), 0);
+                        unknown.delete(category);
+                    } else {
+                        costs[key] = null;
+                        unknown.add(category);
+                        remainingLines = remainingLines.filter(line => line.category !== category);
+                    }
+                }
+                nextCostEstimates = { ...nextCostEstimates, costBreakdown: remainingLines, unknownCategories: [...unknown] };
+            }
+            const dayByLocation = new Map(draft.items.filter(item => item.locationId).map(item => [String(item.locationId), Number(item.day || 1)]));
+            if (Array.isArray(nextCostEstimates?.costBreakdown)) {
+                nextCostEstimates = {
+                    ...nextCostEstimates,
+                    costBreakdown: nextCostEstimates.costBreakdown.map(line => dayByLocation.has(String(line.locationId)) ? { ...line, dayNumber: dayByLocation.get(String(line.locationId)) } : line)
+                };
+            }
+        }
+        const sum = Object.values(costs).reduce((value, amount) => value + (amount ?? 0), 0);
+        const hasUnknownCosts = Boolean(nextCostEstimates?.unknownCategories?.length) || Object.values(costs).some(value => value == null);
+        total = hasUnknownCosts ? null : ledger?.total ?? number(sum * (draft.costScope === 'PERSON' ? travelerCount : 1), 'Tổng chi phí');
+        update.cost_transport = costs.Transport;
+        update.cost_meals = costs.Meals;
+        update.cost_attractions = costs.Attractions;
+        update.cost_accommodation = costs.Accommodation;
+        update.cost_contingency = costs.Contingency;
+        update.cost_estimates = nextCostEstimates || null;
+        update.total_cost = total;
         // Validate all ownership and input before deleting any rows.
         const packingIds = new Set(existing.packing_items.map(item => String(item.id)));
         const keepPacking = new Set();

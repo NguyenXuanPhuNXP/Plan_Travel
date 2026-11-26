@@ -2,6 +2,7 @@ import axios from "axios";
 
 const GEOAPIFY_GEOCODE_URL = "https://api.geoapify.com/v1/geocode/search";
 const GEOAPIFY_PLACES_URL = "https://api.geoapify.com/v2/places";
+const GEOAPIFY_ROUTING_URL = "https://api.geoapify.com/v1/routing";
 
 function getApiKey() {
     const apiKey = process.env.GEOAPIFY_API_KEY;
@@ -97,4 +98,36 @@ export async function fetchPlacesByBbox({
     });
 
     return response.data?.features || [];
+}
+
+export async function fetchRouteEstimate(from, to, transportMode = 'auto') {
+    if (!validCoordinate(from) || !validCoordinate(to)) return null;
+    if (['flight', 'train'].includes(transportMode)) return null;
+    const mode = transportMode === 'motorbike' ? 'motorcycle' : transportMode === 'other' ? 'walk' : 'drive';
+    const response = await axios.get(GEOAPIFY_ROUTING_URL, {
+        timeout: 8000,
+        params: {
+            waypoints: `${Number(from.latitude ?? from.lat)},${Number(from.longitude ?? from.lng)}|${Number(to.latitude ?? to.lat)},${Number(to.longitude ?? to.lng)}`,
+            mode,
+            apiKey: getApiKey()
+        }
+    });
+    const properties = response.data?.features?.[0]?.properties;
+    const distanceMeters = Number(properties?.distance);
+    const durationSeconds = Number(properties?.time);
+    if (!Number.isFinite(distanceMeters) || !Number.isFinite(durationSeconds)) return null;
+    return {
+        distanceKm: Number((distanceMeters / 1000).toFixed(2)),
+        minutes: Math.max(1, Math.ceil(durationSeconds / 60)),
+        isEstimated: false
+    };
+}
+
+function validCoordinate(point) {
+    const rawLatitude = point?.latitude ?? point?.lat;
+    const rawLongitude = point?.longitude ?? point?.lng;
+    if (rawLatitude == null || rawLatitude === '' || rawLongitude == null || rawLongitude === '') return false;
+    const latitude = Number(rawLatitude);
+    const longitude = Number(rawLongitude);
+    return Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180;
 }

@@ -134,18 +134,20 @@ export const locationService = {
   /**
    * Tự động tạo lịch trình
    */
-  getAutoPlan: async ({ region, days, budget, preferences, selectedLocationIds, focusLocationId, travelerCount, startDate, endDate, transportMode }) => {
+  getAutoPlan: async ({ region, days, budget, preferences, selectedLocationIds, focusLocationId, travelerCount, startDate, endDate, transportMode, departureTime, maxStopsPerDay, startLocation }) => {
     const response = await apiClient.post('/suggestions/auto-plan', {
       region,
       days,
       budget,
       preferences,
       selectedLocationIds,
-      travelerCount, startDate, endDate, transportMode,
+      travelerCount, startDate, endDate, transportMode, departureTime, maxStopsPerDay, startLocation,
       focusLocationId
     }, { timeout: 70000 });
     return response.data;
   },
+
+  reviseAutoPlan: async payload => (await apiClient.post('/suggestions/revise-plan', payload, { timeout: 30000 })).data,
 
   /**
    * Tìm kiếm địa điểm theo từ khóa hoặc vùng

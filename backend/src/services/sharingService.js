@@ -438,12 +438,21 @@ function serializeSharedItinerary(it) {
         name: it.name,
         destination: it.destination,
         startLocation: it.start_location,
+        startLocationId: it.start_location_id?.toString() || null,
+        startLocationLatitude: it.start_latitude != null ? Number(it.start_latitude) : null,
+        startLocationLongitude: it.start_longitude != null ? Number(it.start_longitude) : null,
+        departureTime: it.departure_time || '08:00',
+        maxStopsPerDay: it.max_stops_per_day || 8,
         endLocation: it.end_location,
         tripDate: it.trip_date,
         startDate: it.start_time,
         endDate: it.end_time,
         totalDays: it.total_days,
         budget: it.budget ? Number(it.budget) : null,
+        travelerCount: it.traveler_count ?? 1,
+        costScope: it.cost_scope || 'PERSON',
+        costEstimates: it.cost_estimates || null,
+        totalCost: it.cost_estimates?.unknownCategories?.length ? null : (it.total_cost != null ? Number(it.total_cost) : null),
         description: it.description,
         status: it.status,
         visibility: it.visibility,
@@ -461,6 +470,14 @@ function serializeSharedItinerary(it) {
             endTime: item.planned_end_time,
             note: item.note,
             travelMinutes: item.travel_minutes,
+            travelMinutesToNext: item.travel_minutes,
+            travelDistanceKm: item.travel_distance_km != null ? Number(item.travel_distance_km) : null,
+            travelIsEstimated: Boolean(item.travel_is_estimated),
+            travelIsEstimatedToNext: Boolean(item.travel_is_estimated),
+            travelMinutesFromPrevious: item.travel_minutes_from_previous,
+            travelDistanceFromPreviousKm: item.travel_distance_from_previous_km != null ? Number(item.travel_distance_from_previous_km) : null,
+            travelIsEstimatedFromPrevious: Boolean(item.travel_is_estimated_from_previous),
+            scheduleConflict: item.schedule_conflict || null,
             location: item.locations ? {
                 id: item.locations.id?.toString(),
                 name: item.locations.name,
@@ -558,6 +575,11 @@ export async function updateSharedItinerary(shareToken, userId, data) {
     if (data.name !== undefined) updateData.name = data.name;
     if (data.destination !== undefined) updateData.destination = data.destination;
     if (data.startLocation !== undefined) updateData.start_location = data.startLocation;
+    if (data.startLocationId !== undefined) updateData.start_location_id = /^\d+$/.test(String(data.startLocationId)) ? BigInt(data.startLocationId) : null;
+    if (data.startLocationLatitude !== undefined) updateData.start_latitude = Number.isFinite(Number(data.startLocationLatitude)) ? Number(data.startLocationLatitude) : null;
+    if (data.startLocationLongitude !== undefined) updateData.start_longitude = Number.isFinite(Number(data.startLocationLongitude)) ? Number(data.startLocationLongitude) : null;
+    if (data.departureTime !== undefined) updateData.departure_time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(data.departureTime)) ? String(data.departureTime) : '08:00';
+    if (data.maxStopsPerDay !== undefined) updateData.max_stops_per_day = Math.min(20, Math.max(1, Math.trunc(Number(data.maxStopsPerDay) || 8)));
     if (data.endLocation !== undefined) updateData.end_location = data.endLocation;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.startDate !== undefined) updateData.start_time = data.startDate ? new Date(data.startDate) : null;

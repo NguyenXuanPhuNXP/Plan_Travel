@@ -5,11 +5,18 @@ import os
 import httpx
 import re
 import time
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
+
+# The service is started both from python_service and from src. Make the
+# directory containing the `ai` package importable in both cases.
+SRC_DIR = Path(__file__).resolve().parent
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 # Import logic from other files
 from ai.services.planner_service import PlannerService
-from ai.services.search_service import SearchService
 from ai.schemas.trip_plan_schema import (
     TripRecommendationRequest,
     LocationRankingRequest,
@@ -21,7 +28,6 @@ from ai.schemas.trip_plan_schema import (
 class EmbedTextRequest(BaseModel):
     text: str
 
-from pathlib import Path
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 OPEN_WEATHER_KEY = os.getenv('OPEN_WEATHER_KEY')
@@ -43,11 +49,16 @@ except Exception as e:
     print(f"Warning: Planner service initialization failed: {e}")
     planner_service = None
 
-try:
-    search_service = SearchService()
-except Exception as e:
-    print(f"Warning: Search service initialization failed: {e}")
-    search_service = None
+# Semantic search downloads the large BAAI/bge-m3 model during startup.
+# Keep it opt-in so the Gemini planner can start without a multi-GB model download.
+search_service = None
+if os.getenv("ENABLE_SEMANTIC_SEARCH", "false").strip().lower() in {"1", "true", "yes", "on"}:
+    try:
+        # Import the optional ML stack only when semantic search is enabled.
+        from ai.services.search_service import SearchService
+        search_service = SearchService()
+    except Exception as e:
+        print(f"Warning: Search service initialization failed: {e}")
 
 ai_cooldown_until = {
     "rank": 0.0,
@@ -136,23 +147,15 @@ def fallback_organize_plan(request: OrganizePlanRequest):
     if not locations:
         return {
             "planName": f"Ke hoach {request.region}",
-            "description": "Lich trinh duoc tao tu du lieu hien co.",
-            "days": [
-                {
-                    "dayNumber": 1,
-                    "title": "Ngay 1",
-                    "items": [
-                        {
-                            "locationId": None,
-                            "locationName": request.region,
-                            "startTime": "08:00",
-                            "endTime": "10:00",
-                            "note": "Kham pha khu vuc trung tam va dieu chinh lich trinh theo thuc te.",
-                            "travelMinutesToNext": 15
-                        }
-                    ]
-                }
-            ]
+            "description": "Chưa tìm thấy địa điểm thực có trong dữ liệu; không tạo điểm dừng giả. Hãy thử khu vực khác hoặc bổ sung dữ liệu địa điểm.",
+            "generationMethod": "rule-based",
+            "transport": "Chưa thể đề xuất phương tiện khi chưa có địa điểm.",
+            "accommodation": "Chưa thể đề xuất nơi lưu trú khi chưa có địa điểm.",
+            "costAllocation": {"transport": None, "accommodation": None, "meals": None, "attractions": None, "contingency": None},
+            "costBreakdown": [],
+            "risks": ["Chưa có giá xác thực; cần kiểm tra trực tiếp với nhà cung cấp."],
+            "weather": "Chưa có dự báo xác thực cho ngày đi.",
+            "days": [{"dayNumber": index + 1, "title": f"Ngày {index + 1}", "items": []} for index in range(days_count)]
         }
 
     focus_id = str(request.focusLocationId) if request.focusLocationId else None
@@ -167,17 +170,18 @@ def fallback_organize_plan(request: OrganizePlanRequest):
     for day_index in range(days_count):
         start = day_index * items_per_day
         day_locations = selected[start:start + items_per_day]
-        if not day_locations and selected:
-            day_locations = [selected[-1]]
+        if not day_locations:
+            days.append({"dayNumber": day_index + 1, "title": f"Ngày {day_index + 1}", "items": []})
+            continue
 
         day_items = []
         for item_index, loc in enumerate(day_locations[:5]):
             start_hour = min(8 + item_index * 2, 20)
             end_hour = min(start_hour + 1, 22)
             category = loc.category or "dia diem"
-            cost = int(loc.estimatedCost or 0)
+            cost = int(loc.estimatedCost) if loc.estimatedCost is not None else None
             note = f"Tham quan {category}."
-            if cost:
+            if cost is not None:
                 note += f" Chi phi du kien khoang {cost} VND."
 
             day_items.append({
@@ -199,6 +203,12 @@ def fallback_organize_plan(request: OrganizePlanRequest):
         "planName": f"Ke hoach {request.region} {days_count} ngay",
         "description": "Lich trinh fallback duoc tao khi AI tam thoi khong kha dung.",
         "generationMethod": "rule-based",
+        "transport": "Phương tiện đề xuất: xe máy hoặc ô tô tùy khoảng cách giữa các điểm." if request.transportMode in ('auto', 'other') else f"Phương tiện theo lựa chọn: {request.transportMode}.",
+        "accommodation": "Nên nghỉ tại khách sạn gần khu vực trung tâm; dành ít nhất 8 giờ nghỉ mỗi đêm." if days_count > 1 else "Không cần lưu trú qua đêm cho chuyến đi trong ngày.",
+        "costAllocation": {"transport": None, "accommodation": None, "meals": None, "attractions": None, "contingency": None},
+        "costBreakdown": [],
+        "risks": ["Lịch trình dự phòng khi Gemini không khả dụng; xác nhận giờ mở cửa, thời gian đi lại và giá trước chuyến đi."],
+        "weather": "Chưa có dự báo xác thực cho ngày đi.",
         "days": days
     }
 
@@ -216,6 +226,10 @@ class WeatherResponse(BaseModel):
 @app.get("/")
 async def health_check():
     return {"message": "PlanTravel AI & Weather Service is running"}
+
+@app.get("/health")
+async def health_probe():
+    return {"status": "ok", "service": "plantravel-python-ai"}
 
 @app.get('/api/weather', response_model=WeatherResponse)
 async def get_weather(lat: float, lon: float):

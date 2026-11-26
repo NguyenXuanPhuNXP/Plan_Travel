@@ -9,7 +9,16 @@ import { locationService } from '../services/locationService';
 import './TimelineEditor.css';
 import { itineraryDayStyle } from '../utils/itineraryDayColors';
 
-const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destination, onPlanChange, onAddCustomLocation }) => {
+const isAccommodationStop = item => /khách sạn|khach san|hotel|hostel|resort|homestay|guest.?house|accommodation|nhà nghỉ|nha nghi|lưu trú|luu tru/i.test(`${item?.locationName || ''} ${item?.location?.name || ''} ${item?.location?.category || ''} ${item?.category || ''}`);
+const warningKey = warning => `${warning.day || 'all'}-${warning.locationId || warning.location || warning.reason}`;
+const dayDeparture = (plan, dayIdx) => {
+  if (dayIdx === 0) return plan?.startLocation || null;
+  const previousItems = plan?.days?.[dayIdx - 1]?.items || [];
+  const stay = previousItems.slice().reverse().find(isAccommodationStop);
+  return stay?.location || stay || previousItems.slice().reverse().find(item => item.location)?.location || null;
+};
+
+const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destination, onPlanChange, onAddCustomLocation, maxStopsPerDay = 8, acknowledgedLongTravel = new Set(), onLongTravelAction }) => {
   const [editingPlan, setEditingPlan] = useState(null);
   const [collapsedDays, setCollapsedDays] = useState(new Set());
   const [pickerDay, setPickerDay] = useState(0);
@@ -20,6 +29,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState('');
   const [pickerResults, setPickerResults] = useState([]);
+  const [addItemNotice, setAddItemNotice] = useState('');
 
   useEffect(() => {
     if (plan?.days) {
@@ -79,6 +89,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
     setEditingPlan(prev => {
       const newDays = [...prev.days];
       newDays[dayIdx].items[itemIdx][field] = value;
+      newDays[dayIdx].items[itemIdx].scheduleConflict = null;
       return { ...prev, days: newDays };
     });
   };
@@ -100,15 +111,17 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
   };
 
   const handleAddItem = (dayIdx) => {
+    const assignedIds = new Set(editingPlan.days.flatMap(day => day.items.map(item => String(item.locationId || item.location?.id || '')).filter(Boolean)));
+    const candidate = selectedLocations.find(location => !assignedIds.has(String(location.id)));
+    if (!candidate) return;
+    const day = editingPlan.days[dayIdx];
+    const activityCount = day.items.filter(item => !isAccommodationStop(item)).length;
+    if (!isAccommodationStop(candidate) && activityCount >= maxStopsPerDay) {
+      setAddItemNotice(`Ngày ${day.dayNumber} đã đạt giới hạn ${maxStopsPerDay} điểm hoạt động. Chọn ngày khác hoặc bỏ/chuyển một điểm trước.`);
+      return;
+    }
+    setAddItemNotice('');
     setEditingPlan(prev => {
-      const assignedIds = new Set(
-        prev.days.flatMap((d) => d.items.map((item) => item.locationId).filter(Boolean))
-      );
-      const candidate = selectedLocations.find((loc) => !assignedIds.has(loc.id));
-      if (!candidate) {
-        return prev;
-      }
-
       const newDays = [...prev.days];
       const insertIndex = newDays[dayIdx].items.length;
       newDays[dayIdx].items.push({
@@ -157,6 +170,12 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
 
   const addPickedLocationToDay = (dayIdx, loc) => {
     const locId = String(loc.id);
+    const targetDay = editingPlan?.days?.[dayIdx];
+    if (targetDay && !isAccommodationStop(loc) && targetDay.items.filter(item => !isAccommodationStop(item)).length >= maxStopsPerDay) {
+      setAddItemNotice(`Ngày ${targetDay.dayNumber} đã đạt giới hạn ${maxStopsPerDay} điểm hoạt động. Chọn ngày khác hoặc bỏ/chuyển một điểm trước.`);
+      return;
+    }
+    setAddItemNotice('');
     setEditingPlan((prev) => {
       const next = { ...prev };
       const newDays = [...next.days];
@@ -301,6 +320,10 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                 <div className="timeline-line" />
                 {day.summary && <p className="timeline-plan-desc">{day.summary}</p>}
                 {day.items.some(item => item.estimatedCost != null) && <p>Ăn uống và hoạt động cả nhóm: <strong>{day.items.reduce((sum, item) => sum + Number(item.estimatedCost || 0), 0).toLocaleString('vi-VN')} VNĐ</strong> · Di chuyển, lưu trú và dự phòng tính riêng ở phần tổng chi phí.</p>}
+                {(() => { const departure = dayDeparture(editingPlan, dayIdx); const firstItem = day.items.find(item => item.startTime || item.travelMinutesFromPrevious != null); const travelMinutes = firstItem?.travelMinutesFromPrevious ?? firstItem?.travelMinutesFromStart; return <div className="timeline-departure-card">
+                  <div className="timeline-departure-icon"><Navigation size={16} /></div>
+                  <div className="timeline-departure-content"><strong>{dayIdx === 0 ? 'Khởi hành' : 'Bắt đầu từ nơi lưu trú'}</strong><span>{departure?.address || departure?.name || (dayIdx === 0 ? 'Chưa xác định vị trí khởi hành' : 'Chưa xác định nơi lưu trú ngày trước')}</span><small>{dayIdx === 0 ? `Giờ khởi hành ${editingPlan.departureTime || '08:00'}` : 'Bắt đầu lúc 08:00 sau thời gian nghỉ qua đêm'}</small>{travelMinutes > 0 && <small><Car size={13} /> Di chuyển đến điểm đầu: {travelMinutes} phút{firstItem?.travelIsEstimatedFromPrevious ?? firstItem?.travelIsEstimated ? ' (ước tính)' : ' (theo tuyến)'}</small>}</div>
+                </div>; })()}
                 <div className="timeline-day-actions">
                   <button
                     type="button"
@@ -317,6 +340,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                     <Search size={14} /> Chọn điểm đến...
                   </button>
                 </div>
+                {addItemNotice && <p role="alert" className="timeline-schedule-conflict">{addItemNotice}</p>}
 
                 <Reorder.Group
                   axis="y"
@@ -329,7 +353,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                       key={item.locationId || item.locationName || itemIdx}
                       value={item}
                     >
-                      <div className={`timeline-item ${editingItem === `${dayIdx}-${itemIdx}` ? 'editing' : ''}`}>
+                      <div className={`timeline-item ${editingItem === `${dayIdx}-${itemIdx}` ? 'editing' : ''} ${item.scheduleConflict ? 'timeline-item-conflict' : ''}`}>
                         {/* Drag handle */}
                         <div className="timeline-item-drag">
                           <GripVertical size={16} />
@@ -374,10 +398,18 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                             />
                             {item.travelMinutesToNext > 0 && (
                               <span className="timeline-travel-badge">
-                                <Car size={13} aria-hidden="true" /> {item.travelMinutesToNext} phút
+                                <Car size={13} aria-hidden="true" /> Đến điểm tiếp theo: {item.travelMinutesToNext} phút{item.travelIsEstimatedToNext ? ' (ước tính)' : ' (theo tuyến)'}
                               </span>
                             )}
                           </div>
+                          {item.scheduleConflict && <p className="timeline-schedule-conflict" role="alert"><strong>Chưa xếp được thời gian:</strong> {item.scheduleConflict}. Chọn cảnh báo phía trên để xem trước phương án, hoặc chỉnh lịch thủ công.</p>}
+                          {item.movedFromDay && <p className="timeline-overnight-note"><Navigation size={14} /> Đã chuyển từ Ngày {item.movedFromDay} sang Ngày {item.movedToDay} để không vượt quá 23:59.</p>}
+                          {isAccommodationStop(item) && item.overnightRestMinutes >= 8 * 60 && <p className="timeline-overnight-note"><Moon size={14} /> Nghỉ qua đêm từ {item.startTime || 'giờ đến nơi'} đến {item.overnightRestContinuesNextDay ? 'ngày hôm sau' : item.endTime || 'sáng hôm sau'} (dự kiến ít nhất 8 giờ).</p>}
+                          {plan?.warnings?.filter(warning => !warning.longTravel && (warning.locationId != null ? String(warning.locationId) === String(item.locationId || item.location?.id) : warning.location && warning.location === (item.locationName || item.location?.name))).map(warning => {
+                            const key = warningKey(warning);
+                            if (warning.longTravel && acknowledgedLongTravel.has(key)) return null;
+                            return <div className="timeline-inline-warning" key={key} role="alert"><strong>Cảnh báo cho điểm này:</strong> {warning.reason}{warning.suggestedTransport && <span> Gợi ý: {warning.suggestedTransport === 'flight' ? 'cân nhắc máy bay' : warning.suggestedTransport === 'train' ? 'cân nhắc tàu hỏa' : `xem xét ${warning.suggestedTransport}`}.</span>}{warning.longTravel && onLongTravelAction && <div className="timeline-warning-actions"><button type="button" className="btn btn-outline" onClick={() => onLongTravelAction(warning, 'change_dates')}>Đổi ngày</button><button type="button" className="btn btn-outline" onClick={() => onLongTravelAction(warning, 'change_locations')}>Đổi địa điểm</button><button type="button" className="btn btn-outline" onClick={() => onLongTravelAction(warning, 'continue')}>Tiếp tục</button><button type="button" className="btn btn-outline" onClick={() => onLongTravelAction(warning, 'cancel')}>Hủy tạo lịch</button></div>}</div>;
+                          })}
 
                           {/* Location details */}
                           {item.activityDescription && <p>{item.activityDescription}</p>}
