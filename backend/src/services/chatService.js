@@ -1,4 +1,5 @@
 import prisma from "../config/db.js";
+import { idOf, pageInput } from './mobileInput.js';
 
 function serializeMessage(msg) {
     return {
@@ -23,24 +24,25 @@ function serializeItineraryMessage(msg) {
     };
 }
 
-export async function getMessages(userId, friendId) {
-    const user1 = BigInt(userId);
-    const user2 = BigInt(friendId);
+export async function getMessages(userId, friendId, page = null) {
+    const user1 = idOf(userId);
+    const user2 = idOf(friendId);
+    const { take, before } = page ? pageInput(page) : { take: 100, before: null };
 
     const messages = await prisma.user_messages.findMany({
         where: {
+            ...(before ? { id: { lt: before } } : {}),
             OR: [
                 { sender_id: user1, receiver_id: user2 },
                 { sender_id: user2, receiver_id: user1 }
             ]
         },
-        orderBy: {
-            created_at: "asc"
-        },
-        take: 100 // limit to last 100 messages for now
+        orderBy: { id: 'desc' },
+        take: take + (page ? 1 : 0)
     });
 
-    return messages.map(serializeMessage);
+    const items = messages.slice(0, take).reverse().map(serializeMessage);
+    return page ? { items, nextCursor: messages.length > take ? items[0].id : null } : items;
 }
 
 export async function sendMessage(userId, friendId, content) {
@@ -216,9 +218,10 @@ export async function getTripGroups(userId) {
 /**
  * Lấy lịch sử tin nhắn trong nhóm chat chuyến đi
  */
-export async function getTripGroupMessages(itineraryId, userId) {
-    const itId = BigInt(itineraryId);
-    const uId = BigInt(userId);
+export async function getTripGroupMessages(itineraryId, userId, page = null) {
+    const itId = idOf(itineraryId);
+    const uId = idOf(userId);
+    const { take, before } = page ? pageInput(page) : { take: 200, before: null };
 
     const it = await prisma.itineraries.findUnique({
         where: { id: itId },
@@ -239,17 +242,18 @@ export async function getTripGroupMessages(itineraryId, userId) {
     }
 
     const messages = await prisma.itinerary_messages.findMany({
-        where: { itinerary_id: itId },
+        where: { itinerary_id: itId, ...(before ? { id: { lt: before } } : {}) },
         include: {
             sender: {
                 select: { id: true, full_name: true, avatar_url: true }
             }
         },
-        orderBy: { created_at: "asc" },
-        take: 200
+        orderBy: { id: 'desc' },
+        take: take + (page ? 1 : 0)
     });
 
-    return messages.map(serializeItineraryMessage);
+    const items = messages.slice(0, take).reverse().map(serializeItineraryMessage);
+    return page ? { items, nextCursor: messages.length > take ? items[0].id : null } : items;
 }
 
 /**

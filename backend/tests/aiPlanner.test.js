@@ -29,7 +29,7 @@ test('AI requests normalize selected IDs, preserve zero budget and reject invali
     }
 });
 
-test('AI requests require a departure date from today and accept a requested daily stop count', () => {
+test('AI requests require a departure date from today and enforce the eight-stop daily maximum', () => {
     const now = new Date();
     now.setDate(now.getDate() - 1);
     const pad = value => String(value).padStart(2, '0');
@@ -40,8 +40,9 @@ test('AI requests require a departure date from today and accept a requested dai
     const futureEnd = new Date(futureDate);
     futureEnd.setDate(futureEnd.getDate() + 2);
     const future = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-    const result = parseAiPlannerInput({ region: 'Hà Nội', startDate: future(futureDate), endDate: future(futureEnd), maxStopsPerDay: 12 });
-    assert.equal(result.maxStopsPerDay, 12);
+    const result = parseAiPlannerInput({ region: 'Hà Nội', startDate: future(futureDate), endDate: future(futureEnd), maxStopsPerDay: 8 });
+    assert.equal(result.maxStopsPerDay, 8);
+    assert.throws(() => parseAiPlannerInput({ region: 'Hà Nội', maxStopsPerDay: 9 }), error => error.status === 400 && /1 đến 8/.test(error.message));
 });
 
 test('AI planner rejects blank departure coordinates without treating them as zero', () => {

@@ -405,7 +405,7 @@ const TimelineEditor = ({ plan, selectedLocations = [], totalDays = 3, destinati
                             )}
                           </div>
                           {item.scheduleConflict && <p className="timeline-schedule-conflict" role="alert"><strong>Chưa xếp được thời gian:</strong> {item.scheduleConflict}. Chọn cảnh báo phía trên để xem trước phương án, hoặc chỉnh lịch thủ công.</p>}
-                          {item.movedFromDay && <p className="timeline-overnight-note"><Navigation size={14} /> Đã chuyển từ Ngày {item.movedFromDay} sang Ngày {item.movedToDay} để không vượt quá 23:59.</p>}
+                          {item.movedFromDay && <p className="timeline-overnight-note"><Navigation size={14} /> Đã chuyển từ Ngày {item.movedFromDay} sang Ngày {item.movedToDay} để không vượt quá 21:30.</p>}
                           {isAccommodationStop(item) && item.overnightRestMinutes >= 8 * 60 && <p className="timeline-overnight-note"><Moon size={14} /> Nghỉ qua đêm từ {item.startTime || 'giờ đến nơi'} đến {item.overnightRestContinuesNextDay ? 'ngày hôm sau' : item.endTime || 'sáng hôm sau'} (dự kiến ít nhất 8 giờ).</p>}
                           {plan?.warnings?.filter(warning => !warning.longTravel && (warning.locationId != null ? String(warning.locationId) === String(item.locationId || item.location?.id) : warning.location && warning.location === (item.locationName || item.location?.name))).map(warning => {
                             const key = warningKey(warning);

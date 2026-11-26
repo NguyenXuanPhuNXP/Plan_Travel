@@ -94,7 +94,7 @@ export async function savePlan(itineraryId, userId, draft) {
             start_location: text(draft.startLocation, 255, 'Điểm khởi hành'), end_location: text(draft.endLocation, 255, 'Điểm kết thúc'),
             start_location_id: draft.startLocationId ? id(draft.startLocationId) : null,
             start_latitude: coordinate(draft.startLocationLatitude, 'Vĩ độ vị trí khởi hành', -90, 90), start_longitude: coordinate(draft.startLocationLongitude, 'Kinh độ vị trí khởi hành', -180, 180),
-            departure_time: clock(draft.departureTime || '08:00'), max_stops_per_day: boundedNumber(draft.maxStopsPerDay || 8, 'Số địa điểm tối đa mỗi ngày', 20, true),
+            departure_time: clock(draft.departureTime || '08:00'), max_stops_per_day: boundedNumber(draft.maxStopsPerDay || 8, 'Số địa điểm tối đa mỗi ngày', 8, true),
             start_time: start, end_time: end, trip_date: calendarStart,
             total_days: calendarStart && calendarEnd ? Math.round((Date.UTC(calendarEnd.getUTCFullYear(), calendarEnd.getUTCMonth(), calendarEnd.getUTCDate()) - Date.UTC(calendarStart.getUTCFullYear(), calendarStart.getUTCMonth(), calendarStart.getUTCDate())) / 86400000) + 1 : Math.max(1, number(draft.totalDays || 1, 'Số ngày', 365, true)),
             traveler_count: travelerCount, transport_mode: text(draft.transportMode, 100, 'Phương tiện'),

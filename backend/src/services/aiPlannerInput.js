@@ -18,7 +18,7 @@ export function parseAiPlannerInput(body = {}) {
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(departureTime)) invalid('Giờ khởi hành phải có định dạng HH:mm.');
     const maxStopsPerDay = body.maxStopsPerDay == null || body.maxStopsPerDay === '' || body.maxStopsPerDay === 'auto'
         ? 8 : Number(body.maxStopsPerDay);
-    if (!Number.isInteger(maxStopsPerDay) || maxStopsPerDay < 1 || maxStopsPerDay > 20) invalid('Số địa điểm tối đa mỗi ngày phải từ 1 đến 20.');
+    if (!Number.isInteger(maxStopsPerDay) || maxStopsPerDay < 1 || maxStopsPerDay > 8) invalid('Số địa điểm tối đa mỗi ngày phải từ 1 đến 8.');
     const startLocation = normalizeStartLocation(body.startLocation, invalid);
     const startDate = body.startDate || null;
     const endDate = body.endDate || null;
