@@ -2,24 +2,32 @@
 
 Flutter companion app for personal trip execution and opt-in group location sharing. Android 8.0/API 26 or newer. Uses the same Express API and accounts as the web app.
 
+The initial mobile design uses Android Material controls and follows the system light or dark theme. The trip list puts an active trip first. Within a trip, the next stop stands out from the other stops, and the group map stays one tap away.
+
+The redesigned home has Home, Explore, Trips, Feed and Profile tabs, the web wordmark, a matching Android launcher/splash/notification mark, a traveler menu, and destination content/photos shared with the web. The additional AI, feed, business, settings and inbox screens are explicitly labeled UI prototypes and do not submit data. Destination sheets still open the real prefilled plan editor. Design references, preview instructions and verification notes are in [design/RESEARCH.md](design/RESEARCH.md). Run `flutter run -t tool/design_preview.dart` for an isolated sample with no backend requests; run `flutter run --dart-define-from-file=.env` for the real app.
+
 ## Run
 
 Install Flutter stable compatible with the SDK constraint in `pubspec.yaml`, Android SDK, and Java. From this directory:
 
 ```powershell
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
 flutter pub get
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api
+flutter run --dart-define-from-file=.env
 ```
 
 `10.0.2.2` reaches the development computer from the Android emulator. For a physical phone use the computer's LAN address and allow the API port through its firewall. HTTP is enabled only in Android debug builds. Release requires an HTTPS API and your own signing key; no release signing secrets are checked in.
 
-For native Google sign-in, register Android package `vn.plantravel.plantravel_mobile` and its signing certificate in Google Cloud. Supply the Web/server OAuth client ID to the build and backend:
+For native Google sign-in, register Android package `vn.plantravel.plantravel_mobile` and its signing certificate in Google Cloud. Set `GOOGLE_SERVER_CLIENT_ID` in `.env` to your Web/server OAuth client ID:
 
 ```powershell
-flutter run --dart-define=API_BASE_URL=https://api.example.com/api --dart-define=GOOGLE_SERVER_CLIENT_ID=YOUR_WEB_CLIENT_ID --dart-define=GEOAPIFY_API_KEY=YOUR_MAP_KEY
+flutter run --dart-define-from-file=.env
+flutter build apk --release --dart-define-from-file=.env
 ```
 
 Backend configuration: `GOOGLE_MOBILE_SERVER_CLIENT_ID` must match `GOOGLE_SERVER_CLIENT_ID`; `GOOGLE_MOBILE_CLIENT_IDS` lists the allowed token authorized-party (`azp`) client IDs for your registered Android/server clients. The server verifies audience, presenter, issuer, signature, expiry and verified email. Password sign-in works independently. If the map key is omitted, the development map uses OpenStreetMap tiles with attribution; configure the existing Geoapify provider for deployment.
+
+Configuration lives in `mobile/.env` (ignored by Git); `mobile/.env.example` lists all supported values. Flutter reads this file at run/build time, so restart or rebuild after edits. It is not bundled as a raw asset. Only put client configuration here: compiled client values can be extracted from the app; server secrets stay in `backend/.env`. Fixed asset paths and editorial source/credit links remain with their content.
 
 ## What is implemented
 
@@ -48,10 +56,10 @@ node src/scripts/testMobile.js --serve
 This creates a random `plantravel_mobile_test_*` database, deploys migrations, runs API integration checks, seeds demo accounts, and serves port 5011. Stop it with Ctrl+C to close the server and drop that temporary database. Use a local MySQL account allowed to create/drop databases.
 
 ```powershell
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5011/api
+flutter run --dart-define-from-file=.env --dart-define=API_BASE_URL=http://10.0.2.2:5011/api
 flutter analyze
 flutter test
-flutter build apk --debug
+flutter build apk --debug --dart-define-from-file=.env
 ```
 
 The test preview uses demo traveler `an.nguyen.traveler@gmail.com` / `travel123456`, and `linh.le.wanderlust@gmail.com` / `travel123456`. Do not use these demo credentials in deployment.

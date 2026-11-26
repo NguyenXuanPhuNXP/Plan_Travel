@@ -7,11 +7,98 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'api_client.dart';
+import 'app_config.dart';
+import 'brand_logo.dart';
 import 'location_sharing.dart';
+import 'home_view.dart';
 import 'plan_editor.dart';
+import 'travel_cover.dart';
 
-const forest = Color(0xff173e32);
-const paper = Color(0xfff7f7ef);
+const forest = Color(0xff4f685d);
+const paper = Color(0xffeef1ed);
+
+ThemeData travelTheme(Brightness brightness) {
+  final dark = brightness == Brightness.dark;
+  final colors = ColorScheme.fromSeed(seedColor: forest, brightness: brightness)
+      .copyWith(
+        primary: dark ? const Color(0xffaabdb0) : forest,
+        onPrimary: dark ? const Color(0xff203329) : const Color(0xfff7f9f5),
+        primaryContainer: dark
+            ? const Color(0xff34463c)
+            : const Color(0xffdce5dc),
+        onPrimaryContainer: dark
+            ? const Color(0xffdce5dc)
+            : const Color(0xff354c40),
+        secondaryContainer: dark
+            ? const Color(0xff34463c)
+            : const Color(0xffdce5dc),
+        onSecondaryContainer: dark
+            ? const Color(0xffdce5dc)
+            : const Color(0xff354c40),
+        surface: dark ? const Color(0xff191e1b) : paper,
+        surfaceContainerLowest: dark
+            ? const Color(0xff171c19)
+            : const Color(0xfff6f7f3),
+        surfaceContainerLow: dark
+            ? const Color(0xff202722)
+            : const Color(0xffe8ede7),
+        surfaceContainer: dark
+            ? const Color(0xff252d27)
+            : const Color(0xffe5eae3),
+        surfaceContainerHigh: dark
+            ? const Color(0xff2b332d)
+            : const Color(0xffe1e7df),
+        surfaceContainerHighest: dark
+            ? const Color(0xff333c34)
+            : const Color(0xffdce3da),
+        onSurface: dark ? const Color(0xffd5ddd5) : const Color(0xff303c33),
+        onSurfaceVariant: dark
+            ? const Color(0xffb1bdb2)
+            : const Color(0xff57665b),
+        outline: dark ? const Color(0xff859287) : const Color(0xff7a887c),
+        outlineVariant: dark
+            ? const Color(0xff3d4940)
+            : const Color(0xffd4ddd2),
+      );
+  return ThemeData(
+    colorScheme: colors,
+    scaffoldBackgroundColor: colors.surface,
+    appBarTheme: AppBarTheme(
+      backgroundColor: colors.surface,
+      scrolledUnderElevation: 0,
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: colors.surfaceContainerLowest,
+      indicatorColor: colors.primaryContainer,
+      elevation: 0,
+    ),
+    dividerTheme: DividerThemeData(color: colors.outlineVariant, thickness: .5),
+    cardTheme: CardThemeData(
+      color: colors.surfaceContainerLowest,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: colors.outlineVariant),
+        borderRadius: BorderRadius.circular(16),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: colors.surfaceContainerLow,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: colors.outlineVariant),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(minimumSize: const Size(48, 52)),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+    ),
+  );
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,21 +114,8 @@ class PlanTravelApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'PlanTravel',
     debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: forest,
-        primary: forest,
-        surface: paper,
-      ),
-      scaffoldBackgroundColor: paper,
-      useMaterial3: true,
-      inputDecorationTheme: const InputDecorationTheme(
-        border: OutlineInputBorder(),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(minimumSize: const Size(48, 52)),
-      ),
-    ),
+    theme: travelTheme(Brightness.light),
+    darkTheme: travelTheme(Brightness.dark),
     home: ListenableBuilder(
       listenable: api,
       builder: (context, _) =>
@@ -83,7 +157,7 @@ class _AuthPageState extends State<AuthPage> {
     try {
       Json data;
       if (google) {
-        const clientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+        const clientId = AppConfig.googleServerClientId;
         if (clientId.isEmpty) {
           throw ApiException(
             0,
@@ -149,9 +223,10 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
-      child: Center(
+      child: Align(
+        alignment: Alignment.topCenter,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460),
             child: Form(
@@ -159,18 +234,28 @@ class _AuthPageState extends State<AuthPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.explore_outlined, size: 48, color: forest),
-                  const SizedBox(height: 20),
-                  Text(
-                    'PlanTravel',
-                    style: Theme.of(context).textTheme.headlineLarge
-                        ?.copyWith(color: forest, fontWeight: FontWeight.w700),
+                  TravelCover(
+                    image: 'assets/ha-long.jpg',
+                    minHeight: 200,
+                    radius: const BorderRadius.vertical(
+                      bottom: Radius.circular(28),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const BrandLogo(width: 240, onPhoto: true),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Vịnh Hạ Long, Quảng Ninh',
+                          style: TextStyle(color: travelLime),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text('Lên kế hoạch. Cùng nhau lên đường.'),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   Text(
-                    register ? 'Tạo tài khoản' : 'Chào bạn trở lại',
+                    register ? 'Tạo tài khoản' : 'Chào mừng bạn trở lại',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 20),
@@ -185,7 +270,10 @@ class _AuthPageState extends State<AuthPage> {
                   ],
                   TextFormField(
                     controller: email,
-                    decoration: const InputDecoration(labelText: 'Email'),
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.mail_outline),
+                    ),
                     keyboardType: TextInputType.emailAddress,
                     autofillHints: const [AutofillHints.email],
                     validator: (value) =>
@@ -194,7 +282,10 @@ class _AuthPageState extends State<AuthPage> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: password,
-                    decoration: const InputDecoration(labelText: 'Mật khẩu'),
+                    decoration: const InputDecoration(
+                      labelText: 'Mật khẩu',
+                      prefixIcon: Icon(Icons.lock_outline),
+                    ),
                     obscureText: true,
                     validator: (value) => value!.length >= 6
                         ? null
@@ -300,94 +391,39 @@ class _TripsPageState extends State<TripsPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Chuyến đi của bạn'),
-      actions: [
-        IconButton(
-          onPressed: logout,
-          tooltip: 'Đăng xuất',
-          icon: const Icon(Icons.logout),
-        ),
-      ],
-    ),
-    floatingActionButton: FloatingActionButton.extended(
-      onPressed: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => PlanEditor(api: widget.api)),
-        );
-        if (mounted) load();
-      },
-      icon: const Icon(Icons.add),
-      label: const Text('Lập kế hoạch'),
-    ),
-    body: RefreshIndicator(
-      onRefresh: load,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-        children: [
-          Text(
-            'Sẵn sàng lên đường?',
-            style: Theme.of(context).textTheme.headlineMedium
-                ?.copyWith(fontWeight: FontWeight.w600, color: forest),
-          ),
-          const SizedBox(height: 8),
-          const Text('Kế hoạch của bạn, tiến độ của riêng bạn.'),
-          const SizedBox(height: 24),
-          if (error != null) ...[
-            Text(error.toString()),
-            TextButton(onPressed: load, child: const Text('Thử lại')),
-          ],
-          if (!loading && trips.isEmpty && error == null)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: Text(
-                'Chưa có chuyến đi. Tạo kế hoạch đầu tiên để bắt đầu.',
-              ),
-            ),
-          for (final trip in trips)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Card(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(20),
-                  title: Text(
-                    trip['name'] as String,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      '${trip['destination'] ?? 'Chưa chọn điểm đến'} · ${trip['stopCount']} điểm\n${{'active': 'Đang thực hiện', 'finished': 'Đã kết thúc', 'cancelled': 'Đã dừng'}[trip['executionStatus']] ?? 'Chưa bắt đầu'}',
-                    ),
-                  ),
-                  trailing: const Icon(Icons.arrow_forward),
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ExecutionPage(
-                          api: widget.api,
-                          tripId: trip['id'] as String,
-                        ),
-                      ),
-                    );
-                    if (mounted) load();
-                  },
-                ),
-              ),
-            ),
-          if (loading) const Center(child: CircularProgressIndicator()),
-          if (!loading && cursor != null)
-            OutlinedButton(
-              onPressed: () => load(more: true),
-              child: const Text('Xem thêm chuyến đi'),
-            ),
-        ],
+  Future<void> createPlan([String? destination]) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PlanEditor(api: widget.api, destination: destination),
       ),
-    ),
+    );
+    if (mounted) load();
+  }
+
+  Future<void> openTrip(Json trip) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            ExecutionPage(api: widget.api, tripId: trip['id'] as String),
+      ),
+    );
+    if (mounted) load();
+  }
+
+  @override
+  Widget build(BuildContext context) => TravelHome(
+    user: widget.api.user,
+    trips: trips,
+    loading: loading,
+    hasMore: cursor != null,
+    error: error,
+    refresh: load,
+    loadMore: () => load(more: true),
+    logout: logout,
+    createPlan: createPlan,
+    openTrip: openTrip,
   );
 }
 
@@ -590,30 +626,48 @@ class _ExecutionPageState extends State<ExecutionPage>
                 20 + MediaQuery.viewPaddingOf(context).bottom,
               ),
               children: [
-                Text(
-                  execution?['snapshot']['name'] as String? ??
-                      plan?['name'] as String? ??
-                      'Chuyến đi',
-                  style: Theme.of(context).textTheme.headlineMedium
-                      ?.copyWith(color: forest, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  execution == null
-                      ? 'Xem lại kế hoạch trước khi bắt đầu.'
-                      : 'Tiến độ cá nhân · $completed/${stops.length} điểm',
-                ),
-                if (execution != null) ...[
-                  const SizedBox(height: 12),
-                  LinearProgressIndicator(
-                    value: stops.isEmpty ? 0 : completed / stops.length,
+                TravelCover(
+                  minHeight: 144,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        execution?['snapshot']['name'] as String? ??
+                            plan?['name'] as String? ??
+                            'Chuyến đi',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (execution == null)
+                        const Text('Xem lại lịch trình trước khi bắt đầu.')
+                      else ...[
+                        Text(
+                          'Đã xử lý $completed/${stops.length} điểm',
+                          style: const TextStyle(
+                            color: travelLime,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        LinearProgressIndicator(
+                          value: stops.isEmpty ? 0 : completed / stops.length,
+                          color: travelLime,
+                          backgroundColor: const Color(0xff37515b),
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(4),
+                          ),
+                          minHeight: 6,
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Theo lịch trình lúc bắt đầu. Sửa kế hoạch gốc không đổi chuyến đang đi.',
-                  ),
-                ],
-                const SizedBox(height: 20),
+                ),
+                const SizedBox(height: 12),
                 if (execution == null) ...[
                   FilledButton.icon(
                     onPressed: busy || stops.isEmpty
@@ -690,7 +744,10 @@ class _ExecutionPageState extends State<ExecutionPage>
                 if (busy) const LinearProgressIndicator(),
                 if (map) ...[
                   if (locationError != null) Text(locationError!),
-                  GroupMap(members: members),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: GroupMap(members: members),
+                  ),
                   if (members.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 20),
@@ -701,7 +758,9 @@ class _ExecutionPageState extends State<ExecutionPage>
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(
                         Icons.person_pin_circle,
-                        color: member['stale'] == true ? Colors.brown : forest,
+                        color: member['stale'] == true
+                            ? Theme.of(context).colorScheme.tertiary
+                            : Theme.of(context).colorScheme.primary,
                       ),
                       title: Text(member['name'] as String),
                       subtitle: Text(
@@ -714,20 +773,25 @@ class _ExecutionPageState extends State<ExecutionPage>
                       'Chưa có điểm dừng. Thêm điểm trước khi bắt đầu.',
                     ),
                   for (final (index, stop) in stops.indexed)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                    StopTimelineRow(
+                      status: stop['status'] as String?,
+                      isNext: execution?['nextStopId'] == stop['id'],
+                      isLast: index == stops.length - 1,
                       child: Card(
+                        color: execution?['nextStopId'] == stop['id']
+                            ? Theme.of(context).colorScheme.primaryContainer
+                            : null,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Text(
-                                'NGÀY ${stop['day'] ?? 1} · ĐIỂM ${index + 1}${execution?['nextStopId'] == stop['id'] ? ' · TIẾP THEO' : ''}',
-                                style: const TextStyle(
+                                'Ngày ${stop['day'] ?? 1} · Điểm ${index + 1}${execution?['nextStopId'] == stop['id'] ? ' · Tiếp theo' : ''}',
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
-                                  color: forest,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -738,12 +802,18 @@ class _ExecutionPageState extends State<ExecutionPage>
                                     'Điểm dừng',
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                stop['address'] as String? ??
-                                    stop['location']?['address'] as String? ??
-                                    '',
-                              ),
+                              if ((stop['address'] ??
+                                      stop['location']?['address'] ??
+                                      '')
+                                  .toString()
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  (stop['address'] ??
+                                          stop['location']?['address'])
+                                      .toString(),
+                                ),
+                              ],
                               if (execution != null)
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -834,7 +904,7 @@ class GroupMap extends StatelessWidget {
   const GroupMap({super.key, required this.members});
   @override
   Widget build(BuildContext context) {
-    const key = String.fromEnvironment('GEOAPIFY_API_KEY');
+    const key = AppConfig.geoapifyApiKey;
     final points = members
         .map(
           (member) => LatLng(
@@ -862,9 +932,7 @@ class GroupMap extends StatelessWidget {
         ),
         children: [
           TileLayer(
-            urlTemplate: key.isEmpty
-                ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-                : 'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=$key',
+            urlTemplate: AppConfig.mapTileUrl,
             userAgentPackageName: 'vn.plantravel.plantravel_mobile',
           ),
           MarkerLayer(
@@ -891,9 +959,7 @@ class GroupMap extends StatelessWidget {
             attributions: [
               TextSourceAttribution(
                 '© OpenStreetMap${key.isEmpty ? '' : ' · Geoapify'}',
-                onTap: () => launchUrl(
-                  Uri.parse('https://www.openstreetmap.org/copyright'),
-                ),
+                onTap: () => launchUrl(Uri.parse(AppConfig.mapAttributionUrl)),
               ),
             ],
           ),

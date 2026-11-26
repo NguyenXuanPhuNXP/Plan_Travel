@@ -10,9 +10,40 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
 
+  test('API configuration rejects missing or malformed base URLs', () {
+    for (final base in [
+      '',
+      '/api',
+      'ftp://api.example.test',
+      'https://user:secret@api.example.test/api',
+      'https://api.example.test/api?token=secret',
+    ]) {
+      expect(() => ApiClient(base: base), throwsArgumentError);
+    }
+  });
+
+  test(
+    'A configured base with trailing slashes preserves the API path',
+    () async {
+      final api = ApiClient(
+        base: 'https://api.example.test/api///',
+        client: MockClient((request) async {
+          expect(
+            request.url.toString(),
+            'https://api.example.test/api/itineraries',
+          );
+          return http.Response('{}', 200);
+        }),
+      );
+      await api.request('GET', '/itineraries', authenticated: false);
+      api.dispose();
+    },
+  );
+
   test('Concurrent expired requests share one refresh and preserve the rotated session', () async {
     var refreshes = 0;
     final api = ApiClient(
+      base: 'https://api.example.test/api',
       client: MockClient((request) async {
         if (request.url.path.endsWith('/auth/refresh')) {
           refreshes++;
@@ -51,6 +82,7 @@ void main() {
 
   test('A failed refresh cannot erase another account signed in while it was pending', () async {
     final api = ApiClient(
+      base: 'https://api.example.test/api',
       client: MockClient((request) async {
         if (request.url.path.endsWith('/auth/refresh')) {
           await Future<void>.delayed(const Duration(milliseconds: 30));

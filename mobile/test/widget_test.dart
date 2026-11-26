@@ -29,6 +29,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       final api = ApiClient(
+        base: 'https://api.example.test/api',
         client: MockClient((_) async => http.Response('{}', 200)),
       );
       await tester.pumpWidget(PlanTravelApp(api: api));
@@ -48,6 +49,7 @@ void main() {
     (tester) async {
       Json? saved;
       final api = ApiClient(
+        base: 'https://api.example.test/api',
         client: MockClient((request) async {
           saved = jsonDecode(request.body) as Json;
           return http.Response('{}', 200);
@@ -124,6 +126,7 @@ void main() {
     (tester) async {
       var status = 'pending', version = 0, requests = 0;
       final api = ApiClient(
+        base: 'https://api.example.test/api',
         client: MockClient((request) async {
           if (request.method == 'PATCH') {
             requests++;
@@ -198,6 +201,7 @@ void main() {
     (tester) async {
       var enabled = true;
       final api = ApiClient(
+        base: 'https://api.example.test/api',
         client: MockClient((request) async {
           if (request.url.path.endsWith('/member-locations')) {
             return http.Response('{"items":[]}', 200);

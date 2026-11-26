@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+import 'app_config.dart';
+
 typedef Json = Map<String, dynamic>;
 
 class ApiException implements Exception {
@@ -17,10 +19,7 @@ class ApiException implements Exception {
 }
 
 class ApiClient extends ChangeNotifier {
-  static const defaultBase = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:5000/api',
-  );
+  static const defaultBase = AppConfig.apiBaseUrl;
   final String base;
   final http.Client _http;
   final FlutterSecureStorage _storage;
@@ -31,12 +30,24 @@ class ApiClient extends ChangeNotifier {
   bool get signedIn => _session != null;
 
   ApiClient({
-    this.base = defaultBase,
+    String base = defaultBase,
     http.Client? client,
     FlutterSecureStorage? storage,
-  }) : _http = client ?? http.Client(),
+  }) : base = base.replaceFirst(RegExp(r'/+$'), ''),
+       _http = client ?? http.Client(),
        _storage = storage ?? const FlutterSecureStorage() {
-    if (!kDebugMode && Uri.parse(base).scheme != 'https') {
+    final uri = Uri.tryParse(this.base);
+    if (uri == null ||
+        !['http', 'https'].contains(uri.scheme) ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      throw ArgumentError(
+        'API_BASE_URL chưa hợp lệ. Cấu hình mobile/.env rồi chạy Flutter với --dart-define-from-file=.env.',
+      );
+    }
+    if (!kDebugMode && uri.scheme != 'https') {
       throw ArgumentError('Release builds require HTTPS.');
     }
   }
