@@ -231,10 +231,14 @@ export async function updateItinerary(itineraryId, userId, data) {
     const updateData = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.destination !== undefined) updateData.destination = data.destination;
-    if (data.startLocation !== undefined) updateData.start_location = data.startLocation;
+    if (data.startLocation !== undefined) updateData.start_location = startLocationName(data.startLocation);
     if (data.startLocationId !== undefined) updateData.start_location_id = toBigIntId(data.startLocationId);
-    if (data.startLocationLatitude !== undefined) updateData.start_latitude = validLatitude(data.startLocationLatitude);
-    if (data.startLocationLongitude !== undefined) updateData.start_longitude = validLongitude(data.startLocationLongitude);
+    if (data.startLocationLatitude !== undefined || isStartLocationObject(data.startLocation)) {
+        updateData.start_latitude = validLatitude(data.startLocationLatitude ?? data.startLocation.latitude ?? data.startLocation.lat);
+    }
+    if (data.startLocationLongitude !== undefined || isStartLocationObject(data.startLocation)) {
+        updateData.start_longitude = validLongitude(data.startLocationLongitude ?? data.startLocation.longitude ?? data.startLocation.lng);
+    }
     if (data.departureTime !== undefined) updateData.departure_time = validDepartureTime(data.departureTime);
     if (data.maxStopsPerDay !== undefined) updateData.max_stops_per_day = validMaxStops(data.maxStopsPerDay);
     if (data.endLocation !== undefined) updateData.end_location = data.endLocation;
@@ -588,6 +592,7 @@ function nullableStoredCost(value) {
 }
 
 function buildItineraryData(userId, data) {
+    const startLocation = isStartLocationObject(data.startLocation) ? data.startLocation : null;
     const travelerCount = Math.max(1, Number(data.travelerCount) || 1);
     const costTransport = toDecimalNumber(data.costTransport);
     const costMeals = toDecimalNumber(data.costMeals);
@@ -608,10 +613,10 @@ function buildItineraryData(userId, data) {
         user_id: BigInt(userId),
         name: data.name || data.title,
         destination: data.destination || null,
-        start_location: data.startLocation || null,
+        start_location: startLocationName(data.startLocation),
         start_location_id: toBigIntId(data.startLocationId),
-        start_latitude: validLatitude(data.startLocationLatitude),
-        start_longitude: validLongitude(data.startLocationLongitude),
+        start_latitude: validLatitude(data.startLocationLatitude ?? startLocation?.latitude ?? startLocation?.lat),
+        start_longitude: validLongitude(data.startLocationLongitude ?? startLocation?.longitude ?? startLocation?.lng),
         departure_time: validDepartureTime(data.departureTime),
         max_stops_per_day: validMaxStops(data.maxStopsPerDay),
         end_location: data.endLocation || null,
@@ -635,6 +640,16 @@ function buildItineraryData(userId, data) {
         status: data.status || "draft",
         visibility: data.visibility || "private"
     };
+}
+
+function isStartLocationObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function startLocationName(value) {
+    if (value == null || value === '') return null;
+    if (!isStartLocationObject(value)) return String(value);
+    return String(value.address ?? value.name ?? '').trim() || null;
 }
 
 function buildItemData(itineraryId, item, sortOrder) {

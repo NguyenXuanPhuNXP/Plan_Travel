@@ -151,7 +151,7 @@ export async function joinGroupByInvite(inviteToken, userId) {
                     content: `[Hệ thống] ${joiningUser?.full_name || 'Thành viên mới'} đã tham gia nhóm qua link mời!`
                 }
             });
-        } catch (e) {}
+        } catch (e) { }
     }
 
     const updated = await prisma.itineraries.findUnique({
@@ -579,7 +579,7 @@ export async function updateSharedItinerary(shareToken, userId, data) {
     if (data.startLocationLatitude !== undefined) updateData.start_latitude = Number.isFinite(Number(data.startLocationLatitude)) ? Number(data.startLocationLatitude) : null;
     if (data.startLocationLongitude !== undefined) updateData.start_longitude = Number.isFinite(Number(data.startLocationLongitude)) ? Number(data.startLocationLongitude) : null;
     if (data.departureTime !== undefined) updateData.departure_time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(data.departureTime)) ? String(data.departureTime) : '08:00';
-    if (data.maxStopsPerDay !== undefined) updateData.max_stops_per_day = Math.min(8, Math.max(1, Math.trunc(Number(data.maxStopsPerDay) || 8)));
+    if (data.maxStopsPerDay !== undefined) updateData.max_stops_per_day = Math.min(20, Math.max(1, Math.trunc(Number(data.maxStopsPerDay) || 8)));
     if (data.endLocation !== undefined) updateData.end_location = data.endLocation;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.startDate !== undefined) updateData.start_time = data.startDate ? new Date(data.startDate) : null;

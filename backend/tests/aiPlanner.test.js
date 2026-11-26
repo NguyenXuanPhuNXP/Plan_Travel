@@ -29,7 +29,7 @@ test('AI requests normalize selected IDs, preserve zero budget and reject invali
     }
 });
 
-test('AI requests require a departure date from today and enforce the eight-stop daily maximum', () => {
+test('AI requests require a departure date from today and accept a requested daily stop count', () => {
     const now = new Date();
     now.setDate(now.getDate() - 1);
     const pad = value => String(value).padStart(2, '0');
@@ -40,9 +40,8 @@ test('AI requests require a departure date from today and enforce the eight-stop
     const futureEnd = new Date(futureDate);
     futureEnd.setDate(futureEnd.getDate() + 2);
     const future = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-    const result = parseAiPlannerInput({ region: 'Hà Nội', startDate: future(futureDate), endDate: future(futureEnd), maxStopsPerDay: 8 });
-    assert.equal(result.maxStopsPerDay, 8);
-    assert.throws(() => parseAiPlannerInput({ region: 'Hà Nội', maxStopsPerDay: 9 }), error => error.status === 400 && /1 đến 8/.test(error.message));
+    const result = parseAiPlannerInput({ region: 'Hà Nội', startDate: future(futureDate), endDate: future(futureEnd), maxStopsPerDay: 12 });
+    assert.equal(result.maxStopsPerDay, 12);
 });
 
 test('AI planner rejects blank departure coordinates without treating them as zero', () => {
@@ -62,13 +61,15 @@ test('AI planner rejects blank departure coordinates without treating them as ze
 });
 
 test('Manual timeline edits warn about overlaps, insufficient travel gaps, and ignore lodging in the stop limit', () => {
-    const warnings = getPlanDayWarnings({ items: [
-        { locationName: 'A', startTime: '08:00', endTime: '09:00', travelMinutesToNext: 30 },
-        { locationName: 'B', startTime: '09:20', endTime: '10:00', travelMinutesToNext: 15 },
-        { locationName: 'C', startTime: '09:50', endTime: '10:30' },
-        { locationName: 'Khách sạn', category: 'accommodation', startTime: '18:00', endTime: '21:00' },
-        { locationName: 'D', startTime: '21:00', endTime: '21:45' }
-    ] }, { maxStopsPerDay: 4 });
+    const warnings = getPlanDayWarnings({
+        items: [
+            { locationName: 'A', startTime: '08:00', endTime: '09:00', travelMinutesToNext: 30 },
+            { locationName: 'B', startTime: '09:20', endTime: '10:00', travelMinutesToNext: 15 },
+            { locationName: 'C', startTime: '09:50', endTime: '10:30' },
+            { locationName: 'Khách sạn', category: 'accommodation', startTime: '18:00', endTime: '21:00' },
+            { locationName: 'D', startTime: '21:00', endTime: '21:45' }
+        ]
+    }, { maxStopsPerDay: 4 });
     assert.ok(warnings.some(message => message.includes('chưa đủ 30 phút di chuyển')));
     assert.ok(warnings.some(message => message.includes('chồng lấn')));
     assert.ok(warnings.some(message => message.includes('sau 21:30')));
@@ -78,10 +79,12 @@ test('Manual timeline edits warn about overlaps, insufficient travel gaps, and i
 test('AI plan persistence uses real trip dates and keeps custom activities, duration and zero travel time', () => {
     const dates = aiTripDates('2026-11-10', '', 3);
     assert.deepEqual(dates, { startDate: '2026-11-10', endDate: '2026-11-12' });
-    const plan = { days: [
-        { dayNumber: 1, items: [{ locationId: '12', locationName: 'Lake', startTime: '08:30', endTime: '10:00', note: 'Walk', travelMinutesToNext: 0 }] },
-        { dayNumber: 3, items: [{ locationName: 'My own dinner', startTime: '23:30', endTime: '00:30', note: 'Personal activity' }] }
-    ] };
+    const plan = {
+        days: [
+            { dayNumber: 1, items: [{ locationId: '12', locationName: 'Lake', startTime: '08:30', endTime: '10:00', note: 'Walk', travelMinutesToNext: 0 }] },
+            { dayNumber: 3, items: [{ locationName: 'My own dinner', startTime: '23:30', endTime: '00:30', note: 'Personal activity' }] }
+        ]
+    };
     const items = aiPlanItems(plan, dates.startDate);
     assert.equal(items.length, 2);
     assert.equal(items[1].locationId, null);
