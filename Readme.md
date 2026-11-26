@@ -1,5 +1,11 @@
 # PlanTravel
 
+## Mobile Android và thực thi chuyến đi
+
+Ứng dụng Flutter nằm trong [`mobile/`](mobile/README.md): đăng nhập, danh sách chuyến đi, lập/sửa kế hoạch cơ bản, tiến độ riêng từng người và bản đồ vị trí nhóm. Khi bắt đầu, mobile chụp lịch trình để việc sửa kế hoạch trên web không đổi chuyến đang thực hiện. Chia sẻ vị trí cần người dùng bật; Android có dịch vụ chạy nền và nút dừng trong thông báo.
+
+Xem [hướng dẫn mobile](mobile/README.md), [API và lưu ý migration](backend/docs/mobile-api.md), [OpenAPI](backend/docs/mobile-openapi.json). `npm run test:mobile` chạy API integration trên database tạm, không thay đổi database đang dùng. Chưa nhân bản toàn bộ các màn web sang Flutter; các giới hạn và checklist điện thoại thật được ghi trong hướng dẫn mobile.
+
 ## Business và cơ sở
 
 Sau khi chạy `npm run db:generate` và `npm run db:migrate`, người dùng mở `/business` để đăng ký cơ sở mới, xin quản lý địa điểm có sẵn hoặc gửi yêu cầu duyệt lại thông tin pháp lý/vị trí. Hồ sơ cần ảnh hoạt động, giấy tờ pháp lý và bằng chứng quyền đại diện. Giấy tờ nằm trong `backend/private-evidence/`, chỉ tải qua API xác thực của người nộp hoặc admin; cần bảo vệ và sao lưu thư mục này cùng database khi triển khai. Admin xử lý tại `/admin/business`; quyền quản lý chỉ phát sinh sau khi duyệt và được kiểm tra theo từng cơ sở. Người dùng xem cơ sở, check-in và đánh giá tại `/business/places`.

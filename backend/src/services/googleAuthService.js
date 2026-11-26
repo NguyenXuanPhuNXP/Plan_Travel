@@ -31,14 +31,15 @@ export function createGoogleAuth({ prisma, createSession, verifyIdToken = (optio
     return { nonce, nonceToken };
   };
 
-  const login = async ({ credential, nonceToken } = {}) => {
-    const clientId = config();
-    if (typeof credential !== 'string' || !credential || typeof nonceToken !== 'string') {
+  const login = async ({ credential, nonceToken } = {}, native = false) => {
+    const clientId = native ? process.env.GOOGLE_MOBILE_SERVER_CLIENT_ID : config();
+    if (!clientId || !process.env.JWT_SECRET) throw { status: 503, message: 'Đăng nhập Google chưa được cấu hình trên máy chủ.' };
+    if (typeof credential !== 'string' || !credential || (!native && typeof nonceToken !== 'string')) {
       throw { status: 400, message: 'Thiếu thông tin xác thực Google.' };
     }
     let payload;
     try {
-      const challengeData = jwt.verify(nonceToken, process.env.JWT_SECRET, {
+      const challengeData = native ? null : jwt.verify(nonceToken, process.env.JWT_SECRET, {
         algorithms: ['HS256'], audience: 'google-one-tap'
       });
       const ticket = await verifyIdToken({ idToken: credential, audience: clientId });
@@ -46,7 +47,11 @@ export function createGoogleAuth({ prisma, createSession, verifyIdToken = (optio
       if (!payload?.sub || !payload.email || payload.email_verified !== true ||
           !['accounts.google.com', 'https://accounts.google.com'].includes(payload.iss) ||
           payload.aud !== clientId ||
-          !challengeData.nonce || payload.nonce !== challengeData.nonce) throw new Error('Invalid claims');
+          (!native && (!challengeData.nonce || payload.nonce !== challengeData.nonce))) throw new Error('Invalid claims');
+      if (native) {
+        const presenters = (process.env.GOOGLE_MOBILE_CLIENT_IDS || '').split(',').map(value => value.trim()).filter(Boolean);
+        if (!presenters.length || !presenters.includes(payload.azp || payload.aud)) throw new Error('Invalid authorized party');
+      }
     } catch {
       throw { status: 401, message: 'Xác thực Google không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.' };
     }
@@ -84,5 +89,5 @@ export function createGoogleAuth({ prisma, createSession, verifyIdToken = (optio
     return createSession(user);
   };
 
-  return { challenge, login };
+  return { challenge, login, loginMobile: body => login(body, true) };
 }

@@ -90,29 +90,31 @@ export async function login(dto) {
  * Tương đương AuthService.RefreshTokenAsync trong C#
  */
 export async function refreshToken(refreshTokenValue) {
+    if (typeof refreshTokenValue !== 'string' || !refreshTokenValue) throw { status: 400, message: 'Refresh token không hợp lệ.' };
     const tokenHash = hashToken(refreshTokenValue);
+    return prisma.$transaction(async tx => {
+        const savedToken = await tx.refresh_tokens.findUnique({
+            where: { token_hash: tokenHash },
+            include: { users: true }
+        });
 
-    const savedToken = await prisma.refresh_tokens.findUnique({
-        where: { token_hash: tokenHash },
-        include: { users: true }
+        if (
+            !savedToken ||
+            savedToken.revoked_at !== null ||
+            savedToken.expires_at <= new Date() ||
+            !savedToken.users.is_active
+        ) {
+            throw { status: 401, message: "Refresh token không hợp lệ hoặc đã hết hạn." };
+        }
+
+        // Revoke token hiện tại
+        const claimed = await tx.refresh_tokens.updateMany({
+            where: { id: savedToken.id, revoked_at: null, expires_at: { gt: new Date() } },
+            data: { revoked_at: new Date() }
+        });
+        if (claimed.count !== 1) throw { status: 401, message: 'Refresh token đã được sử dụng.' };
+        return createAuthResponse(savedToken.users, tx);
     });
-
-    if (
-        !savedToken ||
-        savedToken.revoked_at !== null ||
-        savedToken.expires_at <= new Date() ||
-        !savedToken.users.is_active
-    ) {
-        throw { status: 401, message: "Refresh token không hợp lệ hoặc đã hết hạn." };
-    }
-
-    // Revoke token hiện tại
-    await prisma.refresh_tokens.update({
-        where: { id: savedToken.id },
-        data: { revoked_at: new Date() }
-    });
-
-    return await createAuthResponse(savedToken.users);
 }
 
 /**
@@ -120,6 +122,7 @@ export async function refreshToken(refreshTokenValue) {
  * Tương đương AuthService.LogoutAsync trong C#
  */
 export async function logout(refreshTokenValue) {
+    if (typeof refreshTokenValue !== 'string' || !refreshTokenValue) throw { status: 400, message: 'Refresh token không hợp lệ.' };
     const tokenHash = hashToken(refreshTokenValue);
 
     const savedToken = await prisma.refresh_tokens.findUnique({
@@ -127,9 +130,14 @@ export async function logout(refreshTokenValue) {
     });
 
     if (savedToken && savedToken.revoked_at === null) {
-        await prisma.refresh_tokens.update({
-            where: { id: savedToken.id },
-            data: { revoked_at: new Date() }
+        await prisma.$transaction(async tx => {
+            const revoked = await tx.refresh_tokens.updateMany({
+                where: { id: savedToken.id, revoked_at: null }, data: { revoked_at: new Date() }
+            });
+            if (revoked.count) await tx.trip_executions.updateMany({
+                where: { user_id: savedToken.user_id, location_sharing: true },
+                data: { location_sharing: false, sharing_version: { increment: 1 }, latitude: null, longitude: null, accuracy_meters: null, captured_at: null }
+            });
         });
     }
 }
@@ -242,14 +250,14 @@ export async function changePassword(userId, dto) {
 
 // ===== HELPERS =====
 
-export async function createAuthResponse(user) {
+export async function createAuthResponse(user, db = prisma) {
     const accessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken();
     const refreshTokenHash = hashToken(newRefreshToken);
 
     const expiryDays = parseInt(process.env.REFRESH_TOKEN_EXPIRY_DAYS || "7", 10);
 
-    await prisma.refresh_tokens.create({
+    await db.refresh_tokens.create({
         data: {
             user_id: user.id,
             token_hash: refreshTokenHash,

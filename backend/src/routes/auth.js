@@ -6,9 +6,13 @@ import { authenticate } from "../middleware/authMiddleware.js";
 import prisma from '../config/db.js';
 import { createAuthResponse } from '../services/authService.js';
 import { createGoogleAuth } from '../services/googleAuthService.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 
 const router = express.Router();
 const googleAuth = createGoogleAuth({ prisma, createSession: createAuthResponse });
+router.post('/google/mobile', rateLimit({ limit: 10, windowMs: 60000 }), asyncHandler(async (req, res) => {
+    res.set('Cache-Control', 'no-store').json(await googleAuth.loginMobile(req.body));
+}));
 
 router.get('/google/challenge', (_req, res, next) => {
     try { res.set('Cache-Control', 'no-store').json(googleAuth.challenge()); }

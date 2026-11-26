@@ -14,6 +14,9 @@ import chatRoutes from "./routes/chat.js";
 import communityRoutes from './routes/community.js';
 import businessRoutes from './routes/business.js';
 import businessAdminRoutes from './routes/businessAdmin.js';
+import executionRoutes from './routes/executions.js';
+import weatherRoutes from './routes/weather.js';
+import { executionService } from './services/executionService.js';
 import { errorHandler, notFoundHandler } from "./middleware/errorMiddleware.js";
 import { ensureAdminAccount } from "./services/authService.js";
 
@@ -47,6 +50,9 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/chat", chatRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/business', businessRoutes);
+app.use('/api/executions', executionRoutes);
+app.use('/api/weather', weatherRoutes);
+app.get('/api/mobile/openapi.json', (_req, res) => res.sendFile(fileURLToPath(new URL('../docs/mobile-openapi.json', import.meta.url))));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
@@ -60,6 +66,12 @@ const server = app.listen(PORT, async () => {
     await ensureAdminAccount();
 });
 
+const purgeLocations = () => executionService.purgeLocations().catch(error => console.error('Không dọn được vị trí hết hạn:', error.code || 'DB_ERROR'));
+purgeLocations();
+const locationCleanup = setInterval(purgeLocations, 60000);
+locationCleanup.unref();
+server.on('close', () => clearInterval(locationCleanup));
+
 server.on("error", (err) => {
     if (err.code === "EADDRINUSE") {
         console.error(`❌ Cổng ${PORT} đang bị chiếm dụng bởi tiến trình khác (EADDRINUSE).`);
@@ -69,3 +81,5 @@ server.on("error", (err) => {
         console.error("❌ Lỗi khi khởi động server:", err);
     }
 });
+
+export { app, server };

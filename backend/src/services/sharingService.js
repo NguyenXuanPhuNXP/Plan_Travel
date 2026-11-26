@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import prisma from "../config/db.js";
 import { createNotification } from './notificationService.js';
+import { reconcileExecutionMembers } from './executionService.js';
 
 /**
  * Tạo/cập nhật share link cho itinerary
@@ -310,11 +311,15 @@ export async function removeCollaborator(itineraryId, ownerId, targetUserId) {
         throw { status: 403, message: "Chỉ chủ sở hữu mới có thể xóa." };
     }
 
-    await prisma.itinerary_collaborators.deleteMany({
-        where: {
-            itinerary_id: BigInt(itineraryId),
-            user_id: BigInt(targetUserId)
-        }
+    await prisma.$transaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM itineraries WHERE id = ${BigInt(itineraryId)} FOR UPDATE`;
+        await tx.itinerary_collaborators.deleteMany({
+            where: {
+                itinerary_id: BigInt(itineraryId),
+                user_id: BigInt(targetUserId)
+            }
+        });
+        await reconcileExecutionMembers(tx, BigInt(itineraryId));
     });
 
     return getGroupMembers(itineraryId, ownerId);

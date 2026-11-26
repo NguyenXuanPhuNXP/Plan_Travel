@@ -3,6 +3,7 @@ import { formatStopNote, getItineraryById, notifyItineraryParticipants } from '.
 import { resolveManualPlanLocation } from './manualPlanLocation.js';
 import { normalizeTripExpenses } from './tripExpenseInput.js';
 import { createNotification } from './notificationService.js';
+import { reconcileExecutionMembers } from './executionService.js';
 
 const fail = message => { throw { status: 400, message }; };
 const text = (value, limit, label, required = false) => {
@@ -262,10 +263,11 @@ export async function savePlan(itineraryId, userId, draft) {
                 }
             }
             await tx.itinerary_collaborators.deleteMany({ where: { itinerary_id: planId, user_id: { notIn: [...keep].map(id) } } });
+            await reconcileExecutionMembers(tx, planId);
             if (keep.size && (update.visibility || existing.visibility) === 'private') update.visibility = 'shared';
         }
         await tx.itineraries.update({ where: { id: planId }, data: update });
-    }, { timeout: 20000 });
+    }, { timeout: 20000, isolationLevel: 'ReadCommitted' });
     await notifyItineraryParticipants(planId, actorId, {
         title: 'Lịch trình đã được chỉnh sửa',
         message: `Lịch trình "${draft.name}" hoặc các điểm dừng vừa được cập nhật. Hãy mở PlanTravel để xem thay đổi.`
