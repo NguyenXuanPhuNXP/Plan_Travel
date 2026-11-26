@@ -188,7 +188,7 @@ export default function TripEdit({ embedded = false, onSaved, onCancel, onDraftC
         <Field label="Điểm khởi hành">{input('startLocation')}</Field><Field label="Điểm kết thúc">{input('endLocation')}</Field>
         <Field label="Số ngày (khi chưa đặt ngày đi/về)">{input('totalDays', 'number', { min: 1, max: 365 })}</Field>
         <Field label="Giờ khởi hành">{input('departureTime', 'time')}</Field>
-        <Field label="Số địa điểm tối đa/ngày">{input('maxStopsPerDay', 'number', { min: 1, max: 20 })}</Field>
+        <Field label="Số địa điểm tối đa/ngày">{input('maxStopsPerDay', 'number', { min: 1, max: 8 })}</Field>
         <Field label="Phương tiện (có thể tự nhập)">{input('transportMode', 'text', { list: 'plan-transport' })}<datalist id="plan-transport"><option value="flight">Máy bay</option><option value="train">Tàu hỏa</option><option value="car">Ô tô</option><option value="motorbike">Xe máy</option><option value="coach">Xe khách</option><option value="walk">Đi bộ</option></datalist></Field>
         <Field label="Trạng thái"><select value={draft.status} onChange={event => change('status', event.target.value)}><option value="draft">Đang lên kế hoạch</option><option value="generated">Sẵn sàng khởi hành</option><option value="completed">Đã hoàn thành</option><option value="cancelled">Đã hủy</option></select></Field>
         <Field label="Sở thích (phân cách bằng dấu phẩy)">{input('preferences')}</Field>

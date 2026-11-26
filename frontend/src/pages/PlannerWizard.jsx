@@ -148,7 +148,7 @@ const PlannerWizard = () => {
       const travelerCount = Number(tripInfo.travelerCount);
       if (!Number.isInteger(travelerCount) || travelerCount < 1 || travelerCount > 100) throw new Error('Số người tham gia phải từ 1 đến 100.');
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(tripInfo.departureTime || ''))) throw new Error('Giờ khởi hành phải theo định dạng HH:mm.');
-      if (tripInfo.maxStopsPerDay !== 'auto' && (!Number.isInteger(Number(tripInfo.maxStopsPerDay)) || Number(tripInfo.maxStopsPerDay) < 1 || Number(tripInfo.maxStopsPerDay) > 20)) throw new Error('Số điểm hoạt động mỗi ngày phải từ 1 đến 20.');
+      if (tripInfo.maxStopsPerDay !== 'auto' && (!Number.isInteger(Number(tripInfo.maxStopsPerDay)) || Number(tripInfo.maxStopsPerDay) < 1 || Number(tripInfo.maxStopsPerDay) > 8)) throw new Error('Số điểm hoạt động mỗi ngày phải từ 1 đến 8.');
       const start = tripInfo.startLocation;
       const hasValidStart = start && start.latitude != null && start.latitude !== '' && start.longitude != null && start.longitude !== ''
         && Number.isFinite(Number(start.latitude)) && Number(start.latitude) >= -90 && Number(start.latitude) <= 90

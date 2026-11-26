@@ -1,6 +1,6 @@
 const DAY_START = 8 * 60;
-const DAY_END = 23 * 60 + 59;
-const MAX_STOPS_PER_DAY = 20;
+const DAY_END = 21 * 60 + 30;
+const MAX_STOPS_PER_DAY = 8;
 const OVERNIGHT_REST_MINUTES = 8 * 60;
 const SPEED_KMH = { auto: 30, flight: 750, coach: 35, train: 60, motorbike: 32, car: 40, other: 25 };
 const ROAD_DISTANCE_FACTOR = { auto: 1.3, flight: 1, coach: 1.25, train: 1.15, motorbike: 1.3, car: 1.3, other: 1.15 };
@@ -173,7 +173,7 @@ export function schedulePlan(plan, {
         const previousDayStay = [...previousDayItems].reverse().find(isAccommodationItem) || null;
         const previousDayEnd = previousDayStay ? (previousDayStay.location || previousDayStay) : [...previousDayItems].reverse().find(item => !item.scheduleConflict && item.startTime)?.location || null;
         let previous = index === 0 ? startLocation : validPoint(previousDayEnd) ? previousDayEnd : null;
-        const items = index === 0
+        const items = index === 0 && selectedLocationOrder.length
             ? preserveDayOneOrder(retainedItems, selectedLocationOrder)
             : optimizeDayOrder(retainedItems, previous, cursor, routeEstimates, transportMode, focusLocationId);
         const scheduled = items.map((item) => {
@@ -224,7 +224,7 @@ export function schedulePlan(plan, {
                 : closing != null && start + duration > closing
                     ? 'Không đủ thời gian tham quan trước giờ đóng cửa'
                     : !isOvernightStay && start + duration > DAY_END
-                        ? 'Thời lượng hoạt động vượt quá 23:59 của ngày'
+                    ? 'Thời lượng hoạt động vượt quá 21:30 của ngày'
                     : null);
             const exceedsDayEnd = !isOvernightStay && start + duration > DAY_END;
             if (exceedsDayEnd && index + 1 < days) {

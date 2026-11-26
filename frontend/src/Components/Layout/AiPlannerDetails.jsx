@@ -78,7 +78,7 @@ export default function AiPlannerDetails({ info, onChange }) {
     <h3><Clock3 size={17} /> Thông tin bổ sung cho chuyến đi</h3>
     <div className="trip-setup-row">
       <label className="trip-setup-field"><span><Users size={17} /> Số người tham gia</span><input type="number" min="1" max="100" value={info.travelerCount} onChange={event => change('travelerCount', event.target.value)} /></label>
-      <label className="trip-setup-field"><span>Số địa điểm mong muốn mỗi ngày</span><input type="number" min="1" max="20" placeholder="Để AI đề xuất" value={info.maxStopsPerDay === 'auto' ? '' : info.maxStopsPerDay} onChange={event => change('maxStopsPerDay', event.target.value === '' ? 'auto' : event.target.value)} /><small>AI sẽ cân nhắc thời lượng, giờ mở cửa và thời gian di chuyển.</small></label>
+      <label className="trip-setup-field"><span>Số địa điểm tối đa mỗi ngày</span><input type="number" min="1" max="8" placeholder="Để AI đề xuất" value={info.maxStopsPerDay === 'auto' ? '' : info.maxStopsPerDay} onChange={event => change('maxStopsPerDay', event.target.value === '' ? 'auto' : event.target.value)} /><small>Tối đa 8 điểm hoạt động/ngày; AI có thể đề xuất ít hơn tùy thời gian và quãng đường.</small></label>
       <label className="trip-setup-field"><span><Clock3 size={17} /> Giờ khởi hành</span><input type="time" value={info.departureTime} onChange={event => change('departureTime', event.target.value)} /></label>
       <label className="trip-setup-field"><span>Chi phí dự kiến cả chuyến (VNĐ)</span><input type="number" min="0" max="999999999999" placeholder="Không bắt buộc" value={info.budget} onChange={event => change('budget', event.target.value)} /><small>Được gửi cho AI để cân đối lịch trình và dịch vụ.</small></label>
     </div>
